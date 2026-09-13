@@ -1,7 +1,7 @@
 #!/bin/sh
 set -e
 
-. "$(dirname "$0")/sync-build-assets.sh"
+. "$(dirname "$0")/sync-public.sh"
 
 # Config/route/view caches are rebuilt at container start rather than image
 # build time, because real secrets (DB_PASSWORD, APP_KEY, ...) only exist as

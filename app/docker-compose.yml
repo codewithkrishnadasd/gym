@@ -37,7 +37,9 @@ services:
       - ./docker/nginx/conf.d:/etc/nginx/conf.d:ro
       - ./docker/nginx/certs:/etc/nginx/certs:ro
       - app-storage:/var/www/html/storage:ro
-      - app-public-build:/var/www/html/public/build:ro
+      # nginx serves the application's public directory directly, so it needs
+      # index.php and not only the compiled assets.
+      - app-public:/var/www/html/public:ro
     networks:
       - internal
     restart: unless-stopped
@@ -51,7 +53,7 @@ services:
     <<: *app-image
     volumes:
       - app-storage:/var/www/html/storage
-      - app-public-build:/var/www/html/public/build
+      - app-public:/var/www/html/public
 
   worker:
     <<: *app-image
@@ -171,4 +173,4 @@ volumes:
   redis-data:
   minio-data:
   app-storage:
-  app-public-build:
+  app-public:

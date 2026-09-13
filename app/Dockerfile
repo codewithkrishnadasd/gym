@@ -60,19 +60,22 @@ COPY --from=vendor /app/vendor ./vendor
 COPY --from=assets /app/public/build ./public/build
 COPY . .
 
-# A second, stable copy of the built assets outside /var/www/html. The
-# `app-public-build` named volume (docker-compose.yml, shared read-only with
-# nginx) only auto-populates from the image the first time it's created —
-# every later deploy's fresh assets would otherwise be silently ignored. The
-# entrypoints re-sync from this path into the volume on every container
-# start instead. See docker/php/entrypoint.sh.
-RUN mkdir -p /opt/app-build && cp -a public/build /opt/app-build/public-build
+# A second, stable copy of the whole public directory outside /var/www/html.
+# nginx serves from `public/` and needs index.php there, not just the compiled
+# assets — without it, a request for "/" finds a directory with no index file
+# and nginx answers 403 instead of handing off to PHP.
+#
+# The `app-public` named volume (docker-compose.yml, shared read-only with
+# nginx) only auto-populates from the image the first time it is created, so
+# every later deploy would otherwise keep serving the original copy. The
+# entrypoint re-syncs from this path on every container start instead.
+RUN mkdir -p /opt/app-public && cp -a public/. /opt/app-public/
 
 RUN addgroup -g 1000 laravel \
     && adduser -G laravel -u 1000 -D laravel \
-    && chown -R laravel:laravel /var/www/html /opt/app-build \
+    && chown -R laravel:laravel /var/www/html /opt/app-public \
     && chmod -R 775 storage bootstrap/cache \
-    && chmod +x docker/php/entrypoint.sh docker/php/dev-entrypoint.sh
+    && chmod +x docker/php/entrypoint.sh docker/php/dev-entrypoint.sh docker/php/sync-public.sh
 
 USER laravel
 

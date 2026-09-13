@@ -15,11 +15,11 @@ services:
   app:
     volumes:
       - .:/var/www/html
-      # Dev serves compiled assets straight from the working tree. The base
-      # file mounts the `app-public-build` named volume here, which only ever
+      # Dev serves the public directory straight from the working tree. The
+      # base file mounts the `app-public` named volume here, which only ever
       # populates from the image once — so without this override a rebuilt
       # bundle would never reach the browser without recreating the volume.
-      - ./public/build:/var/www/html/public/build
+      - ./public:/var/www/html/public
       - ./docker/php/opcache-dev.ini:/usr/local/etc/php/conf.d/zz-opcache.ini:ro
     environment:
       <<: *docker-network-env
@@ -66,8 +66,8 @@ services:
       - "8000:80"
     volumes:
       - .:/var/www/html
-      # Same reason as the app service: read assets from the working tree.
-      - ./public/build:/var/www/html/public/build:ro
+      # Same reason as the app service: serve from the working tree.
+      - ./public:/var/www/html/public:ro
       - ./storage:/var/www/html/storage:ro
 
   postgres:
