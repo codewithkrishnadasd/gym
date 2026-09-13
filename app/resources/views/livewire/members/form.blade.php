@@ -8,9 +8,9 @@
             <x-ui.card title="Identity">
                 <div class="grid gap-4 sm:grid-cols-2">
                     <x-ui.input class="sm:col-span-2" wire:model="name" name="name" label="Full name" required />
-                    <x-ui.input wire:model="phone" name="phone" label="Phone" required
-                        hint="Used for WhatsApp receipts and reminders." />
-                    <x-ui.input wire:model="email" name="email" label="Email" type="email" />
+                    <x-ui.input wire:model="phone" name="phone" label="WhatsApp number" type="tel" required
+                        inputmode="tel" placeholder="98765 43210"
+                        hint="Required — receipts and reminders are sent here." />
                     <x-ui.input wire:model="dateOfBirth" name="dateOfBirth" label="Date of birth" type="date" />
 
                     <x-ui.select wire:model="gender" name="gender" label="Gender">

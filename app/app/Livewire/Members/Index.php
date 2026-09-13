@@ -9,6 +9,7 @@ use App\Enums\MemberStatus;
 use App\Enums\SubscriptionStatus;
 use App\Livewire\Concerns\ResolvesMembership;
 use App\Models\Member;
+use App\Support\PhoneNumber;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\View\View;
 use Livewire\Attributes\Url;
@@ -76,8 +77,7 @@ class Index extends Component
             ))
             ->when($this->search !== '', fn ($query) => $query->where(
                 fn ($query) => $query->where('name', 'ilike', "%{$this->search}%")
-                    ->orWhere('phone', 'ilike', "%{$this->search}%")
-                    ->orWhere('email', 'ilike', "%{$this->search}%")
+                    ->orWhere('phone', 'ilike', '%'.PhoneNumber::searchable($this->search).'%')
             ))
             ->when($this->status !== '', fn ($query) => $query->where('status', $this->status))
             ->when($this->club !== '', fn ($query) => $query->where('primary_club_id', $this->club))

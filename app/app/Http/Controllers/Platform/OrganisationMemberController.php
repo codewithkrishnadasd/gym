@@ -20,7 +20,7 @@ class OrganisationMemberController extends Controller
     /**
      * Generates a new random password for the member's underlying `users`
      * row and shows it to the platform admin once, to relay out of band —
-     * there is no email-based reset flow yet. Because `users` is the single
+     * there is no self-service reset flow yet. Because `users` is the single
      * shared login identity (MEP.md Section 5.3), this changes the person's
      * password for every organisation they belong to, not just this one.
      */
@@ -42,11 +42,11 @@ class OrganisationMemberController extends Controller
             action: 'user.password_reset',
             entityType: 'user',
             entityId: $user->id,
-            metadata: ['organisation_id' => $organisation->id, 'email' => $user->email],
+            metadata: ['organisation_id' => $organisation->id, 'phone' => $user->phone],
         );
 
         return redirect()->route('platform.organisations.edit', $organisation)
             ->with('generated_password', $plainPassword)
-            ->with('generated_password_for', $user->email);
+            ->with('generated_password_for', $user->name.' ('.$user->phone.')');
     }
 }

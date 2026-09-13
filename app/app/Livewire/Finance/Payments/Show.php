@@ -139,7 +139,7 @@ class Show extends Component
     public function render(): View
     {
         $this->payment->loadMissing([
-            'member:id,name,phone,email,primary_club_id',
+            'member:id,name,phone,primary_club_id',
             'club:id,name',
             'subscription.plan:id,name',
             'financialAccount:id,name,account_type',
@@ -151,6 +151,7 @@ class Show extends Component
             'organisation' => $this->organisation(),
             'history' => $this->history(),
             'isAdmin' => $this->currentMembership()->isAdmin(),
+            'canNotify' => auth()->user()?->can('sendNotifications', $this->organisation()) ?? false,
         ])->layout('components.layouts.app', ['heading' => 'Payment PMT-'.$this->payment->id]);
     }
 }

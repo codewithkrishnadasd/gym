@@ -21,8 +21,7 @@ class PlatformAdminFactory extends Factory
     {
         return [
             'name' => fake()->name(),
-            'email' => fake()->unique()->safeEmail(),
-            'email_verified_at' => now(),
+            'phone' => (string) fake()->unique()->numberBetween(910000000000, 919999999999),
             'password' => static::$password ??= Hash::make('password'),
         ];
     }

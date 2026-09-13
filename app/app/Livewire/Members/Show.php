@@ -204,7 +204,7 @@ class Show extends Component
 
         return view('livewire.members.show', [
             'organisation' => $organisation,
-            'canNotify' => $this->currentMembership()->isAdmin(),
+            'canNotify' => auth()->user()?->can('sendNotifications', $organisation) ?? false,
             'subscriptions' => $subscriptions,
             'currentSubscription' => $current,
             'payments' => $payments,

@@ -1,10 +1,14 @@
 {{--
     Writes the choice to localStorage and flips `data-theme` on <html>, which
-    is the same attribute the pre-paint script in the layout reads back.
+    is the same attribute <x-theme-script> reads back on load and after every
+    Livewire navigation. Initial state comes from localStorage rather than the
+    attribute, so the button stays correct even if it is re-initialised before
+    the attribute has been re-applied.
 --}}
 <button type="button"
     x-data="{
-        theme: document.documentElement.dataset.theme,
+        theme: localStorage.getItem('theme')
+            ?? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'),
         toggle() {
             this.theme = this.theme === 'dark' ? 'light' : 'dark';
             document.documentElement.dataset.theme = this.theme;

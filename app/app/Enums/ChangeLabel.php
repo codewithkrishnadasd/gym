@@ -38,7 +38,6 @@ enum ChangeLabel: string
     {
         $map = [
             'phone' => self::ContactDetails,
-            'email' => self::ContactDetails,
             'address' => self::Address,
             'emergency_contact' => self::EmergencyContact,
             'name' => self::PersonalDetails,

@@ -13,6 +13,7 @@ use App\Enums\NotificationRecipientType;
 use App\Livewire\Concerns\ResolvesMembership;
 use App\Models\Member;
 use App\Models\MemberClubHistory;
+use App\Support\PhoneNumber;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
@@ -27,8 +28,6 @@ class Form extends Component
     public string $name = '';
 
     public string $phone = '';
-
-    public string $email = '';
 
     public string $dateOfBirth = '';
 
@@ -61,7 +60,6 @@ class Form extends Component
         if ($member) {
             $this->name = $member->name;
             $this->phone = (string) $member->phone;
-            $this->email = (string) $member->email;
             $this->dateOfBirth = $member->date_of_birth ? $member->date_of_birth->toDateString() : '';
             $this->gender = (string) $member->gender;
             $this->primaryClubId = $member->primary_club_id;
@@ -83,7 +81,6 @@ class Form extends Component
         $validated = $this->validate([
             'name' => ['required', 'string', 'max:255'],
             'phone' => ['required', 'string', 'max:50'],
-            'email' => ['nullable', 'email', 'max:255'],
             'dateOfBirth' => ['nullable', 'date'],
             'gender' => ['nullable', 'string', 'max:30'],
             'primaryClubId' => ['required', Rule::exists('clubs', 'id')->where('organisation_id', app('tenant')->id)],
@@ -97,10 +94,19 @@ class Form extends Component
 
         $membership = $this->currentMembership();
 
+        // Stored normalised so search, duplicate detection and the WhatsApp
+        // deep link all agree on the same value (MEP.md 10).
+        $normalisedPhone = PhoneNumber::normalise($validated['phone'], $this->organisation()->defaultCountry());
+
+        if ($normalisedPhone === null) {
+            $this->addError('phone', 'Enter a valid WhatsApp number.');
+
+            return;
+        }
+
         $attributes = [
             'name' => $validated['name'],
-            'phone' => $validated['phone'],
-            'email' => $validated['email'] ?: null,
+            'phone' => $normalisedPhone,
             'date_of_birth' => $validated['dateOfBirth'] ?: null,
             'gender' => $validated['gender'] ?: null,
             'address' => $validated['addressLine'] ? ['line1' => $validated['addressLine']] : null,

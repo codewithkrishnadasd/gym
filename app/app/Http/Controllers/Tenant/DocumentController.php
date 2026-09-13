@@ -37,7 +37,7 @@ class DocumentController extends Controller
         $organisation = $this->tenant();
 
         $payment->loadMissing([
-            'member:id,name,phone,email',
+            'member:id,name,phone',
             'club:id,name,phone,email,address',
             'subscription.plan:id,name',
             'financialAccount:id,name,account_type',

@@ -221,6 +221,23 @@ it('keeps admin-only finance objects out of a staff users reach', function (): v
         ->and($user->can('create', Plan::class))->toBeFalse();
 });
 
+it('lets a staff user send messages only with the notifications permission', function (): void {
+    $without = actingAsMember(['members.view' => true], [test()->clubA]);
+    expect($without->user->can('sendNotifications', test()->organisation))->toBeFalse();
+
+    $with = actingAsMember(['members.view' => true, 'notifications.send' => true], [test()->clubA]);
+    expect($with->user->can('sendNotifications', test()->organisation))->toBeTrue();
+
+    // Sending messages is not a route into organisation configuration.
+    expect($with->user->can('manageSettings', test()->organisation))->toBeFalse();
+});
+
+it('always lets an admin send messages', function (): void {
+    $admin = actingAsMember(admin: true);
+
+    expect($admin->user->can('sendNotifications', test()->organisation))->toBeTrue();
+});
+
 it('blocks a deactivated member from signing in to the tenant', function (): void {
     $user = User::factory()->create();
 

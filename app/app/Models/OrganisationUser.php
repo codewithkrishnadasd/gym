@@ -18,7 +18,7 @@ use Illuminate\Database\Eloquent\Relations\MorphMany;
 
 /**
  * Tenant-specific membership and authority for one `users` row inside one
- * organisation. A single person (one `users` row / one email+password) may
+ * organisation. A single person (one `users` row / one number+password) may
  * have several `OrganisationUser` rows, one per organisation they belong to
  * — this is what lets one login work across organisations on different
  * domains. See MEP.md 5.3.

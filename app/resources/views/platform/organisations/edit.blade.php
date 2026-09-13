@@ -166,7 +166,7 @@
                                 <x-ui.avatar :name="$membership->user->name" size="sm" />
                                 <div class="min-w-0 flex-1">
                                     <p class="truncate text-sm font-medium text-ink">{{ $membership->user->name }}</p>
-                                    <p class="truncate text-xs text-ink-muted">{{ $membership->user->email }}</p>
+                                    <p class="numeric truncate text-xs text-ink-muted">{{ $membership->user->phone }}</p>
                                 </div>
                             </div>
 
@@ -179,7 +179,7 @@
 
                             <form method="POST" action="{{ route('platform.organisations.members.reset-password', [$organisation, $membership]) }}"
                                 class="mt-2"
-                                onsubmit="return confirm('Generate a new password for {{ $membership->user->email }}? Their current password will stop working immediately.')">
+                                onsubmit="return confirm('Generate a new password for {{ $membership->user->name }}? Their current password will stop working immediately.')">
                                 @csrf
                                 <x-ui.button type="submit" size="sm" class="w-full">Generate new password</x-ui.button>
                             </form>

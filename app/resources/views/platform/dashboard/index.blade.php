@@ -16,7 +16,7 @@
                 <x-ui.avatar :name="$admin->name" size="lg" tone="accent" />
                 <div class="min-w-0">
                     <p class="truncate font-medium text-ink">{{ $admin->name }}</p>
-                    <p class="truncate text-sm text-ink-muted">{{ $admin->email }}</p>
+                    <p class="numeric truncate text-sm text-ink-muted">{{ $admin->phone }}</p>
                 </div>
             </div>
         </x-ui.card>

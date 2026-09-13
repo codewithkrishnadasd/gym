@@ -11,6 +11,7 @@ use App\Models\FeePayment;
 use App\Models\FinancialAccount;
 use App\Models\Member;
 use App\Models\MemberSubscription;
+use App\Models\MessageTemplate;
 use App\Models\Organisation;
 use App\Models\OrganisationUser;
 use App\Models\Plan;
@@ -53,6 +54,7 @@ class AppServiceProvider extends ServiceProvider
             'expense' => Expense::class,
             'financial_account' => FinancialAccount::class,
             'organisation' => Organisation::class,
+            'message_template' => MessageTemplate::class,
         ]);
 
         // The `auth` middleware serves two entirely separate guards (the

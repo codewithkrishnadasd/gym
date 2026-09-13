@@ -12,7 +12,7 @@ use App\Models\Organisation;
 use App\Models\OrganisationUser;
 use App\Models\WhatsappActionNotification;
 use App\Support\PhoneNumber;
-use App\Support\WhatsApp\MessageTemplate;
+use App\Support\WhatsApp\MessageComposer;
 use Illuminate\Database\QueryException;
 
 /**
@@ -63,7 +63,7 @@ final class CreateActionNotification
 
         $normalisedPhone = PhoneNumber::normalise($recipientPhone, $organisation->defaultCountry());
 
-        $message = MessageTemplate::render($type, $organisation, [
+        $message = MessageComposer::render($type, $organisation, [
             'memberName' => $recipientName,
             ...$context,
         ]);
@@ -76,7 +76,7 @@ final class CreateActionNotification
             'entity_type' => $entityType,
             'entity_id' => $entityId,
             'action_type' => $type,
-            'message_template_version' => MessageTemplate::VERSION,
+            'message_template_version' => MessageComposer::versionFor($organisation, $type),
             'message_snapshot' => $message,
             // No usable number still produces a snapshot so the admin can copy
             // the message manually (MEP.md 10).

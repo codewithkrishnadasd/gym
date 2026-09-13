@@ -45,6 +45,17 @@ it('normalises phone numbers to bare international digits', function (string $in
     'empty' => ['', null],
 ]);
 
+it('does not mistake a national number for one that already has a country code', function (): void {
+    // 9111111111 is a valid Indian mobile that happens to start with 91,
+    // India's own calling code. Deciding by prefix alone dropped the country
+    // code and stored a different number than the one dialled.
+    expect(PhoneNumber::normalise('9111111111', 'IN'))->toBe('919111111111')
+        ->and(PhoneNumber::normalise('919111111111', 'IN'))->toBe('919111111111')
+        // Both spellings must land on the same stored identity.
+        ->and(PhoneNumber::normalise('9111111111', 'IN'))
+        ->toBe(PhoneNumber::normalise('+91 91111 11111', 'IN'));
+});
+
 it('builds a correctly encoded WhatsApp deep link', function (): void {
     $url = PhoneNumber::whatsappUrl('98765 43210', "Hi Aditi,\nYour fee of ₹1,500 is confirmed.", 'IN');
 

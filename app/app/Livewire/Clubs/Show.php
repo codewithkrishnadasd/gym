@@ -80,7 +80,7 @@ class Show extends Component
     protected function assignedStaff(): Collection
     {
         return $this->club->userAssignments()
-            ->with('organisationUser.user:id,name,email')
+            ->with('organisationUser.user:id,name,phone')
             ->where('status', ClubAssignmentStatus::Active)
             ->get();
     }

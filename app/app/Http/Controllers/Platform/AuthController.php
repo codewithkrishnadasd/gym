@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Platform;
 
 use App\Http\Controllers\Controller;
+use App\Support\PhoneNumber;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -24,14 +25,23 @@ class AuthController extends Controller
     public function login(Request $request): RedirectResponse
     {
         $credentials = $request->validate([
-            'email' => ['required', 'email'],
+            'phone' => ['required', 'string', 'max:50'],
             'password' => ['required', 'string'],
-        ]);
+        ], [], ['phone' => 'WhatsApp number']);
 
-        if (! Auth::guard('platform')->attempt($credentials, $request->boolean('remember'))) {
+        // No tenant is resolved on the platform hostname, so the fallback
+        // country from the phone helper applies here.
+        $normalised = PhoneNumber::normalise($credentials['phone']);
+
+        $attempt = $normalised !== null && Auth::guard('platform')->attempt(
+            ['phone' => $normalised, 'password' => $credentials['password']],
+            $request->boolean('remember'),
+        );
+
+        if (! $attempt) {
             return back()
-                ->withInput($request->only('email'))
-                ->withErrors(['email' => 'These credentials do not match our records.']);
+                ->withInput($request->only('phone'))
+                ->withErrors(['phone' => 'These credentials do not match our records.']);
         }
 
         $request->session()->regenerate();

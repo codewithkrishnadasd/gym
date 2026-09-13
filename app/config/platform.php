@@ -18,4 +18,17 @@ return [
 
     'hostname' => env('PLATFORM_HOSTNAME', 'localhost'),
 
+    /*
+    |--------------------------------------------------------------------------
+    | Horizon Access
+    |--------------------------------------------------------------------------
+    |
+    | WhatsApp numbers (bare international digits) of the platform operators
+    | allowed into the Horizon dashboard outside local development. Empty by
+    | default, so the dashboard stays closed until someone is named.
+    |
+    */
+
+    'horizon_phones' => array_filter(explode(',', (string) env('PLATFORM_HORIZON_PHONES', ''))),
+
 ];

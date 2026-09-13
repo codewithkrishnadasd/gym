@@ -16,7 +16,17 @@ require __DIR__.'/../vendor/autoload.php';
  * that reliably wins. TestCase then re-checks the live connection as a
  * second line of defence.
  */
-foreach (['DB_DATABASE' => 'gym_platform_testing', 'DB_URL' => ''] as $key => $value) {
+$forced = [
+    'DB_DATABASE' => 'gym_platform_testing',
+    'DB_URL' => '',
+    // The dev compose override sets APP_ENV=local in the container. Laravel
+    // reads that in preference to phpunit.xml, so `runningUnitTests()` was
+    // false and CSRF verification stayed on, failing every POST with a 419.
+    'APP_ENV' => 'testing',
+    'APP_DEBUG' => 'true',
+];
+
+foreach ($forced as $key => $value) {
     $_ENV[$key] = $value;
     $_SERVER[$key] = $value;
     putenv("{$key}={$value}");

@@ -23,6 +23,7 @@ enum Permission: string
     case FeesViewOwn = 'fees.view_own';
     case ClubsViewAssigned = 'clubs.view_assigned';
     case ReportsViewAssigned = 'reports.view_assigned';
+    case NotificationsSend = 'notifications.send';
 
     public function label(): string
     {
@@ -37,6 +38,7 @@ enum Permission: string
             self::FeesViewOwn => 'View own collections',
             self::ClubsViewAssigned => 'View assigned clubs',
             self::ReportsViewAssigned => 'View reports for assigned clubs',
+            self::NotificationsSend => 'Send WhatsApp messages to members and staff',
         };
     }
 
@@ -47,6 +49,7 @@ enum Permission: string
             self::AttendanceMemberMark, self::AttendanceStaffMark => 'Attendance',
             self::FeesCollect, self::FeesViewOwn => 'Fees',
             self::ClubsViewAssigned, self::ReportsViewAssigned => 'Clubs and reports',
+            self::NotificationsSend => 'Messaging',
         };
     }
 

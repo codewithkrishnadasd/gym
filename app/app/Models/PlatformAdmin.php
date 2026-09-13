@@ -17,7 +17,7 @@ use Illuminate\Notifications\Notifiable;
  * and assign their first admin. Entirely separate from the tenant `users`
  * table and never reachable through a tenant domain. See MEP.md 3.3.
  */
-#[Fillable(['name', 'email', 'password'])]
+#[Fillable(['name', 'phone', 'password'])]
 #[Hidden(['password', 'remember_token'])]
 class PlatformAdmin extends Authenticatable
 {
@@ -27,7 +27,6 @@ class PlatformAdmin extends Authenticatable
     protected function casts(): array
     {
         return [
-            'email_verified_at' => 'datetime',
             'password' => 'hashed',
         ];
     }

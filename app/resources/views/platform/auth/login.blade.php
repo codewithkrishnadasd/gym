@@ -8,8 +8,8 @@
     <form method="POST" action="{{ route('platform.login.attempt') }}" class="space-y-4">
         @csrf
 
-        <x-ui.input name="email" id="email" label="Email" type="email" value="{{ old('email') }}" required autofocus
-            autocomplete="username" />
+        <x-ui.input name="phone" id="phone" label="WhatsApp number" type="tel" value="{{ old('phone') }}" required
+            autofocus autocomplete="username" inputmode="tel" placeholder="98765 43210" />
 
         <x-ui.input name="password" id="password" label="Password" type="password" required
             autocomplete="current-password" />

@@ -64,7 +64,7 @@
                         @foreach ($availableUsers as $person)
                             <x-ui.checkbox wire:model="assignedUserIds" value="{{ $person->id }}"
                                 :label="$person->user?->name"
-                                :description="$person->isAdmin() ? 'Administrator' : $person->user?->email" />
+                                :description="$person->isAdmin() ? 'Administrator' : $person->user?->phone" />
                         @endforeach
                     </div>
                 @endif

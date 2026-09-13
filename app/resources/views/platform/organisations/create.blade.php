@@ -34,10 +34,11 @@
                 description="This person can then invite everyone else and configure the organisation.">
                 <div class="grid gap-4 sm:grid-cols-2">
                     <x-ui.input name="admin_name" id="admin_name" label="Name" value="{{ old('admin_name') }}" required />
-                    <x-ui.input name="admin_email" id="admin_email" label="Email" type="email" value="{{ old('admin_email') }}" required />
+                    <x-ui.input name="admin_phone" id="admin_phone" label="WhatsApp number" type="tel" inputmode="tel"
+                        value="{{ old('admin_phone') }}" required placeholder="98765 43210" />
 
                     <x-ui.input class="sm:col-span-2" name="admin_password" id="admin_password" label="Password" type="password"
-                        hint="Leave blank if this email already has an account elsewhere on the platform — they will sign in with their existing password." />
+                        hint="Leave blank if this number already has an account elsewhere on the platform — they will sign in with their existing password." />
                 </div>
             </x-ui.card>
         </div>

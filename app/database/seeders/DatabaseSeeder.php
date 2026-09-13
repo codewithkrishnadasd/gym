@@ -31,7 +31,7 @@ use Illuminate\Support\Facades\Hash;
  * - Two organisations on two different domains.
  * - One `users` row (jordan@example.com) with an OrganisationUser
  *   membership — and therefore an admin role — in *both* organisations,
- *   proving one email/password can sign in to multiple organisations on
+ *   proving one number and password can sign in to multiple organisations on
  *   different domains. See MEP.md Section 5.3.
  * - A staff user who only belongs to one organisation and one club there.
  */
@@ -41,19 +41,19 @@ class DatabaseSeeder extends Seeder
     {
         $root = PlatformAdmin::factory()->create([
             'name' => 'Root Operator',
-            'email' => 'root@example.com',
+            'phone' => '919000000001',
             'password' => Hash::make('password'),
         ]);
 
         $sharedUser = User::factory()->create([
             'name' => 'Jordan Lee',
-            'email' => 'jordan@example.com',
+            'phone' => '919000000002',
             'password' => Hash::make('password'),
         ]);
 
         $staffUser = User::factory()->create([
             'name' => 'Sam Rivera',
-            'email' => 'sam@example.com',
+            'phone' => '919000000003',
             'password' => Hash::make('password'),
         ]);
 

@@ -13,6 +13,7 @@
         ['label' => 'Profile', 'url' => route('tenant.settings.organisation', ['tab' => 'profile']), 'active' => $tab === 'profile'],
         ['label' => 'Terminology', 'url' => route('tenant.settings.organisation', ['tab' => 'terminology']), 'active' => $tab === 'terminology'],
         ['label' => 'Notifications', 'url' => route('tenant.settings.organisation', ['tab' => 'notifications']), 'active' => $tab === 'notifications'],
+        ['label' => 'Message templates', 'url' => route('tenant.settings.organisation', ['tab' => 'templates']), 'active' => $tab === 'templates'],
     ]" />
 
     @if ($tab === 'profile')
@@ -102,6 +103,70 @@
                         <span wire:loading wire:target="saveTerminology" class="inline-flex items-center gap-1.5"><x-ui.spinner /> Saving…</span>
                     </x-ui.button>
                 </x-ui.card>
+            </div>
+        </form>
+    @elseif ($tab === 'templates')
+        <form wire:submit="saveTemplate" class="grid gap-5 lg:grid-cols-3">
+            <div class="space-y-5 lg:col-span-2">
+                <x-ui.card title="Message template"
+                    description="The wording used when this action notifies someone. Variables in braces are filled in automatically when the message is generated.">
+                    <div class="space-y-4">
+                        <x-ui.select wire:model.live="templateAction" name="templateAction" label="Action">
+                            @foreach ($actionTypes as $type)
+                                <option value="{{ $type->value }}">{{ $actionLabel($type->value) }}</option>
+                            @endforeach
+                        </x-ui.select>
+
+                        <x-ui.field label="Message" name="templateBody" for="f-templateBody"
+                            hint="Any line whose only variable has no value is dropped automatically, so optional details never leave a half-empty line.">
+                            <textarea id="f-templateBody" wire:model.live.debounce.500ms="templateBody" rows="10"
+                                class="w-full rounded-lg border border-hairline-strong bg-surface px-3 py-2 font-mono text-[13px] leading-relaxed text-ink focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25"></textarea>
+                        </x-ui.field>
+                    </div>
+                </x-ui.card>
+
+                <x-ui.card title="Preview" description="Rendered with example values.">
+                    <pre class="whitespace-pre-wrap rounded-lg border border-hairline bg-raised px-3 py-2.5 font-sans text-[13px] leading-relaxed text-ink-soft">{{ $templatePreview }}</pre>
+                </x-ui.card>
+            </div>
+
+            <div class="space-y-5">
+                <x-ui.card title="Available variables"
+                    description="Click to copy. Only these are recognised for this action.">
+                    <ul class="space-y-2">
+                        @foreach ($templateVariables as $name => $description)
+                            <li x-data="{ copied: false }">
+                                <button type="button" class="w-full text-left"
+                                    x-on:click="navigator.clipboard.writeText('{{ '{'.$name.'}' }}').then(() => { copied = true; setTimeout(() => copied = false, 1500) })">
+                                    <code class="font-mono text-xs text-accent">{{ '{'.$name.'}' }}</code>
+                                    <span x-show="copied" x-cloak class="ml-1 text-[11px] text-positive">copied</span>
+                                    <span class="block text-xs text-ink-muted">{{ $description }}</span>
+                                </button>
+                            </li>
+                        @endforeach
+                    </ul>
+                </x-ui.card>
+
+                <x-ui.card title="Save">
+                    <div class="flex flex-col gap-2">
+                        <x-ui.button type="submit" variant="primary" size="lg" wire:loading.attr="disabled" wire:target="saveTemplate">
+                            <span wire:loading.remove wire:target="saveTemplate">Save template</span>
+                            <span wire:loading wire:target="saveTemplate" class="inline-flex items-center gap-1.5"><x-ui.spinner /> Saving…</span>
+                        </x-ui.button>
+
+                        @if ($templateIsCustom)
+                            <x-ui.button type="button" variant="ghost" wire:click="resetTemplate"
+                                wire:confirm="Reset this template to the built-in wording?">
+                                Reset to default
+                            </x-ui.button>
+                        @endif
+                    </div>
+                </x-ui.card>
+
+                <x-ui.alert tone="info" title="Already-sent messages">
+                    Editing a template only affects messages generated from now on. Every message already sent keeps
+                    the wording it was sent with.
+                </x-ui.alert>
             </div>
         </form>
     @else

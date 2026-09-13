@@ -67,8 +67,7 @@
             <x-ui.card class="lg:col-span-2" title="Details">
                 <dl class="grid gap-x-6 sm:grid-cols-2">
                     <x-ui.definition label="Full name" :value="$member->name" />
-                    <x-ui.definition label="Phone" :value="$displayPhone ?? '—'" />
-                    <x-ui.definition label="Email" :value="$member->email ?: '—'" />
+                    <x-ui.definition label="WhatsApp number" :value="$displayPhone ?? '—'" />
                     <x-ui.definition label="Date of birth"
                         :value="$member->date_of_birth ? $member->date_of_birth->format('d M Y').' ('.(int) $member->date_of_birth->diffInYears($today).' yrs)' : '—'" />
                     <x-ui.definition label="Gender" :value="$member->gender ?: '—'" />

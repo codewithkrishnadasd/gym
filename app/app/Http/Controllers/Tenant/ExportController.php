@@ -90,7 +90,7 @@ class ExportController extends Controller
 
         return StreamedCsv::respond(
             $this->filename($organisation, 'members', $period),
-            [$organisation->term('member_singular').' ID', 'Name', 'Phone', 'Email', $organisation->term('club_singular'),
+            [$organisation->term('member_singular').' ID', 'Name', 'WhatsApp number', $organisation->term('club_singular'),
                 'Status', 'Joined', 'Date of birth', 'Gender'],
             fn (): Generator => $this->memberRows($query),
             $this->preamble($organisation, $organisation->term('member_plural'), $period, $clubIds),
@@ -196,7 +196,6 @@ class ExportController extends Controller
                 'MEM-'.$member->id,
                 $member->name,
                 $member->phone,
-                $member->email ?? '',
                 $member->primaryClub->name ?? '',
                 $member->status->label(),
                 $member->joined_at->toDateString(),

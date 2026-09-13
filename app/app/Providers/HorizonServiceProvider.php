@@ -28,9 +28,9 @@ class HorizonServiceProvider extends HorizonApplicationServiceProvider
     protected function gate(): void
     {
         Gate::define('viewHorizon', function ($user = null) {
-            return in_array(optional($user)->email, [
-                //
-            ]);
+            // Platform operators are the only Horizon audience, and they are
+            // identified by their WhatsApp number since the switch from email.
+            return in_array((string) optional($user)->phone, (array) config('platform.horizon_phones', []), true);
         });
     }
 }

@@ -238,7 +238,6 @@ class DemoDataSeeder extends Seeder
                 [
                     'primary_club_id' => $club->id,
                     'phone' => '9'.str_pad((string) (800000000 + $index * 137), 9, '0', STR_PAD_LEFT),
-                    'email' => str($name)->lower()->replace(' ', '.')->append('@example.com')->toString(),
                     'date_of_birth' => Carbon::today()->subYears(20 + ($index % 25))->subDays($index * 7),
                     'gender' => $index % 2 === 0 ? 'Female' : 'Male',
                     'joined_at' => Carbon::today()->subDays(random_int(5, 110)),

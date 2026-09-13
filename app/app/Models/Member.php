@@ -16,7 +16,7 @@ use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 #[Fillable([
-    'organisation_id', 'primary_club_id', 'name', 'phone', 'email', 'date_of_birth',
+    'organisation_id', 'primary_club_id', 'name', 'phone', 'date_of_birth',
     'gender', 'photo_path', 'address', 'emergency_contact', 'joined_at', 'status',
     'notes', 'created_by',
 ])]

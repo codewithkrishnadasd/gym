@@ -7,8 +7,11 @@ namespace App\Livewire\Settings;
 use App\Enums\NotificationActionType;
 use App\Livewire\Concerns\ResolvesMembership;
 use App\Models\AuditEvent;
+use App\Models\MessageTemplate;
 use App\Support\PhoneNumber;
+use App\Support\WhatsApp\MessageComposer;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 use Livewire\Attributes\Url;
 use Livewire\Component;
@@ -63,6 +66,11 @@ class OrganisationSettings extends Component
     /** @var array<int, string> */
     public array $enabledActions = [];
 
+    // Message templates
+    public string $templateAction = 'fee_payment_confirmed';
+
+    public string $templateBody = '';
+
     public function mount(): void
     {
         $organisation = $this->organisation();
@@ -92,6 +100,86 @@ class OrganisationSettings extends Component
             ->map(fn (NotificationActionType $type): string => $type->value)
             ->values()
             ->all();
+
+        $this->loadTemplate();
+    }
+
+    /**
+     * Loads whichever template the operator selected, falling back to the
+     * built-in wording when the organisation has no override yet.
+     */
+    public function updatedTemplateAction(): void
+    {
+        $this->loadTemplate();
+    }
+
+    private function loadTemplate(): void
+    {
+        $this->templateBody = MessageComposer::bodyFor(
+            $this->organisation(),
+            NotificationActionType::from($this->templateAction),
+        );
+    }
+
+    public function saveTemplate(): void
+    {
+        $organisation = $this->organisation();
+        $this->authorize('manageSettings', $organisation);
+
+        $validated = $this->validate([
+            'templateAction' => ['required', Rule::enum(NotificationActionType::class)],
+            'templateBody' => ['required', 'string', 'max:2000'],
+        ], [], ['templateBody' => 'message']);
+
+        $type = NotificationActionType::from($validated['templateAction']);
+
+        // Reject placeholders that are not on this action's allowlist rather
+        // than silently rendering them as an em dash later (MEP.md 6.8).
+        $allowed = array_keys(MessageComposer::variablesFor($type));
+        preg_match_all('/\{(\w+)\}/', $validated['templateBody'], $matches);
+        $unknown = array_values(array_unique(array_diff($matches[1], $allowed)));
+
+        if ($unknown !== []) {
+            $this->addError('templateBody', 'Unknown variable: {'.implode('}, {', $unknown).'}.');
+
+            return;
+        }
+
+        $template = MessageTemplate::query()->withoutGlobalScopes()->firstOrNew([
+            'organisation_id' => $organisation->id,
+            'action_type' => $type,
+        ]);
+
+        $before = ['body' => $template->body];
+
+        $template->fill([
+            'body' => $validated['templateBody'],
+            'version' => ($template->version ?? 0) + 1,
+            'updated_by' => $this->currentMembership()->id,
+        ])->save();
+
+        AuditEvent::record($template, 'message_template.updated', $this->currentMembership(), $before, [
+            'action_type' => $type->value,
+            'version' => $template->version,
+        ]);
+
+        session()->flash('status', 'Message template saved. New messages use this wording; already-sent ones are unchanged.');
+    }
+
+    public function resetTemplate(): void
+    {
+        $organisation = $this->organisation();
+        $this->authorize('manageSettings', $organisation);
+
+        MessageTemplate::query()
+            ->withoutGlobalScopes()
+            ->where('organisation_id', $organisation->id)
+            ->where('action_type', NotificationActionType::from($this->templateAction))
+            ->delete();
+
+        $this->loadTemplate();
+
+        session()->flash('status', 'Template reset to the built-in wording.');
     }
 
     public function saveProfile(): void
@@ -219,6 +307,16 @@ class OrganisationSettings extends Component
             'timezones' => \DateTimeZone::listIdentifiers(),
             'countries' => PhoneNumber::countries(),
             'actionTypes' => NotificationActionType::cases(),
+            'templateVariables' => MessageComposer::variablesFor(NotificationActionType::from($this->templateAction)),
+            'templatePreview' => MessageComposer::preview(
+                $organisation,
+                NotificationActionType::from($this->templateAction),
+                $this->templateBody ?: null,
+            ),
+            'templateIsCustom' => MessageTemplate::query()->withoutGlobalScopes()
+                ->where('organisation_id', $organisation->id)
+                ->where('action_type', $this->templateAction)
+                ->exists(),
             'phonePreview' => PhoneNumber::forDisplay($this->contactPhone ?: '9876543210', $this->defaultCountryCode),
         ])->layout('components.layouts.app', ['heading' => 'Settings']);
     }

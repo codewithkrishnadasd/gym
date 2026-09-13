@@ -33,6 +33,25 @@ final class PhoneNumber
         'TR' => '90', 'US' => '1', 'VN' => '84', 'ZA' => '27',
     ];
 
+    /**
+     * Digits in a national subscriber number, per country. Needed because a
+     * prefix test alone is ambiguous: the Indian mobile 9111111111 begins with
+     * India's own calling code (91), and treating it as already-international
+     * would silently store a different number than the one dialled.
+     *
+     * @var array<string, int>
+     */
+    private const NATIONAL_LENGTHS = [
+        'AE' => 9, 'AU' => 9, 'BD' => 10, 'BE' => 9, 'BR' => 11,
+        'CA' => 10, 'CH' => 9, 'DE' => 10, 'DK' => 8, 'EG' => 10,
+        'ES' => 9, 'FR' => 9, 'GB' => 10, 'ID' => 10, 'IE' => 9,
+        'IN' => 10, 'IT' => 10, 'JP' => 10, 'KE' => 9, 'LK' => 9,
+        'MY' => 9, 'NG' => 10, 'NL' => 9, 'NP' => 10, 'NZ' => 9,
+        'OM' => 8, 'PH' => 10, 'PK' => 10, 'PL' => 9, 'PT' => 9,
+        'QA' => 8, 'SA' => 9, 'SE' => 9, 'SG' => 8, 'TH' => 9,
+        'TR' => 10, 'US' => 10, 'VN' => 9, 'ZA' => 9,
+    ];
+
     /** Shortest and longest total digit count permitted by E.164. */
     private const MIN_DIGITS = 8;
 
@@ -64,13 +83,19 @@ final class PhoneNumber
         }
 
         if (! $hasPlus) {
-            // A single leading zero is a national trunk prefix, never part of
-            // the international number.
+            // A leading zero is a national trunk prefix, never part of the
+            // international number.
             $national = ltrim($digits, '0');
+            $expected = self::NATIONAL_LENGTHS[strtoupper($defaultCountry)] ?? 10;
 
-            $digits = str_starts_with($digits, '0') || ! str_starts_with($digits, $callingCode)
-                ? $callingCode.$national
-                : $digits;
+            // Only treat the number as already carrying its country code when
+            // the total length agrees. Checking the prefix alone misreads any
+            // national number that happens to start with those digits.
+            $alreadyInternational = ! str_starts_with($digits, '0')
+                && str_starts_with($digits, $callingCode)
+                && strlen($digits) === strlen($callingCode) + $expected;
+
+            $digits = $alreadyInternational ? $digits : $callingCode.$national;
         }
 
         return self::isPlausible($digits) ? $digits : null;

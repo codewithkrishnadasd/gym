@@ -9,6 +9,7 @@ use App\Enums\MembershipRole;
 use App\Enums\MembershipStatus;
 use App\Livewire\Concerns\ResolvesMembership;
 use App\Models\OrganisationUser;
+use App\Support\PhoneNumber;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\View\View;
@@ -72,7 +73,7 @@ class Index extends Component
     {
         $query = OrganisationUser::query()
             ->with([
-                'user:id,name,email,phone',
+                'user:id,name,phone',
                 'clubAssignments' => fn ($assignments) => $assignments
                     ->where('status', ClubAssignmentStatus::Active)
                     ->with('club:id,name'),
@@ -80,8 +81,7 @@ class Index extends Component
             ->when($this->search !== '', fn (Builder $query) => $query->whereHas(
                 'user',
                 fn (Builder $user) => $user->where('name', 'ilike', "%{$this->search}%")
-                    ->orWhere('email', 'ilike', "%{$this->search}%")
-                    ->orWhere('phone', 'ilike', "%{$this->search}%")
+                    ->orWhere('phone', 'ilike', '%'.PhoneNumber::searchable($this->search).'%')
             ))
             ->when($this->status !== '', fn (Builder $query) => $query->where('status', $this->status))
             ->when($this->role !== '', fn (Builder $query) => $query->where('role', $this->role))

@@ -6,14 +6,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Organisation not found</title>
-
-    <script>
-        (() => {
-            const stored = localStorage.getItem('theme');
-            const system = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-            document.documentElement.dataset.theme = stored ?? system;
-        })();
-    </script>
+    <x-theme-script />
 
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>

@@ -15,10 +15,13 @@ use Illuminate\Notifications\Notifiable;
 /**
  * The single global authentication identity. One `users` row can back
  * memberships (via `organisationUsers`) in many organisations, which is what
- * lets one email/password sign in to any organisation the person belongs to
- * — even organisations on entirely different domains. See MEP.md 5.3.
+ * lets one phone number and password sign in to any organisation the person
+ * belongs to — even organisations on entirely different domains (MEP.md 5.3).
+ *
+ * `phone` is the login identity and is stored normalised to bare international
+ * digits, so the sign-in lookup is an exact match rather than a fuzzy one.
  */
-#[Fillable(['name', 'email', 'phone', 'password'])]
+#[Fillable(['name', 'phone', 'password'])]
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable
 {
@@ -28,7 +31,6 @@ class User extends Authenticatable
     protected function casts(): array
     {
         return [
-            'email_verified_at' => 'datetime',
             'password' => 'hashed',
         ];
     }

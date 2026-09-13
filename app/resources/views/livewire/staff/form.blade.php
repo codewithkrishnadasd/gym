@@ -10,16 +10,17 @@
                     <x-ui.input wire:model="name" name="name" label="Full name" required />
 
                     @if ($organisationUser)
-                        <x-ui.field label="Email" hint="The sign-in address cannot be changed after the invitation.">
-                            <input type="text" disabled value="{{ $email }}"
+                        <x-ui.field label="WhatsApp number" hint="The sign-in number cannot be changed after the invitation.">
+                            <input type="text" disabled value="{{ $phone }}"
                                 class="min-h-[40px] w-full cursor-not-allowed rounded-lg border border-hairline-strong bg-sunken px-3 py-2 text-sm text-ink-muted">
                         </x-ui.field>
                     @else
-                        <x-ui.input wire:model="email" name="email" label="Email" type="email" required
-                            hint="If this person already has an account, it is reused." />
+                        <x-ui.input wire:model="phone" name="phone" label="WhatsApp number" type="tel" required
+                            inputmode="tel" placeholder="98765 43210"
+                            hint="This is how they sign in. If they already have an account, it is reused." />
 
                         <x-ui.input class="sm:col-span-2" wire:model="password" name="password" label="Temporary password"
-                            type="password" hint="Only needed if this email has no account yet. Minimum 8 characters." />
+                            type="password" hint="Only needed if this number has no account yet. Minimum 8 characters." />
                     @endif
                 </div>
             </x-ui.card>

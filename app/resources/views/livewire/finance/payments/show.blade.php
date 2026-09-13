@@ -116,7 +116,7 @@
         </div>
 
         <div class="space-y-5">
-            @if ($isAdmin && $payment->isConfirmed())
+            @if ($canNotify && $payment->isConfirmed())
                 <livewire:notifications.action-panel :notification-id="$notificationId" :key="'panel-'.$payment->id.'-'.$notificationId" />
             @endif
 

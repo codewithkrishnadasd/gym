@@ -95,7 +95,7 @@
                                 <x-ui.avatar :name="$person?->user?->name ?? '?'" size="sm" />
                                 <div class="min-w-0">
                                     <p class="truncate text-sm font-medium text-ink">{{ $person?->user?->name }}</p>
-                                    <p class="truncate text-xs text-ink-muted">{{ $person?->user?->email }}</p>
+                                    <p class="numeric truncate text-xs text-ink-muted">{{ $person?->user?->phone }}</p>
                                 </div>
                             </div>
                             <div class="flex shrink-0 items-center gap-2">

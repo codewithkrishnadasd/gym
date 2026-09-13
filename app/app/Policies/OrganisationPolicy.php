@@ -22,6 +22,16 @@ class OrganisationPolicy
         return $this->isAdmin($user);
     }
 
+    /**
+     * Opening the WhatsApp link and recording the result. Separate from
+     * `manageSettings` so a staff user can send the messages their own actions
+     * produce without gaining access to organisation configuration.
+     */
+    public function sendNotifications(User $user): bool
+    {
+        return $this->isAdmin($user) || $this->hasPermission($user, 'notifications.send');
+    }
+
     public function viewReports(User $user): bool
     {
         return $this->isAdmin($user) || $this->hasPermission($user, 'reports.view_assigned');

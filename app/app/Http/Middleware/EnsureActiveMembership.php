@@ -37,7 +37,7 @@ class EnsureActiveMembership
             $request->session()->regenerateToken();
 
             return redirect()->route('tenant.login')->withErrors([
-                'email' => 'Your access to this organisation is no longer active.',
+                'phone' => 'Your access to this organisation is no longer active.',
             ]);
         }
 

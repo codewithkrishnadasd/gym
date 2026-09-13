@@ -21,8 +21,7 @@ class MemberFactory extends Factory
         return [
             'organisation_id' => Organisation::factory(),
             'name' => fake()->name(),
-            'phone' => fake()->numerify('+1##########'),
-            'email' => fake()->safeEmail(),
+            'phone' => (string) fake()->unique()->numberBetween(910000000000, 919999999999),
             'date_of_birth' => fake()->date(),
             'gender' => fake()->randomElement(['male', 'female', 'other']),
             'joined_at' => fake()->dateTimeBetween('-2 years')->format('Y-m-d'),

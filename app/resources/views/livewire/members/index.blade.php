@@ -14,7 +14,7 @@
     </x-ui.page-header>
 
     <x-ui.card :padded="false">
-        <x-ui.filters search="search" placeholder="Search by name, phone, or email…">
+        <x-ui.filters search="search" placeholder="Search by name or WhatsApp number…">
             <x-ui.filter-select wire:model.live="club" :label="$organisation->term('club_singular')">
                 <option value="">All {{ strtolower($organisation->term('club_plural')) }}</option>
                 @foreach ($clubs as $availableClub)

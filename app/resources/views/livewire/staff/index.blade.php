@@ -21,7 +21,7 @@
     </x-ui.page-header>
 
     <x-ui.card :padded="false">
-        <x-ui.filters search="search" placeholder="Search by name, email, or phone…">
+        <x-ui.filters search="search" placeholder="Search by name or WhatsApp number…">
             <x-ui.filter-select wire:model.live="role" label="Role">
                 <option value="">All roles</option>
                 @foreach ($roles as $case)
@@ -76,7 +76,7 @@
                                     <x-ui.avatar :name="$person->user?->name ?? '?'" size="sm" />
                                     <div class="min-w-0">
                                         <p class="font-medium text-ink">{{ $person->user?->name }}</p>
-                                        <p class="truncate text-xs text-ink-muted">{{ $person->user?->email }}</p>
+                                        <p class="numeric truncate text-xs text-ink-muted">{{ $person->user?->phone }}</p>
                                     </div>
                                 </div>
                             </x-ui.td>
@@ -126,7 +126,7 @@
                                 <x-ui.avatar :name="$person->user?->name ?? '?'" />
                                 <div class="min-w-0 flex-1">
                                     <p class="truncate font-medium text-ink">{{ $person->user?->name }}</p>
-                                    <p class="truncate text-xs text-ink-muted">{{ $person->user?->email }}</p>
+                                    <p class="numeric truncate text-xs text-ink-muted">{{ $person->user?->phone }}</p>
                                     <div class="mt-1.5 flex flex-wrap items-center gap-1.5">
                                         <x-ui.badge :tone="$person->status->tone()">{{ $person->status->label() }}</x-ui.badge>
                                         <x-ui.badge :tone="$person->isAdmin() ? 'accent' : 'neutral'" :dot="false">

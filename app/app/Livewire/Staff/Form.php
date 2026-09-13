@@ -18,6 +18,7 @@ use App\Models\ClubUserAssignment;
 use App\Models\OrganisationUser;
 use App\Models\User;
 use App\Models\WhatsappActionNotification;
+use App\Support\PhoneNumber;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rule;
@@ -32,7 +33,7 @@ class Form extends Component
 
     public string $name = '';
 
-    public string $email = '';
+    public string $phone = '';
 
     public string $password = '';
 
@@ -57,7 +58,7 @@ class Form extends Component
             $user = $organisationUser->user;
 
             $this->name = $user->name;
-            $this->email = $user->email;
+            $this->phone = (string) $user->phone;
             $this->role = $organisationUser->role->value;
             $this->status = $organisationUser->status->value;
             $this->permissions = collect($organisationUser->permissions)
@@ -82,19 +83,33 @@ class Form extends Component
         ];
 
         if (! $this->organisationUser) {
-            $rules['email'] = ['required', 'email', 'max:255'];
+            $rules['phone'] = ['required', 'string', 'max:50'];
             $rules['password'] = ['nullable', 'string', 'min:8'];
         }
 
-        $validated = $this->validate($rules);
+        $validated = $this->validate($rules, [], ['phone' => 'WhatsApp number']);
 
+        $normalisedPhone = null;
+
+        if (! $this->organisationUser) {
+            $normalisedPhone = PhoneNumber::normalise($validated['phone'], $this->organisation()->defaultCountry());
+
+            if ($normalisedPhone === null) {
+                $this->addError('phone', 'Enter a valid WhatsApp number.');
+
+                return;
+            }
+        }
+
+        // One person is one `users` row across every organisation, so an
+        // existing number is reused rather than duplicated (MEP.md 5.3).
         $existingUser = $this->organisationUser
             ? $this->organisationUser->user
-            : User::query()->where('email', $validated['email'] ?? null)->first();
+            : User::query()->where('phone', $normalisedPhone)->first();
 
         if (! $this->organisationUser) {
             if (! $existingUser && ! $this->password) {
-                $this->addError('password', 'This email has no account yet — set a password to create one.');
+                $this->addError('password', 'This number has no account yet — set a password to create one.');
 
                 return;
             }
@@ -103,7 +118,7 @@ class Form extends Component
                 ->where('organisation_id', app('tenant')->id)
                 ->where('user_id', $existingUser->id)
                 ->exists()) {
-                $this->addError('email', 'This person is already a member of this organisation.');
+                $this->addError('phone', 'This person is already a member of this organisation.');
 
                 return;
             }
@@ -122,10 +137,10 @@ class Form extends Component
         $previousStatus = $this->organisationUser?->status->value;
         $previousClubIds = $isInvite ? [] : $this->organisationUser->activeClubIds();
 
-        $saved = DB::transaction(function () use ($validated, $existingUser, $permissions, $invitedBy): OrganisationUser {
+        $saved = DB::transaction(function () use ($validated, $existingUser, $permissions, $invitedBy, $normalisedPhone): OrganisationUser {
             $user = $existingUser ?? User::create([
                 'name' => $validated['name'],
-                'email' => $validated['email'],
+                'phone' => $normalisedPhone,
                 'password' => Hash::make($this->password),
             ]);
 

@@ -15,6 +15,7 @@ use App\Models\OrganisationUser;
 use App\Models\PlatformAdmin;
 use App\Models\PlatformAuditEvent;
 use App\Models\User;
+use App\Support\PhoneNumber;
 use Closure;
 use DateTimeZone;
 use Illuminate\Http\RedirectResponse;
@@ -45,7 +46,7 @@ class OrganisationController extends Controller
 
     /**
      * Creates the organisation, its primary domain, and its first admin in
-     * one transaction — the admin's `users` row is reused if the email
+     * one transaction — the admin's `users` row is reused if the number
      * already belongs to a person on another organisation, so they sign in
      * with the same credentials everywhere. See MEP.md Section 3.3.
      */
@@ -68,22 +69,30 @@ class OrganisationController extends Controller
                 },
             ],
             'admin_name' => ['required', 'string', 'max:255'],
-            'admin_email' => ['required', 'email', 'max:255'],
+            'admin_phone' => ['required', 'string', 'max:50'],
             'admin_password' => ['nullable', 'string', 'min:8'],
         ]);
 
-        $existingUser = User::query()->where('email', $validated['admin_email'])->first();
+        $adminPhone = PhoneNumber::normalise($validated['admin_phone']);
+
+        if ($adminPhone === null) {
+            return back()->withInput()->withErrors([
+                'admin_phone' => 'Enter a valid WhatsApp number.',
+            ]);
+        }
+
+        $existingUser = User::query()->where('phone', $adminPhone)->first();
 
         if (! $existingUser && ! $validated['admin_password']) {
             return back()->withInput()->withErrors([
-                'admin_password' => 'This email has no account yet — set a password to create one.',
+                'admin_password' => 'This number has no account yet — set a password to create one.',
             ]);
         }
 
         /** @var PlatformAdmin $platformAdmin */
         $platformAdmin = Auth::guard('platform')->user();
 
-        $organisation = DB::transaction(function () use ($validated, $existingUser, $platformAdmin): Organisation {
+        $organisation = DB::transaction(function () use ($validated, $existingUser, $platformAdmin, $adminPhone): Organisation {
             $organisation = Organisation::create([
                 'name' => $validated['name'],
                 'slug' => $validated['slug'],
@@ -99,7 +108,7 @@ class OrganisationController extends Controller
 
             $user = $existingUser ?? User::create([
                 'name' => $validated['admin_name'],
-                'email' => $validated['admin_email'],
+                'phone' => $adminPhone,
                 'password' => Hash::make($validated['admin_password']),
             ]);
 
@@ -119,7 +128,7 @@ class OrganisationController extends Controller
                     'name' => $organisation->name,
                     'slug' => $organisation->slug,
                     'hostname' => strtolower($validated['hostname']),
-                    'admin_email' => $user->email,
+                    'admin_phone' => $user->phone,
                 ],
             );
 
