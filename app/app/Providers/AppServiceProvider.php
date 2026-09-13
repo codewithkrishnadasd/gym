@@ -20,6 +20,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\Paginator;
+use Illuminate\Support\Facades\URL;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -32,6 +33,20 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         Model::shouldBeStrict(! $this->app->isProduction());
+
+        // Production terminates TLS at a reverse proxy, so the scheme reaches
+        // the application as a header rather than on the connection. When a hop
+        // in that chain forwards the wrong one, every asset URL is built as
+        // http:// and the browser blocks it as mixed content on an https://
+        // page — the site loads unstyled with no working JavaScript.
+        //
+        // Anchoring the scheme to APP_URL removes that whole failure mode: a
+        // deployment configured for https stays on https no matter what the
+        // proxy in front of it reports. Only the scheme is forced, so tenant
+        // domains still generate their own hostnames.
+        if (str_starts_with((string) config('app.url'), 'https://')) {
+            URL::forceScheme('https');
+        }
 
         Paginator::defaultView('vendor.pagination.default');
         Paginator::defaultSimpleView('vendor.pagination.default');
