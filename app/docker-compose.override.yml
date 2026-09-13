@@ -1,0 +1,89 @@
+# Auto-loaded by `docker compose up` alongside docker-compose.yml for local
+# development. Never used in production — see technology.md Section 10.8.
+#
+# Local development in this project normally runs natively (php artisan
+# serve + npm run dev) against the postgres/redis containers this file
+# exposes on the host. This override also lets the full stack run inside
+# Docker end-to-end when needed, by bind-mounting the source over the image
+# and skipping the production config-cache entrypoint (dev config should
+# always be read live, not cached).
+x-docker-network-env: &docker-network-env
+  DB_HOST: postgres
+  REDIS_HOST: redis
+
+services:
+  app:
+    volumes:
+      - .:/var/www/html
+      # Dev serves compiled assets straight from the working tree. The base
+      # file mounts the `app-public-build` named volume here, which only ever
+      # populates from the image once — so without this override a rebuilt
+      # bundle would never reach the browser without recreating the volume.
+      - ./public/build:/var/www/html/public/build
+      - ./docker/php/opcache-dev.ini:/usr/local/etc/php/conf.d/zz-opcache.ini:ro
+    environment:
+      <<: *docker-network-env
+      APP_ENV: local
+      APP_DEBUG: "true"
+    entrypoint: ["docker/php/dev-entrypoint.sh"]
+    command: ["php-fpm"]
+
+  worker:
+    volumes:
+      - .:/var/www/html
+    environment:
+      <<: *docker-network-env
+    entrypoint: []
+    command: ["php", "artisan", "queue:work", "redis", "--queue=default,notifications,reports", "--tries=3", "-v"]
+    deploy:
+      replicas: 1
+
+  horizon:
+    volumes:
+      - .:/var/www/html
+    environment:
+      <<: *docker-network-env
+    entrypoint: []
+    command: ["php", "artisan", "horizon"]
+
+  scheduler:
+    volumes:
+      - .:/var/www/html
+    environment:
+      <<: *docker-network-env
+    entrypoint: []
+
+  migrate:
+    volumes:
+      - .:/var/www/html
+    environment:
+      <<: *docker-network-env
+    entrypoint: []
+    command: ["php", "artisan", "migrate"]
+
+  nginx:
+    ports:
+      - "8000:80"
+    volumes:
+      - .:/var/www/html
+      # Same reason as the app service: read assets from the working tree.
+      - ./public/build:/var/www/html/public/build:ro
+      - ./storage:/var/www/html/storage:ro
+
+  postgres:
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./docker/postgres/init-testing-database.sh:/docker-entrypoint-initdb.d/init-testing-database.sh:ro
+
+  redis:
+    ports:
+      - "6379:6379"
+
+  mailpit:
+    image: axllent/mailpit:latest
+    ports:
+      - "8025:8025"
+      - "1025:1025"
+    networks:
+      - internal

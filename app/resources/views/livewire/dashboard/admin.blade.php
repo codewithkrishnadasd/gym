@@ -1,0 +1,248 @@
+@php
+    $delta = function (int|float $current, int|float $previous): array {
+        if ($previous == 0) {
+            return $current > 0 ? ['+100%', 'positive'] : ['—', 'neutral'];
+        }
+
+        $change = round((($current - $previous) / abs($previous)) * 100);
+
+        return [($change > 0 ? '+' : '').$change.'%', $change > 0 ? 'positive' : ($change < 0 ? 'critical' : 'neutral')];
+    };
+
+    [$revenueDelta, $revenueTone] = $delta($revenue, $revenuePrevious);
+    [$membersDelta, $membersTone] = $delta($newMembers, $newMembersPrevious);
+@endphp
+
+<div>
+    <x-ui.flash />
+
+    <x-ui.page-header :title="'Good '.(now($organisation->timezone)->hour < 12 ? 'morning' : (now($organisation->timezone)->hour < 17 ? 'afternoon' : 'evening')).', '.\Illuminate\Support\Str::before($membership->user?->name ?? '', ' ')"
+        :description="$organisation->name.' · '.$period->label()">
+        <x-slot:actions>
+            <x-ui.button icon="chart-bar" :href="route('tenant.reports.index')" wire:navigate>Reports</x-ui.button>
+            <x-ui.button variant="primary" icon="plus" :href="route('tenant.finance.payments.create')" wire:navigate>Collect fee</x-ui.button>
+        </x-slot:actions>
+    </x-ui.page-header>
+
+    <x-ui.period-filter :presets="$presets" :range="$range" :clubs="$clubs" :club-label="$organisation->term('club_plural')" />
+
+    @if ($alerts !== [])
+        <div class="mb-4 grid gap-2 md:grid-cols-2">
+            @foreach ($alerts as $alert)
+                <x-ui.alert :tone="$alert['tone']" :title="$alert['title']">
+                    <div class="flex flex-wrap items-center justify-between gap-2">
+                        <span>{{ $alert['detail'] }}</span>
+                        @isset($alert['route'])
+                            <a href="{{ route($alert['route']) }}" wire:navigate class="shrink-0 font-medium underline underline-offset-2">Review</a>
+                        @endisset
+                    </div>
+                </x-ui.alert>
+            @endforeach
+        </div>
+    @endif
+
+    {{-- Core cards (MEP 6.2). --}}
+    <div class="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <x-ui.stat label="Revenue collected" :value="$organisation->moneyCompact($revenue)" icon="banknotes" tone="positive"
+            :delta="$revenueDelta" :delta-tone="$revenueTone" hint="vs previous period" />
+
+        <x-ui.stat label="Outstanding fees" :value="$organisation->moneyCompact($outstanding)" icon="exclamation-circle"
+            :tone="$outstanding > 0 ? 'caution' : 'neutral'" hint="across active plans" />
+
+        <x-ui.stat label="Expenses" :value="$organisation->moneyCompact($expenses)" icon="receipt-percent" tone="critical"
+            hint="completed only" />
+
+        <x-ui.stat label="Net movement" :value="$organisation->moneyCompact($netMovement)" icon="arrows-right-left"
+            :tone="$netMovement >= 0 ? 'positive' : 'critical'" hint="revenue − expenses" />
+
+        <x-ui.stat :label="'Active '.strtolower($organisation->term('member_plural'))" :value="number_format($activeMembers)"
+            icon="user-group" tone="accent" :href="route('tenant.members.index')" />
+
+        <x-ui.stat :label="'New '.strtolower($organisation->term('member_plural'))" :value="number_format($newMembers)"
+            icon="user-plus" :delta="$membersDelta" :delta-tone="$membersTone" hint="this period" />
+
+        <x-ui.stat label="Expiring plans" :value="number_format($expiring)" icon="clock"
+            :tone="$expiring > 0 ? 'caution' : 'neutral'" hint="next 30 days" />
+
+        <x-ui.stat label="Pending confirmations" :value="number_format($pendingCount)" icon="check-badge"
+            :tone="$pendingCount > 0 ? 'caution' : 'positive'" :href="route('tenant.finance.confirmations')"
+            :hint="$organisation->moneyCompact($pendingValue).' awaiting'" />
+    </div>
+
+    <div class="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <x-ui.stat label="Attendance rate" :value="$attendanceRate.'%'" icon="chart-bar"
+            :tone="$attendanceRate >= 60 ? 'positive' : 'caution'" hint="present or late, this period" />
+        <x-ui.stat label="Today's attendance" :value="number_format($todaysAttendance)" icon="clipboard-document-check"
+            :href="route('tenant.attendance.members')" hint="checked in today" />
+        <x-ui.stat :label="'Active '.strtolower($organisation->term('user_plural'))" :value="number_format($activeStaff)"
+            icon="identification" :href="route('tenant.staff.index')" />
+        <x-ui.stat :label="$organisation->term('club_plural')" :value="number_format($clubs->count())"
+            icon="building-office-2" :href="route('tenant.clubs.index')" hint="active" />
+    </div>
+
+    {{-- Trends. --}}
+    <div class="mb-4 grid gap-3 lg:grid-cols-2">
+        <x-ui.card title="Revenue and expenses" :description="$period->label()">
+            <x-ui.chart type="line" :labels="$cashTrend['labels']" :height="240" value-format="currency"
+                :currency-symbol="$organisation->currencySymbol()"
+                :summary="'Revenue totalled '.$organisation->money($revenue).' against '.$organisation->money($expenses).' of expenses.'"
+                :datasets="[
+                    ['label' => 'Revenue', 'data' => $cashTrend['revenue'], 'color' => 'positive'],
+                    ['label' => 'Expenses', 'data' => $cashTrend['expenses'], 'color' => 'critical'],
+                ]" />
+        </x-ui.card>
+
+        <x-ui.card title="Attendance" :description="$period->label()">
+            <x-ui.chart type="bar" :labels="$attendanceTrend['labels']" :height="240" stacked
+                :summary="'Attendance rate for the period is '.$attendanceRate.'%.'"
+                :datasets="[
+                    ['label' => 'Present', 'data' => $attendanceTrend['present'], 'color' => 'accent'],
+                    ['label' => 'Absent', 'data' => $attendanceTrend['absent'], 'color' => 'caution'],
+                ]" />
+        </x-ui.card>
+    </div>
+
+    <div class="grid gap-3 lg:grid-cols-3">
+        {{-- Pending staff-collected payments: the queue that needs action. --}}
+        <x-ui.card class="lg:col-span-2" :padded="false" title="Pending confirmations"
+            description="Staff-collected payments awaiting your review.">
+            <x-slot:actions>
+                <x-ui.button size="sm" variant="ghost" :href="route('tenant.finance.confirmations')" wire:navigate>Open queue</x-ui.button>
+            </x-slot:actions>
+
+            @if ($pendingPayments->isEmpty())
+                <x-ui.empty icon="check-badge" title="Nothing waiting" description="Every submitted payment has been reviewed." />
+            @else
+                <ul class="divide-y divide-[var(--c-hairline)]">
+                    @foreach ($pendingPayments as $payment)
+                        <li class="flex items-center justify-between gap-3 px-4 py-2.5">
+                            <div class="flex min-w-0 items-center gap-2.5">
+                                <x-ui.avatar :name="$payment->member->name" size="sm" />
+                                <div class="min-w-0">
+                                    <a href="{{ route('tenant.finance.payments.show', $payment) }}" wire:navigate
+                                        class="block truncate text-sm font-medium text-ink hover:text-accent">{{ $payment->member->name }}</a>
+                                    <p class="truncate text-xs text-ink-muted">
+                                        {{ $payment->club->name }} · {{ $payment->collectedBy?->user?->name }}
+                                        · {{ $payment->created_at?->diffForHumans() }}
+                                    </p>
+                                </div>
+                            </div>
+                            <p class="numeric shrink-0 text-sm font-medium">{{ $organisation->money($payment->amount_minor) }}</p>
+                        </li>
+                    @endforeach
+                </ul>
+            @endif
+        </x-ui.card>
+
+        <x-ui.card :padded="false" title="Top collectors" description="Confirmed, this period.">
+            @if ($leaderboard->isEmpty())
+                <x-ui.empty icon="trophy" title="No collections yet" description="Confirmed payments will rank collectors here." />
+            @else
+                <ol class="divide-y divide-[var(--c-hairline)]">
+                    @foreach ($leaderboard as $index => $row)
+                        <li class="flex items-center gap-3 px-4 py-2.5">
+                            <span class="numeric grid h-6 w-6 shrink-0 place-items-center rounded-full bg-sunken text-xs font-semibold text-ink-soft">{{ $index + 1 }}</span>
+                            <div class="min-w-0 flex-1">
+                                <p class="truncate text-sm font-medium text-ink">{{ $row->name }}</p>
+                                <p class="numeric text-xs text-ink-muted">{{ $row->count }} {{ \Illuminate\Support\Str::plural('payment', $row->count) }}</p>
+                            </div>
+                            <p class="numeric shrink-0 text-sm font-medium">{{ $organisation->moneyCompact($row->collected) }}</p>
+                        </li>
+                    @endforeach
+                </ol>
+            @endif
+        </x-ui.card>
+
+        {{-- Club comparison. --}}
+        <x-ui.card class="lg:col-span-2" :padded="false" :title="$organisation->term('club_plural').' comparison'">
+            @if ($clubComparison->isEmpty())
+                <x-ui.empty icon="building-office-2" :title="'No '.strtolower($organisation->term('club_plural')).' yet'"
+                    :description="'Create a '.strtolower($organisation->term('club_singular')).' to start comparing performance.'" />
+            @else
+                <x-ui.table>
+                    <x-slot:head>
+                        <x-ui.th>{{ $organisation->term('club_singular') }}</x-ui.th>
+                        <x-ui.th align="right">{{ $organisation->term('member_plural') }}</x-ui.th>
+                        <x-ui.th align="right">Attendance</x-ui.th>
+                        <x-ui.th align="right">Revenue</x-ui.th>
+                        <x-ui.th align="right">Expenses</x-ui.th>
+                    </x-slot:head>
+
+                    @foreach ($clubComparison as $row)
+                        <tr class="transition hover:bg-raised">
+                            <x-ui.td class="font-medium text-ink">{{ $row->club }}</x-ui.td>
+                            <x-ui.td align="right" numeric>{{ number_format($row->members) }}</x-ui.td>
+                            <x-ui.td align="right" numeric>{{ number_format($row->attendance) }}</x-ui.td>
+                            <x-ui.td align="right" numeric class="text-positive">{{ $organisation->money($row->revenue) }}</x-ui.td>
+                            <x-ui.td align="right" numeric class="text-critical">{{ $organisation->money($row->expenses) }}</x-ui.td>
+                        </tr>
+                    @endforeach
+                </x-ui.table>
+            @endif
+        </x-ui.card>
+
+        <x-ui.card :padded="false" title="Needs follow-up" description="Expiring soon or unpaid.">
+            @if ($followUps->isEmpty())
+                <x-ui.empty icon="check-circle" title="All clear" description="No plans expiring soon or carrying a balance." />
+            @else
+                <ul class="divide-y divide-[var(--c-hairline)]">
+                    @foreach ($followUps as $subscription)
+                        @php $due = max(0, $subscription->amount_due_minor - $subscription->amount_paid_minor); @endphp
+                        <li class="px-4 py-2.5">
+                            <a href="{{ route('tenant.members.show', $subscription->member) }}" wire:navigate class="block group">
+                                <p class="truncate text-sm font-medium text-ink group-hover:text-accent">{{ $subscription->member->name }}</p>
+                                <p class="truncate text-xs text-ink-muted">
+                                    {{ $subscription->plan->name }} · expires {{ $subscription->end_date->format('d M') }}
+                                </p>
+                                @if ($due > 0)
+                                    <p class="numeric mt-0.5 text-xs font-medium text-caution">{{ $organisation->money($due) }} outstanding</p>
+                                @endif
+                            </a>
+                        </li>
+                    @endforeach
+                </ul>
+            @endif
+        </x-ui.card>
+
+        <x-ui.card :padded="false" title="Recent payments">
+            @if ($recentPayments->isEmpty())
+                <x-ui.empty icon="banknotes" title="No confirmed payments" description="Confirmed collections appear here." />
+            @else
+                <ul class="divide-y divide-[var(--c-hairline)]">
+                    @foreach ($recentPayments as $payment)
+                        <li class="flex items-center justify-between gap-3 px-4 py-2.5">
+                            <div class="min-w-0">
+                                <a href="{{ route('tenant.finance.payments.show', $payment) }}" wire:navigate
+                                    class="block truncate text-sm font-medium text-ink hover:text-accent">{{ $payment->member->name }}</a>
+                                <p class="numeric truncate text-xs text-ink-muted">{{ $payment->payment_date->format('d M') }} · {{ $payment->club->name }}</p>
+                            </div>
+                            <p class="numeric shrink-0 text-sm font-medium text-positive">{{ $organisation->money($payment->amount_minor) }}</p>
+                        </li>
+                    @endforeach
+                </ul>
+            @endif
+        </x-ui.card>
+
+        <x-ui.card :padded="false" title="Recent expenses" class="lg:col-span-2">
+            @if ($recentExpenses->isEmpty())
+                <x-ui.empty icon="receipt-percent" title="No expenses recorded" description="Completed expenses appear here." />
+            @else
+                <ul class="divide-y divide-[var(--c-hairline)]">
+                    @foreach ($recentExpenses as $expense)
+                        <li class="flex items-center justify-between gap-3 px-4 py-2.5">
+                            <div class="min-w-0">
+                                <p class="truncate text-sm font-medium text-ink">{{ $expense->category }}</p>
+                                <p class="numeric truncate text-xs text-ink-muted">
+                                    {{ $expense->expense_date->format('d M') }} ·
+                                    {{ $expense->club?->name ?? 'Organisation-wide' }}
+                                    @if ($expense->payee) · {{ $expense->payee }} @endif
+                                </p>
+                            </div>
+                            <p class="numeric shrink-0 text-sm font-medium text-critical">{{ $organisation->money($expense->amount_minor) }}</p>
+                        </li>
+                    @endforeach
+                </ul>
+            @endif
+        </x-ui.card>
+    </div>
+</div>

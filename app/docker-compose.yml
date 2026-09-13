@@ -1,0 +1,170 @@
+name: gym-platform
+
+x-app-image: &app-image
+  image: ${IMAGE_TAG:-gym-platform:latest}
+  build:
+    context: .
+    dockerfile: Dockerfile
+  env_file:
+    - .env
+  depends_on:
+    postgres:
+      condition: service_healthy
+    redis:
+      condition: service_healthy
+  networks:
+    - internal
+  restart: unless-stopped
+  logging:
+    driver: json-file
+    options:
+      max-size: "10m"
+      max-file: "5"
+
+services:
+  nginx:
+    image: nginx:1.27-alpine
+    depends_on:
+      - app
+    ports:
+      - "${HTTP_PORT:-80}:80"
+      - "${HTTPS_PORT:-443}:443"
+    volumes:
+      - ./docker/nginx/conf.d:/etc/nginx/conf.d:ro
+      - ./docker/nginx/certs:/etc/nginx/certs:ro
+      - app-storage:/var/www/html/storage:ro
+      - app-public-build:/var/www/html/public/build:ro
+    networks:
+      - internal
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost/up"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  app:
+    <<: *app-image
+    volumes:
+      - app-storage:/var/www/html/storage
+      - app-public-build:/var/www/html/public/build
+
+  worker:
+    <<: *app-image
+    command: ["php", "artisan", "queue:work", "redis", "--queue=default,notifications,reports", "--sleep=3", "--tries=3", "--max-time=3600", "--timeout=120"]
+    volumes:
+      - app-storage:/var/www/html/storage
+    deploy:
+      replicas: 2
+
+  horizon:
+    <<: *app-image
+    command: ["php", "artisan", "horizon"]
+    volumes:
+      - app-storage:/var/www/html/storage
+    stop_grace_period: 30s
+
+  scheduler:
+    <<: *app-image
+    command: >
+      sh -c "while true; do
+        php artisan schedule:run --no-interaction --verbose 2>&1;
+        sleep 60;
+      done"
+    volumes:
+      - app-storage:/var/www/html/storage
+
+  migrate:
+    <<: *app-image
+    command: ["php", "artisan", "migrate", "--force"]
+    restart: "no"
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${DB_DATABASE}
+      POSTGRES_USER: ${DB_USERNAME}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - internal
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME} -d ${DB_DATABASE}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 1g
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes", "--requirepass", "${REDIS_PASSWORD}"]
+    volumes:
+      - redis-data:/data
+    networks:
+      - internal
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  minio:
+    image: minio/minio:latest
+    command: ["server", "/data", "--console-address", ":9001"]
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    volumes:
+      - minio-data:/data
+    networks:
+      - internal
+    restart: unless-stopped
+    profiles: ["self-hosted-storage"]
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+  backup:
+    image: postgres:16-alpine
+    # The redirect must stay on the same line as pg_dump. A folded (">") block
+    # preserves the newline before a more-indented line, which previously split
+    # this into "pg_dump to stdout" plus a bare redirect that created an empty
+    # file — every backup was 0 bytes.
+    entrypoint:
+      - sh
+      - -c
+      - |
+        while true; do
+          PGPASSWORD="$$DB_PASSWORD" pg_dump -h postgres -U "$$DB_USERNAME" -Fc "$$DB_DATABASE" > "/backups/backup-$$(date +%Y%m%d-%H%M%S).dump" || echo "backup failed" >&2;
+          find /backups -type f -mtime +14 -delete;
+          sleep 86400;
+        done
+    env_file:
+      - .env
+    volumes:
+      - ./backups:/backups
+    networks:
+      - internal
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+networks:
+  internal:
+    driver: bridge
+
+volumes:
+  postgres-data:
+  redis-data:
+  minio-data:
+  app-storage:
+  app-public-build:

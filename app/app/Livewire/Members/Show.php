@@ -1,0 +1,229 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Livewire\Members;
+
+use App\Actions\Subscriptions\ChangeSubscriptionStatus;
+use App\Actions\Subscriptions\CreateSubscription;
+use App\Enums\AttendanceAction;
+use App\Enums\AttendanceSubjectType;
+use App\Enums\ConfirmationStatus;
+use App\Enums\MemberStatus;
+use App\Enums\NotificationEntityType;
+use App\Enums\PlanStatus;
+use App\Enums\SubscriptionStatus;
+use App\Exceptions\LifecycleViolation;
+use App\Livewire\Concerns\ResolvesMembership;
+use App\Models\Attendance;
+use App\Models\FeePayment;
+use App\Models\Member;
+use App\Models\MemberSubscription;
+use App\Models\Plan;
+use App\Models\WhatsappActionNotification;
+use App\Support\Money;
+use App\Support\PhoneNumber;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
+use Illuminate\Validation\Rule;
+use Illuminate\View\View;
+use Livewire\Attributes\Url;
+use Livewire\Component;
+
+/**
+ * The member's full record: identity, plans, attendance, and payment ledger,
+ * with the contextual actions the acting user is permitted to take
+ * (MEP.md 6.6).
+ */
+class Show extends Component
+{
+    use ResolvesMembership;
+
+    public Member $member;
+
+    #[Url]
+    public string $tab = 'overview';
+
+    public ?int $planId = null;
+
+    public string $planStartDate = '';
+
+    public string $planAmount = '';
+
+    public ?string $lifecycleError = null;
+
+    /** Set by the action that redirected here (create, edit, transfer). */
+    public ?int $notificationId = null;
+
+    public function mount(Member $member): void
+    {
+        $this->authorize('view', $member);
+
+        $this->member = $member;
+        $this->notificationId = session('notification_id');
+        $this->planStartDate = Carbon::today($this->organisation()->timezone)->toDateString();
+    }
+
+    public function startPlan(): void
+    {
+        $this->authorize('createFor', [MemberSubscription::class, $this->member]);
+
+        $organisation = $this->organisation();
+
+        $validated = $this->validate([
+            'planId' => ['required', Rule::exists('plans', 'id')->where('organisation_id', $organisation->id)],
+            'planStartDate' => ['nullable', 'date'],
+            'planAmount' => ['nullable', 'numeric', 'min:0'],
+        ], [], ['planId' => 'plan']);
+
+        if ($this->member->primary_club_id === null) {
+            $this->addError('planId', 'Assign a '.strtolower($organisation->term('club_singular')).' before starting a plan.');
+
+            return;
+        }
+
+        /** @var Plan $plan */
+        $plan = Plan::query()->findOrFail($validated['planId']);
+
+        $amountDue = $validated['planAmount'] !== null && $validated['planAmount'] !== ''
+            ? Money::parseMajor((string) $validated['planAmount'], $organisation->currency_code)?->minor
+            : null;
+
+        $subscription = app(CreateSubscription::class)->handle(
+            member: $this->member,
+            plan: $plan,
+            actor: $this->currentMembership(),
+            startDate: $validated['planStartDate'] ? Carbon::parse($validated['planStartDate']) : null,
+            amountDueMinor: $amountDue,
+        );
+
+        $this->notificationId = WhatsappActionNotification::query()
+            ->where('entity_id', $subscription->id)
+            ->whereIn('entity_type', [NotificationEntityType::Subscription])
+            ->latest('id')
+            ->value('id');
+
+        $this->reset(['planId', 'planAmount']);
+        $this->dispatch('close-modal');
+
+        session()->flash('status', "\"{$plan->name}\" started for {$this->member->name}.");
+    }
+
+    public function changePlanStatus(int $subscriptionId, string $status): void
+    {
+        /** @var MemberSubscription $subscription */
+        $subscription = MemberSubscription::query()
+            ->where('member_id', $this->member->id)
+            ->findOrFail($subscriptionId);
+
+        $this->authorize('changeStatus', $subscription);
+
+        try {
+            app(ChangeSubscriptionStatus::class)->handle(
+                $subscription,
+                SubscriptionStatus::from($status),
+                $this->currentMembership(),
+            );
+        } catch (LifecycleViolation $exception) {
+            $this->lifecycleError = $exception->getMessage();
+
+            return;
+        }
+
+        $this->lifecycleError = null;
+        session()->flash('status', 'Plan updated.');
+    }
+
+    public function archive(): void
+    {
+        $this->authorize('archive', $this->member);
+
+        $this->member->update(['status' => MemberStatus::Archived]);
+
+        session()->flash('status', "{$this->member->name} was archived.");
+    }
+
+    public function restore(): void
+    {
+        $this->authorize('restore', $this->member);
+
+        $this->member->update(['status' => MemberStatus::Active]);
+
+        session()->flash('status', "{$this->member->name} was restored.");
+    }
+
+    /**
+     * @return Collection<int, MemberSubscription>
+     */
+    protected function subscriptions(): Collection
+    {
+        return $this->member->subscriptions()
+            ->with('plan:id,name,duration_days', 'club:id,name')
+            ->orderByDesc('start_date')
+            ->get();
+    }
+
+    /**
+     * @return Collection<int, FeePayment>
+     */
+    protected function payments(): Collection
+    {
+        return $this->member->feePayments()
+            ->with(['club:id,name', 'collectedBy.user:id,name', 'subscription.plan:id,name'])
+            ->orderByDesc('payment_date')
+            ->orderByDesc('id')
+            ->get();
+    }
+
+    /**
+     * The last 12 weeks of marks, keyed by date, for the attendance calendar.
+     *
+     * @return Collection<string, Attendance>
+     */
+    protected function attendanceByDate(): Collection
+    {
+        return Attendance::query()
+            ->where('subject_type', AttendanceSubjectType::Member->value)
+            ->where('subject_id', $this->member->id)
+            ->whereDate('attendance_date', '>=', Carbon::today($this->organisation()->timezone)->subWeeks(12)->toDateString())
+            ->get()
+            ->keyBy(fn (Attendance $attendance): string => $attendance->attendance_date->toDateString());
+    }
+
+    public function render(): View
+    {
+        $organisation = $this->organisation();
+        $subscriptions = $this->subscriptions();
+        $payments = $this->payments();
+        $attendance = $this->attendanceByDate();
+
+        $current = $subscriptions->firstWhere('status', SubscriptionStatus::Active);
+
+        $confirmed = $payments->where('confirmation_status', ConfirmationStatus::Confirmed);
+        $presentMarks = $attendance->whereIn('action', [AttendanceAction::Present, AttendanceAction::Late])->count();
+
+        return view('livewire.members.show', [
+            'organisation' => $organisation,
+            'canNotify' => $this->currentMembership()->isAdmin(),
+            'subscriptions' => $subscriptions,
+            'currentSubscription' => $current,
+            'payments' => $payments,
+            'attendance' => $attendance,
+            'attendanceRate' => $attendance->isEmpty() ? 0 : (int) round($presentMarks / $attendance->count() * 100),
+            'presentMarks' => $presentMarks,
+            'totalPaid' => (int) $confirmed->sum('amount_minor'),
+            'outstanding' => (int) $subscriptions
+                ->whereIn('status', [SubscriptionStatus::Active, SubscriptionStatus::Expired])
+                ->sum(fn (MemberSubscription $s): int => max(0, $s->amount_due_minor - $s->amount_paid_minor)),
+            'clubHistory' => $this->member->clubHistory()->with(['fromClub:id,name', 'toClub:id,name', 'changedBy.user:id,name'])
+                ->orderByDesc('changed_at')->get(),
+            'availablePlans' => Plan::query()->where('status', PlanStatus::Active)->orderBy('name')->get(),
+            'whatsappUrl' => PhoneNumber::whatsappUrl(
+                $this->member->phone,
+                "Hi {$this->member->name},",
+                $organisation->defaultCountry(),
+            ),
+            'displayPhone' => PhoneNumber::forDisplay($this->member->phone, $organisation->defaultCountry()),
+        ])->layout('components.layouts.app', ['heading' => $this->member->name]);
+    }
+}

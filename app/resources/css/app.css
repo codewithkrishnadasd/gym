@@ -1,0 +1,183 @@
+@import 'tailwindcss';
+
+@source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
+@source '../../storage/framework/views/*.php';
+
+/*
+ * Semantic design tokens. Every colour a view uses resolves through one of
+ * the `--c-*` runtime variables below, so switching `data-theme` on <html>
+ * re-themes the whole application without touching a single utility class.
+ */
+@theme {
+    --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
+        'Segoe UI Symbol', 'Noto Color Emoji';
+    --font-display: 'Space Grotesk', 'Instrument Sans', ui-sans-serif, system-ui, sans-serif;
+
+    --color-app: var(--c-app);
+    --color-surface: var(--c-surface);
+    --color-raised: var(--c-raised);
+    --color-sunken: var(--c-sunken);
+    --color-hairline: var(--c-hairline);
+    --color-hairline-strong: var(--c-hairline-strong);
+
+    --color-ink: var(--c-ink);
+    --color-ink-soft: var(--c-ink-soft);
+    --color-ink-muted: var(--c-ink-muted);
+
+    --color-accent: var(--c-accent);
+    --color-accent-soft: var(--c-accent-soft);
+    --color-accent-ink: var(--c-accent-ink);
+    --color-on-accent: var(--c-on-accent);
+
+    --color-positive: var(--c-positive);
+    --color-positive-soft: var(--c-positive-soft);
+    --color-caution: var(--c-caution);
+    --color-caution-soft: var(--c-caution-soft);
+    --color-critical: var(--c-critical);
+    --color-critical-soft: var(--c-critical-soft);
+    --color-info: var(--c-info);
+    --color-info-soft: var(--c-info-soft);
+}
+
+/* Light theme is the default so a no-JS first paint is always readable. */
+:root {
+    --c-app: #f6f7f9;
+    --c-surface: #ffffff;
+    --c-raised: #f9fafb;
+    --c-sunken: #f1f3f5;
+    --c-hairline: #e5e8ec;
+    --c-hairline-strong: #d3d8de;
+
+    --c-ink: #0f172a;
+    --c-ink-soft: #475569;
+    --c-ink-muted: #7c8798;
+
+    --c-accent: #0e7490;
+    --c-accent-soft: #ecfdff;
+    --c-accent-ink: #0e7490;
+    --c-on-accent: #ffffff;
+
+    --c-positive: #047857;
+    --c-positive-soft: #ecfdf5;
+    --c-caution: #b45309;
+    --c-caution-soft: #fffbeb;
+    --c-critical: #be123c;
+    --c-critical-soft: #fff1f2;
+    --c-info: #4338ca;
+    --c-info-soft: #eef2ff;
+
+    --c-shadow: 15 23 42;
+    color-scheme: light;
+}
+
+[data-theme='dark'] {
+    --c-app: #080d18;
+    --c-surface: #101828;
+    --c-raised: #16203a;
+    --c-sunken: #0b1122;
+    --c-hairline: #1f2b45;
+    --c-hairline-strong: #2c3b5c;
+
+    --c-ink: #f1f5f9;
+    --c-ink-soft: #a4b2c8;
+    --c-ink-muted: #6f7f99;
+
+    --c-accent: #22d3ee;
+    --c-accent-soft: #0c3441;
+    --c-accent-ink: #67e8f9;
+    --c-on-accent: #04212b;
+
+    --c-positive: #34d399;
+    --c-positive-soft: #0a2f26;
+    --c-caution: #fbbf24;
+    --c-caution-soft: #35270a;
+    --c-critical: #fb7185;
+    --c-critical-soft: #3a1220;
+    --c-info: #a5b4fc;
+    --c-info-soft: #1e1f47;
+
+    --c-shadow: 0 0 0;
+    color-scheme: dark;
+}
+
+@layer base {
+    * {
+        border-color: var(--c-hairline);
+    }
+
+    body {
+        background-color: var(--c-app);
+        color: var(--c-ink);
+    }
+
+    /* A visible focus ring everywhere is an accessibility baseline (MEP 9.3). */
+    :focus-visible {
+        outline: 2px solid var(--c-accent);
+        outline-offset: 2px;
+    }
+
+    ::-webkit-scrollbar {
+        width: 10px;
+        height: 10px;
+    }
+
+    ::-webkit-scrollbar-track {
+        background: transparent;
+    }
+
+    ::-webkit-scrollbar-thumb {
+        background: var(--c-hairline-strong);
+        border: 3px solid var(--c-app);
+        border-radius: 999px;
+    }
+}
+
+@layer utilities {
+    .bg-grid {
+        background-image:
+            linear-gradient(to right, rgb(148 163 184 / 0.07) 1px, transparent 1px),
+            linear-gradient(to bottom, rgb(148 163 184 / 0.07) 1px, transparent 1px);
+        background-size: 44px 44px;
+    }
+
+    .text-gradient {
+        background-image: linear-gradient(90deg, var(--c-accent), var(--c-info));
+        background-clip: text;
+        -webkit-background-clip: text;
+        color: transparent;
+    }
+
+    /* Elevation reads differently per theme: light needs a soft drop shadow,
+       dark needs a lifted surface plus a hairline. */
+    .elevate {
+        box-shadow: 0 1px 2px rgb(var(--c-shadow) / 0.06), 0 1px 3px rgb(var(--c-shadow) / 0.04);
+    }
+
+    .elevate-lg {
+        box-shadow: 0 10px 30px -12px rgb(var(--c-shadow) / 0.25), 0 2px 8px rgb(var(--c-shadow) / 0.06);
+    }
+
+    /* Tabular figures keep money columns from jittering as values change. */
+    .numeric {
+        font-variant-numeric: tabular-nums;
+        font-feature-settings: 'tnum';
+    }
+
+    .scrollbar-none {
+        scrollbar-width: none;
+    }
+
+    .scrollbar-none::-webkit-scrollbar {
+        display: none;
+    }
+}
+
+/* Livewire swaps content without a page load; this keeps the transition calm. */
+[wire\:loading] {
+    transition: opacity 150ms ease;
+}
+
+/* Prevents Alpine-controlled panels flashing open before Alpine boots. */
+[x-cloak] {
+    display: none !important;
+}

@@ -1,0 +1,134 @@
+<div>
+    <x-ui.page-header :title="$member ? 'Edit '.$member->name : 'New '.$organisation->term('member_singular')"
+        :back="$member ? route('tenant.members.show', $member) : route('tenant.members.index')"
+        :back-label="$member ? $member->name : $organisation->term('member_plural')" />
+
+    <div class="grid gap-5 lg:grid-cols-3">
+        <form wire:submit="save" class="space-y-5 lg:col-span-2">
+            <x-ui.card title="Identity">
+                <div class="grid gap-4 sm:grid-cols-2">
+                    <x-ui.input class="sm:col-span-2" wire:model="name" name="name" label="Full name" required />
+                    <x-ui.input wire:model="phone" name="phone" label="Phone" required
+                        hint="Used for WhatsApp receipts and reminders." />
+                    <x-ui.input wire:model="email" name="email" label="Email" type="email" />
+                    <x-ui.input wire:model="dateOfBirth" name="dateOfBirth" label="Date of birth" type="date" />
+
+                    <x-ui.select wire:model="gender" name="gender" label="Gender">
+                        <option value="">Prefer not to say</option>
+                        @foreach (['Female', 'Male', 'Other'] as $option)
+                            <option value="{{ $option }}">{{ $option }}</option>
+                        @endforeach
+                    </x-ui.select>
+
+                    <x-ui.input class="sm:col-span-2" wire:model="addressLine" name="addressLine" label="Address" />
+                </div>
+            </x-ui.card>
+
+            <x-ui.card :title="'Membership'">
+                <div class="grid gap-4 sm:grid-cols-2">
+                    @if ($member)
+                        {{-- Club is only changed through the transfer flow, so the
+                             history stays accurate (MEP 5.7). --}}
+                        <x-ui.field :label="$organisation->term('club_singular')"
+                            :hint="'Use Transfer to move this '.strtolower($organisation->term('member_singular')).' to another '.strtolower($organisation->term('club_singular')).'.'">
+                            <input type="text" disabled value="{{ $member->primaryClub?->name ?? 'Unassigned' }}"
+                                class="min-h-[40px] w-full cursor-not-allowed rounded-lg border border-hairline-strong bg-sunken px-3 py-2 text-sm text-ink-muted">
+                        </x-ui.field>
+                    @else
+                        <x-ui.select wire:model="primaryClubId" name="primaryClubId"
+                            :label="$organisation->term('club_singular')" required>
+                            <option value="">Select…</option>
+                            @foreach ($availableClubs as $club)
+                                <option value="{{ $club->id }}">{{ $club->name }}</option>
+                            @endforeach
+                        </x-ui.select>
+                    @endif
+
+                    <x-ui.input wire:model="joinedAt" name="joinedAt" label="Joined on" type="date" required />
+
+                    <x-ui.select wire:model="status" name="status" label="Status" required>
+                        @foreach ($statuses as $case)
+                            <option value="{{ $case->value }}">{{ $case->label() }}</option>
+                        @endforeach
+                    </x-ui.select>
+                </div>
+            </x-ui.card>
+
+            <x-ui.card title="Emergency contact">
+                <div class="grid gap-4 sm:grid-cols-2">
+                    <x-ui.input wire:model="emergencyName" name="emergencyName" label="Contact name" />
+                    <x-ui.input wire:model="emergencyPhone" name="emergencyPhone" label="Contact phone" />
+                </div>
+            </x-ui.card>
+
+            <x-ui.card title="Notes">
+                <x-ui.textarea wire:model="notes" name="notes" rows="4"
+                    placeholder="Injuries, goals, preferences, follow-up context…">{{ $notes }}</x-ui.textarea>
+            </x-ui.card>
+
+            <div class="flex flex-wrap gap-2">
+                <x-ui.button type="submit" variant="primary" size="lg" wire:loading.attr="disabled" wire:target="save">
+                    <span wire:loading.remove wire:target="save">
+                        {{ $member ? 'Save changes' : 'Add '.strtolower($organisation->term('member_singular')) }}
+                    </span>
+                    <span wire:loading wire:target="save" class="inline-flex items-center gap-1.5"><x-ui.spinner /> Saving…</span>
+                </x-ui.button>
+
+                <x-ui.button size="lg" variant="ghost" wire:navigate
+                    :href="$member ? route('tenant.members.show', $member) : route('tenant.members.index')">Cancel</x-ui.button>
+            </div>
+        </form>
+
+        <div class="space-y-5">
+            @if ($member)
+                @can('transfer', $member)
+                    <x-ui.card :title="'Transfer '.strtolower($organisation->term('club_singular'))"
+                        description="Moves this record to another location and writes a history entry. Past attendance and payments keep their original club.">
+                        <form wire:submit="transfer" class="space-y-3">
+                            <x-ui.select wire:model="transferClubId" name="transferClubId" label="Move to" required>
+                                <option value="">Select…</option>
+                                @foreach ($availableClubs as $club)
+                                    @if ($club->id !== $primaryClubId)
+                                        <option value="{{ $club->id }}">{{ $club->name }}</option>
+                                    @endif
+                                @endforeach
+                            </x-ui.select>
+
+                            <x-ui.textarea wire:model="transferReason" name="transferReason" label="Reason" rows="2"
+                                placeholder="Optional">{{ $transferReason }}</x-ui.textarea>
+
+                            <x-ui.button type="submit" class="w-full" wire:loading.attr="disabled" wire:target="transfer">
+                                <span wire:loading.remove wire:target="transfer">Transfer</span>
+                                <span wire:loading wire:target="transfer" class="inline-flex items-center gap-1.5"><x-ui.spinner /> Transferring…</span>
+                            </x-ui.button>
+                        </form>
+                    </x-ui.card>
+                @endcan
+
+                @if ($history->isNotEmpty())
+                    <x-ui.card :padded="false" :title="$organisation->term('club_singular').' history'">
+                        <ol class="divide-y divide-[var(--c-hairline)]">
+                            @foreach ($history as $entry)
+                                <li class="px-4 py-2.5">
+                                    <p class="text-sm text-ink">
+                                        {{ $entry->fromClub?->name ?? 'Unassigned' }} →
+                                        <span class="font-medium">{{ $entry->toClub?->name }}</span>
+                                    </p>
+                                    <p class="numeric text-xs text-ink-muted">{{ $entry->changed_at->format('d M Y') }}</p>
+                                    @if ($entry->reason)
+                                        <p class="mt-0.5 text-xs text-ink-soft">{{ $entry->reason }}</p>
+                                    @endif
+                                </li>
+                            @endforeach
+                        </ol>
+                    </x-ui.card>
+                @endif
+            @else
+                <x-ui.alert tone="info" title="After adding">
+                    You can start a plan, collect a fee, and mark attendance from the
+                    {{ strtolower($organisation->term('member_singular')) }}'s profile.
+                </x-ui.alert>
+            @endif
+        </div>
+    </div>
+</div>
