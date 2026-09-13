@@ -1,0 +1,15 @@
+# Optional overlay for deployments where the bundled nginx terminates TLS
+# itself — that is, nothing else fronts the stack. Behind Cloudflare or a
+# host nginx you do NOT want this file; the base stack publishes HTTP only.
+#
+#   docker compose -f docker-compose.yml -f docker-compose.tls.yml up -d
+#
+# Put the certificate and key in docker/nginx/certs/ and add a
+# `listen 443 ssl` server block to docker/nginx/conf.d/app.conf, which ships
+# with `listen 80` only.
+
+services:
+  nginx:
+    ports:
+      - "${HTTP_PORT:-80}:80"
+      - "${HTTPS_PORT:-443}:443"

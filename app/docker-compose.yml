@@ -26,9 +26,13 @@ services:
     image: nginx:1.27-alpine
     depends_on:
       - app
+    # Only HTTP is published. TLS is normally terminated in front of this
+    # stack (Cloudflare, or the server's own nginx), and publishing 443 here
+    # would collide with whatever already owns it on the host. To have this
+    # nginx terminate TLS instead, add the optional overlay:
+    #   docker compose -f docker-compose.yml -f docker-compose.tls.yml up -d
     ports:
       - "${HTTP_PORT:-80}:80"
-      - "${HTTPS_PORT:-443}:443"
     volumes:
       - ./docker/nginx/conf.d:/etc/nginx/conf.d:ro
       - ./docker/nginx/certs:/etc/nginx/certs:ro
