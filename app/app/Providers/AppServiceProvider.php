@@ -19,6 +19,8 @@ use App\Models\Organisation;
 use App\Models\OrganisationUser;
 use App\Models\Plan;
 use App\Models\StorageBucket;
+use App\Models\Task;
+use App\Models\TaskCategory;
 use Illuminate\Auth\Middleware\Authenticate;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\Relation;
@@ -78,6 +80,8 @@ class AppServiceProvider extends ServiceProvider
             'storage_bucket' => StorageBucket::class,
             'invoice' => Invoice::class,
             'billable_item' => BillableItem::class,
+            'task' => Task::class,
+            'task_category' => TaskCategory::class,
         ]);
 
         // The `auth` middleware serves two entirely separate guards (the

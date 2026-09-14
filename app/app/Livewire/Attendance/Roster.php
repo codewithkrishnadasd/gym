@@ -7,7 +7,6 @@ namespace App\Livewire\Attendance;
 use App\Actions\Attendance\MarkAttendance;
 use App\Enums\AttendanceAction;
 use App\Enums\AttendanceSubjectType;
-use App\Enums\ClubAssignmentStatus;
 use App\Enums\MembershipStatus;
 use App\Enums\MemberStatus;
 use App\Livewire\Concerns\ResolvesMembership;
@@ -23,9 +22,12 @@ use Livewire\Attributes\Url;
 use Livewire\Component;
 
 /**
- * The daily attendance workflow for one club and one date (MEP.md 6.7).
- * Serves both the member roster and the staff roster; which one is decided
- * by the route, and each is permissioned separately.
+ * The daily attendance workflow (MEP.md 6.7). Serves both rosters; which one
+ * is decided by the route, and each is permissioned separately.
+ *
+ * Members are marked per club and date. Staff are marked per date only —
+ * a person is in or not for the day, whichever clubs they work across — so
+ * the staff roster has no club selector and its records carry no club.
  *
  * Marking is optimistic on the client and idempotent on the server — the
  * upsert in MarkAttendance is keyed on the table's unique index, so two staff
@@ -57,11 +59,31 @@ class Roster extends Component
 
         $this->date = $this->date !== '' ? $this->date : Carbon::today($this->organisation()->timezone)->toDateString();
 
+        if ($this->isStaffRoster()) {
+            $this->clubId = null;
+
+            return;
+        }
+
         $clubs = $this->accessibleClubs();
 
         if ($this->clubId === null || ! $clubs->contains('id', $this->clubId)) {
             $this->clubId = $clubs->first()?->id;
         }
+    }
+
+    public function isStaffRoster(): bool
+    {
+        return $this->subjectType === AttendanceSubjectType::User;
+    }
+
+    /**
+     * Whether there is a roster to mark: staff always, members only once a
+     * club is chosen.
+     */
+    private function hasScope(): bool
+    {
+        return $this->isStaffRoster() || $this->clubId !== null;
     }
 
     public function updatedClubId(): void
@@ -85,14 +107,15 @@ class Roster extends Component
     {
         $club = $this->currentClub();
 
-        if (! $club) {
+        if (! $this->hasScope()) {
             return;
         }
 
-        $this->authorize('mark', [Attendance::class, $this->subjectType, $club->id]);
-        $this->assertSubjectBelongsToClub($subjectId, $club);
+        $this->authorize('mark', [Attendance::class, $this->subjectType, $club?->id]);
+        $this->assertSubjectOnRoster($subjectId, $club);
 
         app(MarkAttendance::class)->handle(
+            organisation: $this->organisation(),
             club: $club,
             subjectType: $this->subjectType,
             subjectId: $subjectId,
@@ -113,16 +136,17 @@ class Roster extends Component
     {
         $club = $this->currentClub();
 
-        if (! $club) {
+        if (! $this->hasScope()) {
             return;
         }
 
-        $this->authorize('mark', [Attendance::class, $this->subjectType, $club->id]);
+        $this->authorize('mark', [Attendance::class, $this->subjectType, $club?->id]);
 
         $existing = $this->attendanceBySubject()->keys()->all();
         $unmarked = $this->roster()->pluck('id')->reject(fn (int $id): bool => in_array($id, $existing, true))->values()->all();
 
         $count = app(MarkAttendance::class)->handleMany(
+            organisation: $this->organisation(),
             club: $club,
             subjectType: $this->subjectType,
             subjectIds: $unmarked,
@@ -142,17 +166,14 @@ class Roster extends Component
     }
 
     /**
-     * Defence in depth: the roster query already scopes to the club, but an
+     * Defence in depth: the roster query already scopes who is listed, but an
      * ID arriving from the client is re-checked before it is written.
      */
-    private function assertSubjectBelongsToClub(int $subjectId, Club $club): void
+    private function assertSubjectOnRoster(int $subjectId, ?Club $club): void
     {
-        $belongs = $this->subjectType === AttendanceSubjectType::Member
-            ? Member::query()->whereKey($subjectId)->where('primary_club_id', $club->id)->exists()
-            : OrganisationUser::query()->whereKey($subjectId)->whereHas(
-                'clubAssignments',
-                fn ($query) => $query->where('club_id', $club->id)->where('status', ClubAssignmentStatus::Active)
-            )->exists();
+        $belongs = $this->isStaffRoster()
+            ? OrganisationUser::query()->whereKey($subjectId)->where('status', MembershipStatus::Active)->exists()
+            : ($club !== null && Member::query()->whereKey($subjectId)->where('primary_club_id', $club->id)->exists());
 
         abort_unless($belongs, 403);
     }
@@ -162,11 +183,11 @@ class Roster extends Component
      */
     protected function roster(): Collection
     {
-        if ($this->clubId === null) {
+        if (! $this->hasScope()) {
             return collect();
         }
 
-        if ($this->subjectType === AttendanceSubjectType::Member) {
+        if (! $this->isStaffRoster()) {
             return Member::query()
                 ->where('primary_club_id', $this->clubId)
                 ->whereIn('status', [MemberStatus::Active, MemberStatus::Paused])
@@ -183,12 +204,11 @@ class Roster extends Component
                 ));
         }
 
+        // Every active person in the organisation, admins included: staff
+        // attendance is not tied to where they were rostered.
         return OrganisationUser::query()
             ->with('user')
             ->where('status', MembershipStatus::Active)
-            ->whereHas('clubAssignments', fn ($query) => $query
-                ->where('club_id', $this->clubId)
-                ->where('status', ClubAssignmentStatus::Active))
             ->get()
             ->filter(fn (OrganisationUser $staff): bool => $this->search === ''
                 || str_contains(strtolower((string) $staff->user?->name), strtolower($this->search)))
@@ -206,7 +226,7 @@ class Roster extends Component
      */
     protected function attendanceBySubject(): Collection
     {
-        if ($this->clubId === null) {
+        if (! $this->hasScope()) {
             return collect();
         }
 
@@ -237,7 +257,8 @@ class Roster extends Component
             'markedCount' => $marked,
             'unmarkedCount' => max(0, $roster->count() - $marked),
             'isToday' => Carbon::parse($this->date)->isSameDay(Carbon::today($this->organisation()->timezone)),
-            'canMark' => $this->clubId !== null
+            'isStaffRoster' => $this->isStaffRoster(),
+            'canMark' => $this->hasScope()
                 && auth()->user()?->can('mark', [Attendance::class, $this->subjectType, $this->clubId]),
         ])->layout('components.layouts.app', ['heading' => 'Attendance']);
     }

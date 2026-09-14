@@ -44,40 +44,40 @@
     {{-- Core cards (MEP 6.2). --}}
     <div class="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
         <x-ui.stat label="Revenue collected" :value="$organisation->moneyCompact($revenue)" icon="banknotes" tone="positive"
-            :delta="$revenueDelta" :delta-tone="$revenueTone" hint="vs previous period" />
+            :delta="$revenueDelta" :delta-tone="$revenueTone" hint="vs previous period" :href="$links['revenue']" wire:navigate />
 
         <x-ui.stat label="Outstanding fees" :value="$organisation->moneyCompact($outstanding)" icon="exclamation-circle"
-            :tone="$outstanding > 0 ? 'caution' : 'neutral'" hint="across active plans" />
+            :tone="$outstanding > 0 ? 'caution' : 'neutral'" hint="across active plans" :href="$links['outstanding']" wire:navigate />
 
         <x-ui.stat label="Expenses" :value="$organisation->moneyCompact($expenses)" icon="receipt-percent" tone="critical"
-            hint="completed only" />
+            hint="completed only" :href="$links['expenses']" wire:navigate />
 
         <x-ui.stat label="Net movement" :value="$organisation->moneyCompact($netMovement)" icon="arrows-right-left"
-            :tone="$netMovement >= 0 ? 'positive' : 'critical'" hint="revenue − expenses" />
+            :tone="$netMovement >= 0 ? 'positive' : 'critical'" hint="revenue − expenses" :href="$links['net']" wire:navigate />
 
         <x-ui.stat :label="'Active '.strtolower($organisation->term('member_plural'))" :value="number_format($activeMembers)"
-            icon="user-group" tone="accent" :href="route('tenant.members.index')" />
+            icon="user-group" tone="accent" :href="$links['activeMembers']" wire:navigate />
 
         <x-ui.stat :label="'New '.strtolower($organisation->term('member_plural'))" :value="number_format($newMembers)"
-            icon="user-plus" :delta="$membersDelta" :delta-tone="$membersTone" hint="this period" />
+            icon="user-plus" :delta="$membersDelta" :delta-tone="$membersTone" hint="this period" :href="$links['newMembers']" wire:navigate />
 
         <x-ui.stat label="Expiring plans" :value="number_format($expiring)" icon="clock"
-            :tone="$expiring > 0 ? 'caution' : 'neutral'" hint="next 30 days" />
+            :tone="$expiring > 0 ? 'caution' : 'neutral'" hint="next 30 days" :href="$links['expiring']" wire:navigate />
 
         <x-ui.stat label="Pending confirmations" :value="number_format($pendingCount)" icon="check-badge"
-            :tone="$pendingCount > 0 ? 'caution' : 'positive'" :href="route('tenant.finance.confirmations')"
+            :tone="$pendingCount > 0 ? 'caution' : 'positive'" :href="$links['pending']" wire:navigate
             :hint="$organisation->moneyCompact($pendingValue).' awaiting'" />
     </div>
 
     <div class="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
         <x-ui.stat label="Attendance rate" :value="$attendanceRate.'%'" icon="chart-bar"
-            :tone="$attendanceRate >= 60 ? 'positive' : 'caution'" hint="present or late, this period" />
+            :tone="$attendanceRate >= 60 ? 'positive' : 'caution'" hint="present or late, this period" :href="$links['attendanceRate']" wire:navigate />
         <x-ui.stat label="Today's attendance" :value="number_format($todaysAttendance)" icon="clipboard-document-check"
-            :href="route('tenant.attendance.members')" hint="checked in today" />
+            :href="$links['todaysAttendance']" wire:navigate hint="checked in today" />
         <x-ui.stat :label="'Active '.strtolower($organisation->term('user_plural'))" :value="number_format($activeStaff)"
-            icon="identification" :href="route('tenant.staff.index')" />
+            icon="identification" :href="$links['staff']" wire:navigate />
         <x-ui.stat :label="$organisation->term('club_plural')" :value="number_format($clubs->count())"
-            icon="building-office-2" :href="route('tenant.clubs.index')" hint="active" />
+            icon="building-office-2" :href="$links['clubs']" wire:navigate hint="active" />
     </div>
 
     {{-- Trends. --}}

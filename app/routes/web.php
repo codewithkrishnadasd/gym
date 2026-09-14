@@ -39,6 +39,9 @@ use App\Livewire\Reports\Index as ReportIndex;
 use App\Livewire\Settings\OrganisationSettings;
 use App\Livewire\Staff\Form as StaffForm;
 use App\Livewire\Staff\Index as StaffIndex;
+use App\Livewire\Tasks\Form as TaskForm;
+use App\Livewire\Tasks\Index as TaskIndex;
+use App\Livewire\Tasks\Show as TaskShow;
 use Illuminate\Support\Facades\Route;
 
 // Platform ("root") surface — reachable only through the dedicated platform
@@ -180,6 +183,13 @@ Route::middleware(['auth:web', EnsureActiveMembership::class])->group(function (
         Route::get('/create', BillingForm::class)->name('create');
         Route::get('/{invoice}', BillingShow::class)->name('show');
         Route::get('/{invoice}/pdf', [DocumentController::class, 'invoice'])->name('pdf');
+    });
+
+    Route::prefix('tasks')->name('tenant.tasks.')->group(function (): void {
+        Route::get('/', TaskIndex::class)->name('index');
+        Route::get('/create', TaskForm::class)->name('create');
+        Route::get('/{task}', TaskShow::class)->name('show');
+        Route::get('/{task}/edit', TaskForm::class)->name('edit');
     });
 
     Route::get('/messages', NotificationIndex::class)->name('tenant.notifications.index');

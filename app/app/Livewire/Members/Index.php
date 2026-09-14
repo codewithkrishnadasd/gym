@@ -37,6 +37,53 @@ class Index extends Component
     #[Url]
     public string $plan = '';
 
+    /**
+     * Narrowings reached from a dashboard card rather than the filter bar,
+     * so a KPI opens the exact rows it counted: joined in a date range,
+     * owing on a plan, or on a plan ending by a date.
+     */
+    #[Url]
+    public string $joinedFrom = '';
+
+    #[Url]
+    public string $joinedTo = '';
+
+    #[Url]
+    public string $balance = '';
+
+    #[Url]
+    public string $endingBy = '';
+
+    public function clearNarrowing(): void
+    {
+        $this->reset(['joinedFrom', 'joinedTo', 'balance', 'endingBy']);
+        $this->resetPage();
+    }
+
+    /**
+     * Human description of the dashboard narrowing in effect, or null.
+     */
+    public function narrowingLabel(): ?string
+    {
+        $parts = [];
+
+        if ($this->joinedFrom !== '' || $this->joinedTo !== '') {
+            $from = $this->joinedFrom !== '' ? Carbon::parse($this->joinedFrom)->format('d M Y') : '…';
+            $to = $this->joinedTo !== '' ? Carbon::parse($this->joinedTo)->format('d M Y') : '…';
+            $parts[] = "joined {$from} – {$to}";
+        }
+
+        if ($this->balance === 'due') {
+            $parts[] = 'owing plan fees';
+        }
+
+        if ($this->endingBy !== '') {
+            $parts[] = 'plan ending by '.Carbon::parse($this->endingBy)->format('d M Y');
+        }
+
+        return $parts === [] ? null : ucfirst(implode(' · ', $parts));
+    }
+
     public function mount(): void
     {
         $this->authorize('viewAny', Member::class);
@@ -97,6 +144,18 @@ class Index extends Component
             )
             ->when($this->club !== '', fn ($query) => $query->where('primary_club_id', $this->club))
             ->when($this->plan !== '', fn ($query) => $this->constrainByPlanHealth($query))
+            ->when($this->joinedFrom !== '', fn ($query) => $query->whereDate('joined_at', '>=', $this->joinedFrom))
+            ->when($this->joinedTo !== '', fn ($query) => $query->whereDate('joined_at', '<=', $this->joinedTo))
+            // Mirrors OrganisationMetrics::outstandingFees(): any live or lapsed
+            // term with less paid than is due.
+            ->when($this->balance === 'due', fn ($query) => $query->whereHas('subscriptions', fn ($subscriptions) => $subscriptions
+                ->whereIn('status', [SubscriptionStatus::Active, SubscriptionStatus::Expired])
+                ->whereColumn('amount_paid_minor', '<', 'amount_due_minor')))
+            // Mirrors OrganisationMetrics::expiringSubscriptions(): active terms
+            // ending between today and the given date.
+            ->when($this->endingBy !== '', fn ($query) => $query->whereHas('subscriptions', fn ($subscriptions) => $subscriptions
+                ->where('status', SubscriptionStatus::Active)
+                ->whereBetween('end_date', [$this->today()->toDateString(), $this->endingBy])))
             ->orderBy('name');
 
         return $query->paginate(15);
@@ -144,6 +203,7 @@ class Index extends Component
         $organisation = $this->organisation();
 
         return view('livewire.members.index', [
+            'narrowing' => $this->narrowingLabel(),
             'members' => $this->members(),
             'organisation' => $organisation,
             'clubs' => $this->accessibleClubs(true),

@@ -16,6 +16,7 @@
         ['label' => 'Expense categories', 'url' => route('tenant.settings.organisation', ['tab' => 'expenses']), 'active' => $tab === 'expenses'],
         ['label' => 'Billing', 'url' => route('tenant.settings.organisation', ['tab' => 'billing']), 'active' => $tab === 'billing'],
         ['label' => 'Storage', 'url' => route('tenant.settings.organisation', ['tab' => 'storage']), 'active' => $tab === 'storage'],
+        ['label' => 'Tasks', 'url' => route('tenant.settings.organisation', ['tab' => 'tasks']), 'active' => $tab === 'tasks'],
         ['label' => 'Message templates', 'url' => route('tenant.settings.organisation', ['tab' => 'templates']), 'active' => $tab === 'templates'],
     ]" />
 
@@ -339,6 +340,8 @@
         </div>
     @elseif ($tab === 'billing')
         <livewire:settings.billable-items />
+    @elseif ($tab === 'tasks')
+        <livewire:settings.task-categories />
     @elseif ($tab === 'storage')
         <livewire:settings.storage-buckets />
     @elseif ($tab === 'templates')

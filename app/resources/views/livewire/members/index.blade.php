@@ -39,6 +39,18 @@
             </x-ui.filter-select>
         </x-ui.filters>
 
+        @if ($narrowing)
+            {{-- A dashboard card opened this list already narrowed; say so,
+                 and give one click back to the full list. --}}
+            <div class="flex flex-wrap items-center gap-2 border-b border-hairline bg-accent-soft px-4 py-2 text-sm text-accent-ink">
+                <x-heroicon-o-funnel class="h-4 w-4 shrink-0" />
+                <span class="font-medium">Showing:</span> {{ $narrowing }}
+                <button type="button" wire:click="clearNarrowing" class="ml-auto inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium hover:bg-surface">
+                    <x-heroicon-o-x-mark class="h-3.5 w-3.5" /> Clear
+                </button>
+            </div>
+        @endif
+
         <div wire:loading.delay class="w-full"><x-ui.skeleton :rows="6" /></div>
 
         <div wire:loading.remove>

@@ -32,6 +32,9 @@ class Index extends Component
     public string $category = '';
 
     #[Url]
+    public string $status = '';
+
+    #[Url]
     public string $account = '';
 
     #[Url]
@@ -111,6 +114,7 @@ class Index extends Component
             ->when($this->to !== '', fn (Builder $query) => $query->whereDate('expense_date', '<=', $this->to))
             ->when($this->club !== '', fn (Builder $query) => $query->where('club_id', $this->club))
             ->when($this->category !== '', fn (Builder $query) => $query->where('category', $this->category))
+            ->when($this->status !== '', fn (Builder $query) => $query->where('status', $this->status))
             ->when($this->account !== '', fn (Builder $query) => $query->where('paid_from_financial_account_id', $this->account))
             ->when($this->search !== '', fn (Builder $query) => $query->where(fn (Builder $inner) => $inner
                 ->where('description', 'ilike', "%{$this->search}%")
@@ -141,6 +145,7 @@ class Index extends Component
             'clubs' => $this->accessibleClubs(true),
             'accounts' => FinancialAccount::query()->orderBy('name')->get(),
             'categories' => Expense::categoriesForFilter($organisation),
+            'statuses' => ExpenseStatus::cases(),
             'totalCompleted' => $completed,
             'reversedTotal' => (int) $this->baseQuery()->clone()->where('status', ExpenseStatus::Reversed)->sum('amount_minor'),
         ])->layout('components.layouts.app', ['heading' => 'Expenses']);

@@ -43,6 +43,13 @@
                 @endforeach
             </x-ui.filter-select>
 
+            <x-ui.filter-select wire:model.live="status" label="Status">
+                <option value="">Any status</option>
+                @foreach ($statuses as $case)
+                    <option value="{{ $case->value }}">{{ $case->label() }}</option>
+                @endforeach
+            </x-ui.filter-select>
+
             <x-ui.filter-select wire:model.live="club" label="Club">
                 <option value="">All {{ strtolower($organisation->term('club_plural')) }}</option>
                 @foreach ($clubs as $clubOption)

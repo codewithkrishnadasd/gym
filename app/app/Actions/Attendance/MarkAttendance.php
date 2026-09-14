@@ -9,6 +9,7 @@ use App\Enums\AttendanceSource;
 use App\Enums\AttendanceSubjectType;
 use App\Models\Attendance;
 use App\Models\Club;
+use App\Models\Organisation;
 use App\Models\OrganisationUser;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -24,8 +25,13 @@ use Illuminate\Support\Facades\DB;
  */
 final class MarkAttendance
 {
+    /**
+     * `$club` is null for staff: their attendance is a day for the
+     * organisation, not a day at a club.
+     */
     public function handle(
-        Club $club,
+        Organisation $organisation,
+        ?Club $club,
         AttendanceSubjectType $subjectType,
         int $subjectId,
         Carbon $date,
@@ -33,12 +39,10 @@ final class MarkAttendance
         OrganisationUser $actor,
         ?string $notes = null,
     ): Attendance {
-        $organisationId = $club->organisation_id;
-
         Attendance::query()->upsert(
             [[
-                'organisation_id' => $organisationId,
-                'club_id' => $club->id,
+                'organisation_id' => $organisation->id,
+                'club_id' => $club?->id,
                 'subject_type' => $subjectType->value,
                 'subject_id' => $subjectId,
                 'attendance_date' => $date->toDateString(),
@@ -56,7 +60,8 @@ final class MarkAttendance
 
         /** @var Attendance $attendance */
         $attendance = Attendance::query()
-            ->where('club_id', $club->id)
+            ->where('organisation_id', $organisation->id)
+            ->where('club_id', $club?->id)
             ->where('subject_type', $subjectType->value)
             ->where('subject_id', $subjectId)
             ->whereDate('attendance_date', $date->toDateString())
@@ -73,7 +78,8 @@ final class MarkAttendance
      * @param  array<int, int>  $subjectIds
      */
     public function handleMany(
-        Club $club,
+        Organisation $organisation,
+        ?Club $club,
         AttendanceSubjectType $subjectType,
         array $subjectIds,
         Carbon $date,
@@ -87,8 +93,8 @@ final class MarkAttendance
         $now = now();
 
         $rows = array_map(fn (int $subjectId): array => [
-            'organisation_id' => $club->organisation_id,
-            'club_id' => $club->id,
+            'organisation_id' => $organisation->id,
+            'club_id' => $club?->id,
             'subject_type' => $subjectType->value,
             'subject_id' => $subjectId,
             'attendance_date' => $date->toDateString(),

@@ -55,6 +55,14 @@ final class Navigation
                     'active' => 'tenant.attendance.*',
                     'mobile' => true,
                 ] : null,
+                // Every active membership: tasks are how the team coordinates.
+                [
+                    'label' => 'Tasks',
+                    'route' => 'tenant.tasks.index',
+                    'icon' => 'check-circle',
+                    'active' => 'tenant.tasks.*',
+                    'mobile' => true,
+                ],
             ])),
         ];
 

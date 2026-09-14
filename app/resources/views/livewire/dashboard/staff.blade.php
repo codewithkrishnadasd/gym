@@ -49,13 +49,13 @@
     @if ($canCollectFees)
         <div class="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
             <x-ui.stat label="You collected" :value="$organisation->moneyCompact($confirmedTotal)" icon="check-circle"
-                tone="positive" hint="confirmed, all time" />
+                tone="positive" hint="confirmed, all time" :href="$links['ownConfirmed']" wire:navigate />
             <x-ui.stat label="Awaiting confirmation" :value="$organisation->moneyCompact($pendingTotal)" icon="clock"
-                :tone="$pendingCount > 0 ? 'caution' : 'neutral'" :hint="$pendingCount.' submitted'" />
+                :tone="$pendingCount > 0 ? 'caution' : 'neutral'" :hint="$pendingCount.' submitted'" :href="$links['ownPending']" wire:navigate />
             <x-ui.stat label="Rejected" :value="number_format($rejectedCount)" icon="x-circle"
-                :tone="$rejectedCount > 0 ? 'critical' : 'neutral'" hint="need follow-up" />
+                :tone="$rejectedCount > 0 ? 'critical' : 'neutral'" hint="need follow-up" :href="$links['ownRejected']" wire:navigate />
             <x-ui.stat :label="strtolower($organisation->term('member_plural')).' on your roster'" :value="number_format($rosterSize)"
-                icon="user-group" />
+                icon="user-group" :href="$links['roster']" wire:navigate />
         </div>
     @endif
 

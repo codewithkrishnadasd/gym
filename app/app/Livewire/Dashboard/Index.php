@@ -99,6 +99,7 @@ class Index extends Component
             'organisation' => $organisation,
             'membership' => $membership,
             'period' => $period,
+            'links' => $this->links($period),
             'presets' => ReportPeriod::presets($organisation->timezone),
             'clubs' => $this->accessibleClubs(),
         ];
@@ -108,6 +109,42 @@ class Index extends Component
                 ->layout('components.layouts.app', ['heading' => 'Dashboard'])
             : view('livewire.dashboard.staff', [...$shared, ...$this->staffData($metrics)])
                 ->layout('components.layouts.app', ['heading' => 'Dashboard']);
+    }
+
+    /**
+     * Where each KPI card leads: the list it was counted from, opened with
+     * the same period and club so the rows add up to the figure shown.
+     *
+     * @return array<string, string>
+     */
+    private function links(ReportPeriod $period): array
+    {
+        $organisation = $this->organisation();
+        $today = Carbon::today($organisation->timezone);
+        $club = $this->club !== '' ? ['club' => $this->club] : [];
+        $range = ['from' => $period->from->toDateString(), 'to' => $period->to->toDateString(), ...$club];
+        $reportRange = ['range' => $this->range, ...$range];
+
+        return [
+            'revenue' => route('tenant.finance.payments.index', ['status' => ConfirmationStatus::Confirmed->value, ...$range]),
+            'outstanding' => route('tenant.members.index', ['balance' => 'due', ...$club]),
+            'expenses' => route('tenant.finance.expenses.index', ['status' => 'completed', ...$range]),
+            'net' => route('tenant.reports.index', ['tab' => 'finance', ...$reportRange]),
+            'activeMembers' => route('tenant.members.index', ['status' => MemberStatus::Active->value, ...$club]),
+            'newMembers' => route('tenant.members.index', ['joinedFrom' => $period->from->toDateString(), 'joinedTo' => $period->to->toDateString(), ...$club]),
+            'expiring' => route('tenant.members.index', ['endingBy' => $today->copy()->addDays(30)->toDateString(), ...$club]),
+            'pending' => route('tenant.finance.confirmations', $club),
+            'attendanceRate' => route('tenant.reports.index', ['tab' => 'attendance', ...$reportRange]),
+            'todaysAttendance' => route('tenant.attendance.members', ['date' => $today->toDateString(), ...($this->club !== '' ? ['clubId' => $this->club] : [])]),
+            'staff' => route('tenant.staff.index'),
+            'clubs' => route('tenant.clubs.index'),
+            // Staff cards are "all time", so the payment list is opened from
+            // the day the organisation started.
+            'ownConfirmed' => route('tenant.finance.payments.index', ['status' => ConfirmationStatus::Confirmed->value, 'from' => $organisation->created_at?->toDateString(), 'to' => $today->toDateString()]),
+            'ownPending' => route('tenant.finance.payments.index', ['status' => ConfirmationStatus::PendingAdminConfirmation->value, 'from' => $organisation->created_at?->toDateString(), 'to' => $today->toDateString()]),
+            'ownRejected' => route('tenant.finance.payments.index', ['status' => ConfirmationStatus::Rejected->value, 'from' => $organisation->created_at?->toDateString(), 'to' => $today->toDateString()]),
+            'roster' => route('tenant.members.index', $club),
+        ];
     }
 
     /**
