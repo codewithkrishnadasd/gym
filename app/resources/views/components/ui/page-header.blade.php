@@ -19,6 +19,9 @@
     </div>
 
     @if ($actions)
-        <div class="flex shrink-0 flex-wrap items-center gap-2">{{ $actions }}</div>
+        {{-- No `shrink-0` here: it would stop this box narrowing, so its own
+             flex-wrap would never trigger and a row of four actions would push
+             the whole page wider than a phone screen. --}}
+        <div class="flex min-w-0 flex-wrap items-center gap-2">{{ $actions }}</div>
     @endif
 </div>

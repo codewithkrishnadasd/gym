@@ -4,10 +4,13 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Enums\SubscriptionHealth;
 use App\Enums\SubscriptionStatus;
 use App\Models\Concerns\BelongsToOrganisation;
+use Carbon\CarbonInterface;
 use Database\Factories\MemberSubscriptionFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -28,6 +31,47 @@ class MemberSubscription extends Model
             'amount_due_minor' => 'integer',
             'amount_paid_minor' => 'integer',
         ];
+    }
+
+    /**
+     * What this term is doing today, which is not the same as the `status`
+     * column — nothing writes to that when a term simply runs out. See
+     * App\Enums\SubscriptionHealth.
+     */
+    public function health(CarbonInterface $today): SubscriptionHealth
+    {
+        return SubscriptionHealth::for($this, $today);
+    }
+
+    /**
+     * Constrains a query to terms in a given derived state. Kept here so the
+     * member list filter and the badges cannot drift apart: both go through
+     * SubscriptionHealth::WARNING_DAYS.
+     *
+     * @param  Builder<self>  $query
+     * @return Builder<self>
+     */
+    public function scopeInHealth(Builder $query, SubscriptionHealth $health, CarbonInterface $today): Builder
+    {
+        $horizon = $today->copy()->addDays(SubscriptionHealth::WARNING_DAYS);
+
+        return match ($health) {
+            SubscriptionHealth::Expired => $query
+                ->where('status', SubscriptionStatus::Active)
+                ->whereDate('end_date', '<', $today),
+            SubscriptionHealth::ExpiringSoon => $query
+                ->where('status', SubscriptionStatus::Active)
+                ->whereDate('end_date', '>=', $today)
+                ->whereDate('end_date', '<=', $horizon),
+            SubscriptionHealth::Active => $query
+                ->where('status', SubscriptionStatus::Active)
+                ->whereDate('end_date', '>', $horizon),
+            SubscriptionHealth::Paused => $query->where('status', SubscriptionStatus::Paused),
+            SubscriptionHealth::Cancelled => $query->where('status', SubscriptionStatus::Cancelled),
+            // "No plan" is the absence of a row, so it cannot be expressed as a
+            // constraint on one — callers use whereDoesntHave instead.
+            SubscriptionHealth::None => $query->whereRaw('1 = 0'),
+        };
     }
 
     /**

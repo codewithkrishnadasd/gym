@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Livewire\Staff;
 
+use App\Actions\Auth\IssuePasswordResetLink;
 use App\Actions\Notifications\CreateActionNotification;
 use App\Enums\ClubAssignmentStatus;
 use App\Enums\MembershipRole;
@@ -21,6 +22,7 @@ use App\Models\WhatsappActionNotification;
 use App\Support\PhoneNumber;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 use Livewire\Component;
@@ -34,8 +36,6 @@ class Form extends Component
     public string $name = '';
 
     public string $phone = '';
-
-    public string $password = '';
 
     public string $role = 'user';
 
@@ -72,6 +72,17 @@ class Form extends Component
         }
     }
 
+    /**
+     * Ticking a permission ticks whatever it depends on, so the form always
+     * shows the access that will actually be granted. Doing this on change
+     * rather than only on save means an admin never saves one thing and gets
+     * another.
+     */
+    public function updatedPermissions(): void
+    {
+        $this->permissions = Permission::expand($this->permissions);
+    }
+
     public function save(): void
     {
         $this->authorize($this->organisationUser ? 'update' : 'create', $this->organisationUser ?? OrganisationUser::class);
@@ -82,23 +93,19 @@ class Form extends Component
             'status' => ['required', Rule::enum(MembershipStatus::class)],
         ];
 
-        if (! $this->organisationUser) {
-            $rules['phone'] = ['required', 'string', 'max:50'];
-            $rules['password'] = ['nullable', 'string', 'min:8'];
-        }
+        // Editable on an existing person too: a staff member who changes their
+        // number would otherwise be locked out permanently, since the number is
+        // how they sign in.
+        $rules['phone'] = ['required', 'string', 'max:50'];
 
         $validated = $this->validate($rules, [], ['phone' => 'WhatsApp number']);
 
-        $normalisedPhone = null;
+        $normalisedPhone = PhoneNumber::normalise($validated['phone'], $this->organisation()->defaultCountry());
 
-        if (! $this->organisationUser) {
-            $normalisedPhone = PhoneNumber::normalise($validated['phone'], $this->organisation()->defaultCountry());
+        if ($normalisedPhone === null) {
+            $this->addError('phone', 'Enter a valid WhatsApp number.');
 
-            if ($normalisedPhone === null) {
-                $this->addError('phone', 'Enter a valid WhatsApp number.');
-
-                return;
-            }
+            return;
         }
 
         // One person is one `users` row across every organisation, so an
@@ -108,12 +115,6 @@ class Form extends Component
             : User::query()->where('phone', $normalisedPhone)->first();
 
         if (! $this->organisationUser) {
-            if (! $existingUser && ! $this->password) {
-                $this->addError('password', 'This number has no account yet — set a password to create one.');
-
-                return;
-            }
-
             if ($existingUser && OrganisationUser::query()
                 ->where('organisation_id', app('tenant')->id)
                 ->where('user_id', $existingUser->id)
@@ -122,15 +123,29 @@ class Form extends Component
 
                 return;
             }
+        } elseif ($existingUser && $existingUser->phone !== $normalisedPhone) {
+            // The number is the login identity and is unique across the whole
+            // platform, so a clash has to be caught here rather than surfacing
+            // as a database error.
+            $taken = User::query()
+                ->where('phone', $normalisedPhone)
+                ->whereKeyNot($existingUser->id)
+                ->exists();
+
+            if ($taken) {
+                $this->addError('phone', 'Another account already signs in with that number.');
+
+                return;
+            }
         }
 
         // Admins bypass the permission map entirely, so storing keys for them
-        // would be misleading (MEP.md 4.2).
+        // would be misleading (MEP.md 4.2). For everyone else the set is
+        // expanded here rather than trusted from the form: the checkboxes are
+        // a convenience, the server decides what a grant actually includes.
         $permissions = MembershipRole::from($validated['role']) === MembershipRole::Admin
             ? []
-            : collect(Permission::keys())
-                ->mapWithKeys(fn (string $key): array => [$key => in_array($key, $this->permissions, true)])
-                ->all();
+            : Permission::map($this->permissions);
 
         $invitedBy = $this->currentMembership();
         $isInvite = $this->organisationUser === null;
@@ -138,14 +153,21 @@ class Form extends Component
         $previousClubIds = $isInvite ? [] : $this->organisationUser->activeClubIds();
 
         $saved = DB::transaction(function () use ($validated, $existingUser, $permissions, $invitedBy, $normalisedPhone): OrganisationUser {
+            // A brand-new account gets an unguessable placeholder nobody ever
+            // sees, including this admin. The person sets their own password
+            // through the reset link issued below, so no password is ever known
+            // to two people at once.
             $user = $existingUser ?? User::create([
                 'name' => $validated['name'],
                 'phone' => $normalisedPhone,
-                'password' => Hash::make($this->password),
+                'password' => Hash::make(Str::password(40)),
             ]);
 
             if ($this->organisationUser) {
-                $user->update(['name' => $validated['name']]);
+                // `users` is one row per person across every organisation, so
+                // this changes how they sign in everywhere — see the warning on
+                // the form.
+                $user->update(['name' => $validated['name'], 'phone' => $normalisedPhone]);
             }
 
             $organisationUser = $this->organisationUser
@@ -162,12 +184,54 @@ class Form extends Component
             return $organisationUser;
         });
 
-        $notification = $this->notify($saved, $isInvite, $previousStatus, $previousClubIds);
+        // A person who already has an account keeps their password and just
+        // needs the invitation. A brand-new account has no usable password at
+        // all, so the link to set one *is* the useful message — sending a
+        // welcome they cannot act on would be worse than sending nothing.
+        $notification = $existingUser === null && $isInvite
+            ? $this->sendPasswordSetupLink($saved)
+            : $this->notify($saved, $isInvite, $previousStatus, $previousClubIds);
 
         session()->flash('status', "\"{$validated['name']}\" was saved.");
         session()->flash('notification_id', $notification?->id);
 
         $this->redirect(route('tenant.staff.index'));
+    }
+
+    /**
+     * The first-sign-in path for a newly created account: a single-use link
+     * that lets them choose their own password, rather than one an admin typed
+     * and now also knows.
+     */
+    private function sendPasswordSetupLink(OrganisationUser $organisationUser): ?WhatsappActionNotification
+    {
+        $organisationUser->refresh();
+
+        /** @var User $user */
+        $user = $organisationUser->user;
+
+        $issued = app(IssuePasswordResetLink::class)->handle(
+            $this->organisation(),
+            $user,
+            $this->currentMembership(),
+        );
+
+        return app(CreateActionNotification::class)->handle(
+            organisation: $this->organisation(),
+            type: NotificationActionType::PasswordResetLink,
+            recipientType: NotificationRecipientType::User,
+            recipientId: $organisationUser->id,
+            recipientName: $user->name,
+            recipientPhone: $user->phone,
+            entityType: NotificationEntityType::User,
+            entityId: $organisationUser->id,
+            actor: $this->currentMembership(),
+            operationId: 'password-reset-'.$issued->link->id,
+            context: [
+                'resetUrl' => $issued->url,
+                'expiresIn' => $issued->expiresLabel(),
+            ],
+        );
     }
 
     /**

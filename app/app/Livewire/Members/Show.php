@@ -97,11 +97,7 @@ class Show extends Component
             amountDueMinor: $amountDue,
         );
 
-        $this->notificationId = WhatsappActionNotification::query()
-            ->where('entity_id', $subscription->id)
-            ->whereIn('entity_type', [NotificationEntityType::Subscription])
-            ->latest('id')
-            ->value('id');
+        $this->showNotification($this->latestSubscriptionNotification($subscription->id));
 
         $this->reset(['planId', 'planAmount']);
         $this->dispatch('close-modal');
@@ -131,7 +127,42 @@ class Show extends Component
         }
 
         $this->lifecycleError = null;
+
+        // Pausing, resuming and cancelling all compose a message for the
+        // member. Without this the notification was created and then never
+        // shown to anyone, so it sat unsent in the queue.
+        $this->showNotification($this->latestSubscriptionNotification($subscription->id));
+
         session()->flash('status', 'Plan updated.');
+    }
+
+    /**
+     * The subscription actions return the subscription rather than the
+     * notification they composed, so the panel finds it by the entity it was
+     * written against.
+     */
+    private function showNotification(?int $notificationId): void
+    {
+        $this->notificationId = $notificationId;
+
+        // Dispatched rather than left to the prop: a child Livewire component
+        // keeps its own state across a parent re-render, so a freshly composed
+        // message only reaches an already-mounted panel as an event.
+        if ($notificationId !== null) {
+            $this->dispatch('notification-created', notificationId: $notificationId);
+        }
+    }
+
+    private function latestSubscriptionNotification(int $subscriptionId): ?int
+    {
+        /** @var int|null $id */
+        $id = WhatsappActionNotification::query()
+            ->where('entity_type', NotificationEntityType::Subscription)
+            ->where('entity_id', $subscriptionId)
+            ->latest('id')
+            ->value('id');
+
+        return $id;
     }
 
     public function archive(): void
@@ -140,7 +171,7 @@ class Show extends Component
 
         $this->member->update(['status' => MemberStatus::Archived]);
 
-        session()->flash('status', "{$this->member->name} was archived.");
+        session()->flash('status', "{$this->member->name} was removed.");
     }
 
     public function restore(): void

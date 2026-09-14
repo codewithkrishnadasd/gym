@@ -57,6 +57,11 @@ class Form extends Component
     {
         $this->authorize('create', FeePayment::class);
 
+        // "Collect fee" on a member's page links here with ?member=<id>. That
+        // is a query parameter, not a route segment, so Livewire does not pass
+        // it to mount() and the picker opened empty.
+        $member ??= request()->integer('member') ?: null;
+
         $this->paymentDate = Carbon::today($this->organisation()->timezone)->toDateString();
         $this->confirmImmediately = $this->currentMembership()->isAdmin();
 
@@ -103,11 +108,26 @@ class Form extends Component
             'subscriptionId' => ['nullable', Rule::exists('member_subscriptions', 'id')->where('organisation_id', $organisation->id)],
             'amount' => ['required', 'numeric', 'gt:0'],
             'paymentMethod' => ['required', Rule::enum(PaymentMethod::class)],
-            'financialAccountId' => ['nullable', Rule::exists('financial_accounts', 'id')->where('organisation_id', $organisation->id)],
+            // Every collection has to name the account the money landed in:
+            // without it the account balances on the finance pages are a
+            // partial picture, and an admin confirming the payment has no way
+            // to check it against a statement.
+            'financialAccountId' => [
+                'required',
+                Rule::exists('financial_accounts', 'id')
+                    ->where('organisation_id', $organisation->id)
+                    ->where('status', FinancialAccountStatus::Active->value),
+            ],
             'transactionReference' => ['nullable', 'string', 'max:255'],
             'paymentDate' => ['required', 'date', 'before_or_equal:today'],
             'notes' => ['nullable', 'string', 'max:1000'],
-        ], [], ['memberId' => $organisation->term('member_singular'), 'amount' => 'amount']);
+        ], [
+            'financialAccountId.required' => 'Choose the account this money was received into.',
+        ], [
+            'memberId' => $organisation->term('member_singular'),
+            'amount' => 'amount',
+            'financialAccountId' => 'receiving account',
+        ]);
 
         /** @var Member $member */
         $member = Member::query()->findOrFail($validated['memberId']);

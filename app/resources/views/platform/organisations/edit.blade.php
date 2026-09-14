@@ -4,17 +4,46 @@
 
     <x-ui.flash />
 
-    {{-- Shown exactly once, straight after generation; never stored in plain
+    {{-- Shown exactly once, straight after it is issued; never stored in plain
          text and never written to the audit event (MEP.md 5.13). --}}
-    @if (session('generated_password'))
-        <div class="mb-4">
-            <x-ui.alert tone="caution" title="New password for {{ session('generated_password_for') }}">
-                <p class="numeric mt-2 select-all rounded-md bg-surface px-3 py-2 font-mono text-base tracking-wide text-ink">
-                    {{ session('generated_password') }}
+    @if (session('reset_link'))
+        {{-- The link lives in x-data on this wrapper rather than inline on the
+             button: @js() inside an x-component's attribute makes Livewire's
+             morph-aware Blade compiler build a regex too large for PCRE.
+
+             copy() uses the window helper because the clipboard API is absent
+             outside a secure context, where calling it directly threw. --}}
+        <div class="mb-4" x-data="{
+            copied: false,
+            copyFailed: false,
+            link: @js(session('reset_link')),
+            async copy() {
+                this.copied = await window.copyToClipboard(this.link);
+                this.copyFailed = ! this.copied;
+
+                setTimeout(() => { this.copied = false; this.copyFailed = false; }, 3000);
+            },
+        }">
+            <x-ui.alert tone="caution" title="Password link for {{ session('reset_link_for') }}">
+                <p class="mt-2 select-all break-all rounded-md bg-surface px-3 py-2 font-mono text-[13px] text-ink">
+                    {{ session('reset_link') }}
                 </p>
+
+                <div class="mt-2 flex flex-wrap items-center gap-2">
+                    <x-ui.button type="button" size="sm" icon="clipboard-document" x-on:click="copy()">
+                        <span x-show="! copied">Copy link</span>
+                        <span x-show="copied" x-cloak class="text-positive">Copied</span>
+                    </x-ui.button>
+
+                    <span x-show="copyFailed" x-cloak class="text-xs text-caution">
+                        Copying was blocked — select the link above and copy it by hand.
+                    </span>
+                </div>
+
                 <p class="mt-2 text-xs">
-                    Copy this now — it will not be shown again. Sign-in is shared across every organisation this person
-                    belongs to, so this changes their password everywhere, not just here.
+                    Send this to them however you normally reach them. It expires in
+                    {{ session('reset_link_expires') }}, works once, and their current password keeps working until
+                    they use it — so nobody is locked out in the meantime.
                 </p>
             </x-ui.alert>
         </div>
@@ -76,6 +105,53 @@
                 </div>
             </x-ui.card>
 
+            @php
+                $accent = old('accent_color', $organisation->accent_color) ?: \App\Support\Theme\AccentPalette::DEFAULT_ACCENT;
+                $preview = \App\Support\Theme\AccentPalette::for($accent);
+            @endphp
+
+            <x-ui.card title="Accent colour"
+                description="The one colour this organisation is branded with — buttons, links, active navigation. Surfaces, text, and the green/amber/red status colours stay fixed, because those carry meaning.">
+
+                <div x-data="{ accent: @js($accent) }" class="flex flex-col gap-4 sm:flex-row sm:items-start">
+                    <div class="shrink-0">
+                        <x-ui.field label="Colour" for="accent_color" name="accent_color">
+                            <div class="flex items-center gap-2">
+                                <input type="color" id="accent_color" name="accent_color" x-model="accent"
+                                    class="h-10 w-14 cursor-pointer rounded-lg border border-hairline-strong bg-surface p-1">
+                                <input type="text" x-model="accent" aria-label="Accent colour hex"
+                                    class="numeric min-h-[40px] w-28 rounded-lg border border-hairline-strong bg-surface px-3 py-2 font-mono text-sm uppercase text-ink focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25">
+                            </div>
+                        </x-ui.field>
+                    </div>
+
+                    {{-- Live swatches, so the choice is judged against both
+                         themes rather than discovered after saving. --}}
+                    <div class="flex-1 space-y-2">
+                        <div class="flex flex-wrap items-center gap-2 rounded-lg border border-hairline bg-surface p-3">
+                            <span class="text-xs font-medium uppercase tracking-wide text-ink-muted">Light</span>
+                            <span class="rounded-lg px-3 py-1.5 text-sm font-medium"
+                                :style="`background:${accent};color:{{ $preview['light']['--c-on-accent'] }}`">Button</span>
+                            <span class="rounded-md px-2 py-0.5 text-xs font-medium"
+                                style="background: {{ $preview['light']['--c-accent-soft'] }}; color: {{ $preview['light']['--c-accent-ink'] }}">Badge</span>
+                        </div>
+
+                        <div class="flex flex-wrap items-center gap-2 rounded-lg border border-hairline p-3" style="background:#080d18">
+                            <span class="text-xs font-medium uppercase tracking-wide" style="color:#6f7f99">Dark</span>
+                            <span class="rounded-lg px-3 py-1.5 text-sm font-medium"
+                                style="background: {{ $preview['dark']['--c-accent'] }}; color: {{ $preview['dark']['--c-on-accent'] }}">Button</span>
+                            <span class="rounded-md px-2 py-0.5 text-xs font-medium"
+                                style="background: {{ $preview['dark']['--c-accent-soft'] }}; color: {{ $preview['dark']['--c-accent-ink'] }}">Badge</span>
+                        </div>
+
+                        <p class="text-xs text-ink-muted">
+                            Save to refresh the dark preview. Text colour on the accent is chosen automatically for
+                            contrast, so a pale colour gets dark text rather than unreadable white.
+                        </p>
+                    </div>
+                </div>
+            </x-ui.card>
+
             <x-ui.card title="Terminology"
                 description="How this organisation refers to members, staff, and clubs throughout the application. Labels only — no stored data changes.">
                 <div class="grid gap-4 sm:grid-cols-2">
@@ -131,11 +207,15 @@
                                 </form>
 
                                 @if ($organisation->domains->count() > 1)
-                                    <form method="POST" action="{{ route('platform.organisations.domains.destroy', [$organisation, $domain]) }}"
-                                        onsubmit="return confirm('Remove {{ $domain->hostname }}? Sign-in through this domain will stop working immediately.')">
+                                    <form method="POST" action="{{ route('platform.organisations.domains.destroy', [$organisation, $domain]) }}">
                                         @csrf
                                         @method('DELETE')
-                                        <x-ui.button type="submit" size="sm" variant="danger">Remove</x-ui.button>
+                                        {{-- The confirmation is on the button, not the form: the
+                                             interceptor replays the click, which submits it. --}}
+                                        <x-ui.button type="submit" size="sm" variant="danger"
+                                            data-confirm-title="Remove this domain?"
+                                            data-confirm-action="Remove domain"
+                                            data-confirm="{{ $domain->hostname }} will stop working for sign-in immediately.">Remove</x-ui.button>
                                     </form>
                                 @endif
                             </div>
@@ -178,10 +258,13 @@
                             </div>
 
                             <form method="POST" action="{{ route('platform.organisations.members.reset-password', [$organisation, $membership]) }}"
-                                class="mt-2"
-                                onsubmit="return confirm('Generate a new password for {{ $membership->user->name }}? Their current password will stop working immediately.')">
+                                class="mt-2">
                                 @csrf
-                                <x-ui.button type="submit" size="sm" class="w-full">Generate new password</x-ui.button>
+                                <x-ui.button type="submit" size="sm" icon="key" class="w-full"
+                                    data-confirm-title="Create a password link?"
+                                    data-confirm-action="Create link"
+                                    data-confirm-tone="accent"
+                                    data-confirm="Any earlier link for {{ $membership->user->name }} stops working. Their current password keeps working until they use this one.">Create password link</x-ui.button>
                             </form>
                         </div>
                     @empty

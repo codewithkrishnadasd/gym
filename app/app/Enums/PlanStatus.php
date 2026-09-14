@@ -7,13 +7,14 @@ namespace App\Enums;
 enum PlanStatus: string
 {
     case Active = 'active';
+    /** Stored as "archived" so existing rows and audit history stay valid; shown to operators as "Removed". */
     case Archived = 'archived';
 
     public function label(): string
     {
         return match ($this) {
             self::Active => 'Active',
-            self::Archived => 'Archived',
+            self::Archived => 'Removed',
         };
     }
 

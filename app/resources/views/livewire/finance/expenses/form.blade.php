@@ -8,7 +8,7 @@
             <x-ui.card title="Expense details">
                 <div class="grid gap-4 sm:grid-cols-2">
                     <x-ui.field label="Category" name="category" for="f-category" required
-                        hint="Pick an existing category or type a new one.">
+                        hint="Pick one of your organisation's categories, or type a one-off.">
                         <input list="expense-categories" id="f-category" wire:model="category"
                             class="min-h-[40px] w-full rounded-lg border border-hairline-strong bg-surface px-3 py-2 text-sm text-ink placeholder:text-ink-muted focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25 max-lg:min-h-[44px]"
                             placeholder="e.g. Equipment">

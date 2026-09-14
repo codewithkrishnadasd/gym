@@ -8,6 +8,7 @@ enum OrganisationStatus: string
 {
     case Active = 'active';
     case Suspended = 'suspended';
+    /** Stored as "archived" so existing rows and audit history stay valid; shown to operators as "Removed". */
     case Archived = 'archived';
 
     public function label(): string
@@ -15,7 +16,7 @@ enum OrganisationStatus: string
         return match ($this) {
             self::Active => 'Active',
             self::Suspended => 'Suspended',
-            self::Archived => 'Archived',
+            self::Archived => 'Removed',
         };
     }
 

@@ -93,7 +93,7 @@
             @if ($canMark && $unmarkedCount > 0)
                 <x-slot:actions>
                     <x-ui.button size="sm" variant="secondary" icon="check-circle" wire:click="markAllPresent"
-                        wire:confirm="Mark the {{ $unmarkedCount }} unmarked {{ strtolower($rosterLabel) }} as present?"
+                        data-confirm-title="Mark everyone present?" data-confirm-action="Mark all present" data-confirm-tone="accent" data-confirm="Mark the {{ $unmarkedCount }} unmarked {{ strtolower($rosterLabel) }} as present?"
                         wire:loading.attr="disabled" wire:target="markAllPresent">
                         Mark all present
                     </x-ui.button>
@@ -148,7 +148,9 @@
                                             wire:target="mark({{ $person->id }}, '{{ $action->value }}')"
                                             aria-pressed="{{ $selected ? 'true' : 'false' }}"
                                             @class([
-                                                'flex min-h-[44px] items-center justify-center gap-1.5 rounded-lg border px-2.5 text-xs font-medium transition sm:min-w-[86px]',
+                                                // Icon over label on a phone: four side-by-side labels need ~267px of
+                                                // a 262px row at 320px, so the last one was clipped.
+                                                'flex min-h-[52px] flex-col items-center justify-center gap-0.5 rounded-lg border px-1 text-[11px] font-medium leading-tight transition sm:min-h-[44px] sm:flex-row sm:gap-1.5 sm:px-2.5 sm:text-xs sm:min-w-[86px]',
                                                 $activeClasses => $selected,
                                                 'border-hairline-strong text-ink-soft hover:bg-sunken' => ! $selected,
                                                 'cursor-not-allowed opacity-50' => ! $canMark,

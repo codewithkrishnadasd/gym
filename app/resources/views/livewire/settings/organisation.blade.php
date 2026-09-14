@@ -13,6 +13,8 @@
         ['label' => 'Profile', 'url' => route('tenant.settings.organisation', ['tab' => 'profile']), 'active' => $tab === 'profile'],
         ['label' => 'Terminology', 'url' => route('tenant.settings.organisation', ['tab' => 'terminology']), 'active' => $tab === 'terminology'],
         ['label' => 'Notifications', 'url' => route('tenant.settings.organisation', ['tab' => 'notifications']), 'active' => $tab === 'notifications'],
+        ['label' => 'Expense categories', 'url' => route('tenant.settings.organisation', ['tab' => 'expenses']), 'active' => $tab === 'expenses'],
+        ['label' => 'Storage', 'url' => route('tenant.settings.organisation', ['tab' => 'storage']), 'active' => $tab === 'storage'],
         ['label' => 'Message templates', 'url' => route('tenant.settings.organisation', ['tab' => 'templates']), 'active' => $tab === 'templates'],
     ]" />
 
@@ -61,6 +63,99 @@
                 </x-ui.card>
             </div>
         </form>
+
+        {{-- Outside the profile form on purpose: picking a file saves straight
+             away, so it must not wait on — or be lost by — a separate Save. --}}
+        <div class="mt-5 grid gap-5 lg:grid-cols-3">
+            <div class="lg:col-span-2">
+                <x-ui.card title="Logo and favicon"
+                    description="Upload one picture. It becomes both the logo on your sign-in page and sidebar, and the small icon in the browser tab — resized and compressed for you.">
+
+                    <div class="flex flex-col gap-5 sm:flex-row sm:items-start">
+                        <div class="shrink-0">
+                            <p class="mb-2 text-xs font-medium uppercase tracking-wide text-ink-muted">Logo</p>
+                            <div class="grid h-24 w-24 place-items-center overflow-hidden rounded-xl border border-hairline bg-sunken">
+                                @if ($organisation->logoUrl())
+                                    <img src="{{ $organisation->logoUrl() }}" alt="{{ $organisation->name }}"
+                                        class="h-full w-full object-contain p-1.5">
+                                @else
+                                    <span class="font-[family-name:var(--font-display)] text-2xl font-bold text-ink-muted">
+                                        {{ mb_strtoupper(mb_substr($organisation->name, 0, 1)) }}
+                                    </span>
+                                @endif
+                            </div>
+                        </div>
+
+                        <div class="shrink-0">
+                            <p class="mb-2 text-xs font-medium uppercase tracking-wide text-ink-muted">Browser tab</p>
+                            {{-- Shown at the size it is actually used, because a
+                                 favicon that reads fine at 96px often does not at 16. --}}
+                            <div class="flex w-44 items-center gap-2 rounded-t-lg border border-b-0 border-hairline bg-sunken px-2.5 py-2">
+                                @if ($organisation->faviconUrl())
+                                    <img src="{{ $organisation->faviconUrl() }}" alt="" class="h-4 w-4 shrink-0 rounded-sm object-cover">
+                                @else
+                                    <span class="grid h-4 w-4 shrink-0 place-items-center rounded-sm bg-accent text-[9px] font-bold text-on-accent">
+                                        {{ mb_strtoupper(mb_substr($organisation->name, 0, 1)) }}
+                                    </span>
+                                @endif
+                                <span class="truncate text-xs text-ink-soft">{{ $organisation->name }}</span>
+                            </div>
+                            <div class="h-2 rounded-b-lg border border-hairline bg-app"></div>
+                        </div>
+
+                        <div class="flex-1">
+                            <label for="brand-image"
+                                class="flex cursor-pointer flex-col items-center justify-center gap-1.5 rounded-xl border border-dashed border-hairline-strong bg-sunken px-4 py-6 text-center transition hover:border-accent hover:bg-raised">
+                                <x-heroicon-o-arrow-up-tray class="h-5 w-5 text-ink-muted" />
+                                <span class="text-sm font-medium text-ink">Choose an image</span>
+                                <span class="text-xs text-ink-muted">JPEG, PNG or GIF · up to 8&nbsp;MB · square works best</span>
+                                <input id="brand-image" type="file" class="sr-only" wire:model="brandImage"
+                                    accept="image/jpeg,image/png,image/gif">
+                            </label>
+
+                            <div wire:loading wire:target="brandImage"
+                                class="mt-2 inline-flex items-center gap-1.5 text-sm text-ink-soft">
+                                <x-ui.spinner /> Resizing…
+                            </div>
+
+                            @error('brandImage')
+                                <p class="mt-2 text-sm text-critical">{{ $message }}</p>
+                            @enderror
+
+                            @if ($organisation->logo_path)
+                                <x-ui.button size="sm" variant="ghost" icon="trash" class="mt-2"
+                                    wire:click="removeBrandImage"
+                                    data-confirm-title="Remove the logo?" data-confirm-action="Remove" data-confirm-tone="danger" data-confirm="Remove the logo and favicon? Your organisation's initial is shown instead.">
+                                    Remove
+                                </x-ui.button>
+                            @endif
+                        </div>
+                    </div>
+                </x-ui.card>
+            </div>
+
+            <div>
+                <x-ui.card title="What happens to it">
+                    <ul class="space-y-2.5 text-sm text-ink-soft">
+                        <li class="flex gap-2">
+                            <x-heroicon-o-arrows-pointing-in class="mt-0.5 h-4 w-4 shrink-0 text-ink-muted" />
+                            Scaled down to fit {{ \App\Support\Images\BrandImage::LOGO_MAX_EDGE }}px and re-compressed,
+                            so a phone photo of a sign becomes a few kilobytes.
+                        </li>
+                        <li class="flex gap-2">
+                            <x-heroicon-o-scissors class="mt-0.5 h-4 w-4 shrink-0 text-ink-muted" />
+                            The favicon is cropped from the middle to a square, so upload something that reads well
+                            centred.
+                        </li>
+                        <li class="flex gap-2">
+                            <x-heroicon-o-swatch class="mt-0.5 h-4 w-4 shrink-0 text-ink-muted" />
+                            Transparency is kept. A logo with a transparent background stays transparent on both the
+                            light and dark theme.
+                        </li>
+                    </ul>
+                </x-ui.card>
+            </div>
+        </div>
     @elseif ($tab === 'terminology')
         <form wire:submit="saveTerminology" class="grid gap-5 lg:grid-cols-3">
             <div class="lg:col-span-2">
@@ -105,6 +200,109 @@
                 </x-ui.card>
             </div>
         </form>
+    @elseif ($tab === 'expenses')
+        <div class="grid gap-5 lg:grid-cols-3">
+            <div class="lg:col-span-2">
+                <x-ui.card title="Expense categories"
+                    description="What your expenses can be filed under. Every expense report groups by these, so keep them to the costs you actually want to see separately.">
+
+                    <div class="flex flex-col gap-2 sm:flex-row">
+                        <div class="flex-1">
+                            <x-ui.input wire:model="newCategory" name="newCategory" label="Add a category"
+                                placeholder="e.g. Trainer commission" wire:keydown.enter.prevent="addCategory" />
+                        </div>
+                        <div class="flex items-end">
+                            <x-ui.button icon="plus" wire:click="addCategory" wire:target="addCategory">Add</x-ui.button>
+                        </div>
+                    </div>
+
+                    @error('expenseCategories')
+                        <p class="mt-3 text-sm text-critical">{{ $message }}</p>
+                    @enderror
+
+                    <ul class="mt-4 divide-y divide-[var(--c-hairline)] rounded-lg border border-hairline">
+                        @forelse ($expenseCategories as $index => $category)
+                            @php $used = $categoryUsage[$category['name']] ?? 0; @endphp
+
+                            <li class="flex items-center justify-between gap-3 px-3 py-2">
+                                <span class="flex min-w-0 items-center gap-2">
+                                    <span @class([
+                                        'truncate text-sm',
+                                        'text-ink' => $category['active'],
+                                        'text-ink-muted line-through' => ! $category['active'],
+                                    ])>{{ $category['name'] }}</span>
+
+                                    @if (! $category['active'])
+                                        <x-ui.badge tone="neutral">Inactive</x-ui.badge>
+                                    @endif
+
+                                    @if ($used > 0)
+                                        <span class="shrink-0 text-xs text-ink-muted">
+                                            {{ $used }} {{ Str::plural('expense', $used) }}
+                                        </span>
+                                    @endif
+                                </span>
+
+                                <span class="flex shrink-0 items-center gap-1">
+                                    <x-ui.button size="sm" variant="ghost"
+                                        :icon="$category['active'] ? 'pause-circle' : 'play-circle'"
+                                        wire:click="toggleCategory({{ $index }})">
+                                        {{ $category['active'] ? 'Deactivate' : 'Reactivate' }}
+                                    </x-ui.button>
+
+                                    {{-- Deleting is offered only while nothing references it;
+                                         otherwise deactivating is the only safe option. --}}
+                                    @if ($used === 0)
+                                        <x-ui.button size="sm" variant="ghost" icon="trash"
+                                            wire:click="removeCategory({{ $index }})">Delete</x-ui.button>
+                                    @endif
+                                </span>
+                            </li>
+                        @empty
+                            <li class="px-3 py-6 text-center text-sm text-ink-muted">
+                                No categories yet — add at least one before saving.
+                            </li>
+                        @endforelse
+                    </ul>
+                </x-ui.card>
+            </div>
+
+            <div class="space-y-5">
+                <x-ui.card title="How these are used">
+                    <ul class="space-y-2.5 text-sm text-ink-soft">
+                        <li class="flex gap-2">
+                            <x-heroicon-o-banknotes class="mt-0.5 h-4 w-4 shrink-0 text-ink-muted" />
+                            Offered when recording an expense, and as the category filter on the expenses list.
+                        </li>
+                        <li class="flex gap-2">
+                            <x-heroicon-o-chart-bar class="mt-0.5 h-4 w-4 shrink-0 text-ink-muted" />
+                            Used to group spending in finance reports.
+                        </li>
+                        <li class="flex gap-2">
+                            <x-heroicon-o-archive-box class="mt-0.5 h-4 w-4 shrink-0 text-ink-muted" />
+                            Deactivating stops a category appearing on new expenses. Everything already filed under it
+                            stays in your filters and reports. A category with expenses behind it cannot be deleted at
+                            all — only deactivated.
+                        </li>
+                    </ul>
+                </x-ui.card>
+
+                <x-ui.card title="Save">
+                    <x-ui.button variant="primary" size="lg" class="w-full" wire:click="saveExpenseCategories"
+                        wire:loading.attr="disabled" wire:target="saveExpenseCategories">
+                        <span wire:loading.remove wire:target="saveExpenseCategories">Save categories</span>
+                        <span wire:loading wire:target="saveExpenseCategories" class="inline-flex items-center gap-1.5"><x-ui.spinner /> Saving…</span>
+                    </x-ui.button>
+
+                    <x-ui.button variant="ghost" class="mt-2 w-full" wire:click="restoreDefaultCategories"
+                        data-confirm-title="Add the default categories?" data-confirm-action="Add defaults" data-confirm-tone="accent" data-confirm="Add back any missing default categories? Nothing you already have is changed, and nothing is saved until you press Save categories.">
+                        Add default categories
+                    </x-ui.button>
+                </x-ui.card>
+            </div>
+        </div>
+    @elseif ($tab === 'storage')
+        <livewire:settings.storage-buckets />
     @elseif ($tab === 'templates')
         <form wire:submit="saveTemplate" class="grid gap-5 lg:grid-cols-3">
             <div class="space-y-5 lg:col-span-2">
@@ -137,7 +335,7 @@
                         @foreach ($templateVariables as $name => $description)
                             <li x-data="{ copied: false }">
                                 <button type="button" class="w-full text-left"
-                                    x-on:click="navigator.clipboard.writeText('{{ '{'.$name.'}' }}').then(() => { copied = true; setTimeout(() => copied = false, 1500) })">
+                                    x-on:click="copied = await window.copyToClipboard('{{ '{'.$name.'}' }}'); setTimeout(() => copied = false, 1500)">
                                     <code class="font-mono text-xs text-accent">{{ '{'.$name.'}' }}</code>
                                     <span x-show="copied" x-cloak class="ml-1 text-[11px] text-positive">copied</span>
                                     <span class="block text-xs text-ink-muted">{{ $description }}</span>
@@ -156,7 +354,7 @@
 
                         @if ($templateIsCustom)
                             <x-ui.button type="button" variant="ghost" wire:click="resetTemplate"
-                                wire:confirm="Reset this template to the built-in wording?">
+                                data-confirm-title="Reset this template?" data-confirm-action="Reset wording" data-confirm-tone="danger" data-confirm="Reset this template to the built-in wording?">
                                 Reset to default
                             </x-ui.button>
                         @endif

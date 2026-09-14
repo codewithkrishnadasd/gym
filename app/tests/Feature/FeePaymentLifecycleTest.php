@@ -12,6 +12,7 @@ use App\Exceptions\LifecycleViolation;
 use App\Models\AuditEvent;
 use App\Models\Club;
 use App\Models\FeePayment;
+use App\Models\FinancialAccount;
 use App\Models\Member;
 use App\Models\MemberSubscription;
 use App\Models\Organisation;
@@ -41,6 +42,8 @@ beforeEach(function (): void {
         'phone' => '9876543210',
     ]);
     $this->plan = Plan::factory()->create(['organisation_id' => $this->organisation->id]);
+    // Every collection has to name the account it was received into.
+    $this->account = FinancialAccount::factory()->create(['organisation_id' => $this->organisation->id]);
 });
 
 function makeSubscription(int $dueMinor = 10000): MemberSubscription
@@ -77,7 +80,7 @@ it('creates a staff submission as pending and keeps it out of revenue', function
         'amount_minor' => 5000,
         'currency_code' => 'INR',
         'payment_method' => 'cash',
-        'financial_account_id' => null,
+        'financial_account_id' => $this->account->id,
         'transaction_reference' => null,
         'payment_date' => now()->toDateString(),
         'notes' => null,
@@ -105,7 +108,7 @@ it('does not confirm a staff submission even when the staff user asks for it', f
         'amount_minor' => 5000,
         'currency_code' => 'INR',
         'payment_method' => 'cash',
-        'financial_account_id' => null,
+        'financial_account_id' => $this->account->id,
         'transaction_reference' => null,
         'payment_date' => now()->toDateString(),
         'notes' => null,

@@ -34,7 +34,7 @@ class Index extends Component
 
         $account->update(['status' => FinancialAccountStatus::Archived]);
 
-        session()->flash('status', "\"{$account->name}\" was archived. Historical transactions are unchanged.");
+        session()->flash('status', "\"{$account->name}\" was removed. Historical transactions are unchanged.");
     }
 
     public function restore(FinancialAccount $account): void
@@ -84,7 +84,12 @@ class Index extends Component
     protected function accounts(): Collection
     {
         return FinancialAccount::query()
-            ->when($this->status !== '', fn ($query) => $query->where('status', $this->status))
+            // Removed rows only appear when explicitly filtered for.
+            ->when(
+                $this->status !== '',
+                fn ($query) => $query->where('status', $this->status),
+                fn ($query) => $query->where('status', '!=', FinancialAccountStatus::Archived),
+            )
             ->orderBy('status')
             ->orderBy('name')
             ->get();

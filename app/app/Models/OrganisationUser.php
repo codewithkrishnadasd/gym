@@ -7,6 +7,7 @@ namespace App\Models;
 use App\Enums\ClubAssignmentStatus;
 use App\Enums\MembershipRole;
 use App\Enums\MembershipStatus;
+use App\Enums\Permission;
 use App\Models\Concerns\BelongsToOrganisation;
 use Database\Factories\OrganisationUserFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -28,6 +29,17 @@ class OrganisationUser extends Model
 {
     /** @use HasFactory<OrganisationUserFactory> */
     use BelongsToOrganisation, HasFactory;
+
+    /**
+     * Memoised expansion of `permissions`, invalidated by comparing the raw
+     * granted keys — `hasPermission()` is called many times per request from
+     * navigation and policies alike.
+     *
+     * @var array<int, string>
+     */
+    private array $expandedPermissions = [];
+
+    private ?string $permissionSignature = null;
 
     protected function casts(): array
     {
@@ -80,7 +92,31 @@ class OrganisationUser extends Model
             return true;
         }
 
-        return (bool) ($this->permissions[$key] ?? false);
+        return in_array($key, $this->effectivePermissions(), true);
+    }
+
+    /**
+     * The granted keys plus everything they depend on (MEP.md 4.2).
+     *
+     * Expanding on read rather than trusting the stored row means a set
+     * written before a dependency existed — or by a seeder, an import, or a
+     * direct database edit — still grants what it needs to work, instead of
+     * producing a staff member who can create a member but not open the list
+     * they were just added to.
+     *
+     * @return array<int, string>
+     */
+    public function effectivePermissions(): array
+    {
+        $granted = array_keys(array_filter($this->permissions ?? []));
+        $signature = implode(',', $granted);
+
+        if ($this->permissionSignature !== $signature) {
+            $this->permissionSignature = $signature;
+            $this->expandedPermissions = Permission::expand($granted);
+        }
+
+        return $this->expandedPermissions;
     }
 
     /**

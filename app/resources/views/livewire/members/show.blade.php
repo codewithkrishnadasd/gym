@@ -1,5 +1,11 @@
 @php
     $tabs = ['overview' => 'Overview', 'plans' => 'Plans', 'attendance' => 'Attendance', 'payments' => 'Payments'];
+
+    // Documents are a separate permission from the member record itself, so the
+    // tab is absent rather than empty for staff who cannot open them.
+    if (auth()->user()?->can('viewAny', \App\Models\Document::class)) {
+        $tabs['documents'] = 'Documents';
+    }
     $today = \Illuminate\Support\Carbon::today($organisation->timezone);
 @endphp
 
@@ -25,9 +31,10 @@
 
             @can('archive', $member)
                 @if ($member->status->value === 'archived')
-                    <x-ui.button wire:click="restore">Restore</x-ui.button>
+                    <x-ui.button icon="arrow-uturn-left" wire:click="restore">Restore</x-ui.button>
                 @else
-                    <x-ui.button variant="danger" wire:click="archive" wire:confirm="Archive {{ $member->name }}?">Archive</x-ui.button>
+                    <x-ui.button variant="danger" icon="trash" wire:click="archive"
+                        data-confirm-title="Remove this member?" data-confirm-action="Remove" data-confirm-tone="danger" data-confirm="Remove {{ $member->name }}? They stay in historical reports and can be restored.">Remove</x-ui.button>
                 @endif
             @endcan
         </x-slot:actions>
@@ -37,19 +44,31 @@
         <div class="mb-4"><x-ui.alert tone="critical">{{ $lifecycleError }}</x-ui.alert></div>
     @endif
 
-    {{-- Shown after an action that can notify this person (MEP 6.6). --}}
-    @if ($canNotify && $notificationId)
+    {{-- Mounted unconditionally so a message composed by a Livewire action on
+         this page has a listener to reach. Rendered with no notification it
+         draws nothing; keyed to the page, not the message, so the component
+         survives from one action to the next. --}}
+    @if ($canNotify)
         <div class="mb-4">
-            <livewire:notifications.action-panel :notification-id="$notificationId" :key="'member-panel-'.$notificationId" />
+            <livewire:notifications.action-panel :notification-id="$notificationId"
+                :key="'member-panel-'.$member->id" />
         </div>
     @endif
 
     {{-- Snapshot cards, always visible above the tabs. --}}
     <div class="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
         <x-ui.stat label="Status" :value="$member->status->label()" :tone="$member->status->tone()" icon="user-circle" />
+        @php
+            // Derived from the end date, not the stored status: nothing writes
+            // "expired" when a term simply runs out, so a lapsed plan would
+            // otherwise render as a healthy green card.
+            $planHealth = \App\Enums\SubscriptionHealth::for($currentSubscription, $today);
+        @endphp
         <x-ui.stat label="Current plan" :value="$currentSubscription?->plan->name ?? 'None'"
-            :hint="$currentSubscription ? 'expires '.$currentSubscription->end_date->format('d M Y') : 'no active plan'"
-            :tone="$currentSubscription ? 'positive' : 'caution'" icon="rectangle-stack" />
+            :hint="$currentSubscription
+                ? $planHealth->detailedLabel($currentSubscription, $today).' · '.$currentSubscription->end_date->format('d M Y')
+                : 'no active plan'"
+            :tone="$planHealth->tone()" icon="rectangle-stack" />
         <x-ui.stat label="Outstanding" :value="$organisation->money($outstanding)"
             :tone="$outstanding > 0 ? 'caution' : 'positive'" icon="exclamation-circle" />
         <x-ui.stat label="Attendance" :value="$attendanceRate.'%'" :hint="$presentMarks.' visits in 12 weeks'"
@@ -146,7 +165,15 @@
                                         <span class="block text-xs text-caution">{{ $organisation->money($due) }} due</span>
                                     @endif
                                 </x-ui.td>
-                                <x-ui.td><x-ui.badge :tone="$subscription->status->tone()">{{ $subscription->status->label() }}</x-ui.badge></x-ui.td>
+                                <x-ui.td>
+                                    @php $health = $subscription->health($today); @endphp
+                                    <x-ui.badge :tone="$health->tone()">{{ $health->label() }}</x-ui.badge>
+                                    @if ($health === \App\Enums\SubscriptionHealth::ExpiringSoon)
+                                        <span class="mt-0.5 block text-xs text-caution">
+                                            {{ $health->detailedLabel($subscription, $today) }}
+                                        </span>
+                                    @endif
+                                </x-ui.td>
                                 <x-ui.td align="right">
                                     @can('changeStatus', $subscription)
                                         @if ($subscription->status->value === 'active')
@@ -155,7 +182,7 @@
                                                     wire:click="changePlanStatus({{ $subscription->id }}, 'paused')">Pause</x-ui.button>
                                                 <x-ui.button size="sm" variant="ghost"
                                                     wire:click="changePlanStatus({{ $subscription->id }}, 'cancelled')"
-                                                    wire:confirm="Cancel this plan? This cannot be undone.">Cancel</x-ui.button>
+                                                    data-confirm-title="Cancel this plan?" data-confirm-action="Cancel plan" data-confirm-tone="danger" data-confirm="Cancel this plan? This cannot be undone.">Cancel</x-ui.button>
                                             </div>
                                         @elseif ($subscription->status->value === 'paused')
                                             <x-ui.button size="sm" variant="ghost"
@@ -252,6 +279,10 @@
                 </x-ui.table>
             @endif
         </x-ui.card>
+    @endif
+
+    @if ($tab === 'documents')
+        <livewire:documents.panel subject-type="member" :subject-id="$member->id" :key="'documents-member-'.$member->id" />
     @endif
 
     @can('createFor', [\App\Models\MemberSubscription::class, $member])

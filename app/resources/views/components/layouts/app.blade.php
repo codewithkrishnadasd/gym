@@ -17,6 +17,9 @@
 
     $brandName = $isPlatform ? 'Platform' : ($organisation->name ?? config('app.name'));
     $brandInitial = mb_strtoupper(mb_substr($brandName, 0, 1));
+    $brandLogoUrl = $isPlatform ? null : $organisation?->logoUrl();
+    $faviconUrl = $isPlatform ? null : $organisation?->faviconUrl();
+    $accent = $isPlatform ? null : $organisation?->accentCss();
     $pageTitle = $heading ?? ($isPlatform ? 'Root console' : 'Dashboard');
 
     $account = $isPlatform ? auth('platform')->user() : auth('web')->user();
@@ -30,16 +33,26 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{{ $pageTitle }} &middot; {{ $brandName }}</title>
+    @if ($faviconUrl)
+        <link rel="icon" href="{{ $faviconUrl }}">
+    @endif
+
     <x-theme-script />
 
     @vite(['resources/css/app.css', 'resources/js/app.js'])
+    {{-- After the stylesheet so the organisation's accent wins on equal
+         specificity. Only the accent tokens are overridden: the semantic
+         positive/caution/critical colours carry meaning and stay fixed. --}}
+    @if ($accent)
+        <style>{!! $accent !!}</style>
+    @endif
     @livewireStyles
 </head>
 <body class="min-h-screen bg-app font-sans text-ink antialiased">
     <div x-data="{ drawer: false }" @keydown.escape.window="drawer = false">
         {{-- ===== Desktop sidebar ===== --}}
         <aside class="fixed inset-y-0 left-0 z-30 hidden w-64 flex-col border-r border-hairline bg-surface lg:flex">
-            <x-nav.brand :name="$brandName" :initial="$brandInitial" :is-platform="$isPlatform" />
+            <x-nav.brand :name="$brandName" :initial="$brandInitial" :is-platform="$isPlatform" :logo-url="$brandLogoUrl" />
 
             <nav class="flex-1 space-y-6 overflow-y-auto px-3 py-4" aria-label="Main">
                 @foreach ($sections as $section)
@@ -71,7 +84,7 @@
                 x-transition:leave="transition duration-150 ease-in" x-transition:leave-end="-translate-x-full"
                 class="absolute inset-y-0 left-0 flex w-72 max-w-[85vw] flex-col border-r border-hairline bg-surface">
                 <div class="flex items-center justify-between border-b border-hairline pr-2">
-                    <x-nav.brand :name="$brandName" :initial="$brandInitial" :is-platform="$isPlatform" class="border-0" />
+                    <x-nav.brand :name="$brandName" :initial="$brandInitial" :is-platform="$isPlatform" :logo-url="$brandLogoUrl" class="border-0" />
                     <button type="button" @click="drawer = false" aria-label="Close navigation"
                         class="grid h-11 w-11 place-items-center rounded-lg text-ink-soft transition hover:bg-sunken hover:text-ink">
                         <x-heroicon-o-x-mark class="h-5 w-5" />
@@ -152,6 +165,8 @@
             </nav>
         @endif
     </div>
+
+    <x-ui.confirm-dialog />
 
     @livewireScripts
 </body>

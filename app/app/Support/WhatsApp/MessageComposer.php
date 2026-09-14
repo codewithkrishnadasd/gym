@@ -97,6 +97,13 @@ final class MessageComposer
             NotificationActionType::UserStatusChanged => [
                 'changedItem' => 'The new account status',
             ],
+            // `resetUrl` is a one-time token, not a password: it expires on its
+            // own and stops working once used, which is why it is allowed in a
+            // message at all.
+            NotificationActionType::PasswordResetLink => [
+                'resetUrl' => 'The single-use link for setting their password',
+                'expiresIn' => 'How long the link lasts, e.g. “1 hour”',
+            ],
         };
 
         return [...$shared, ...$specific];
@@ -168,6 +175,13 @@ final class MessageComposer
             NotificationActionType::UserStatusChanged => [
                 'Hi {memberName}, your account status with {organisationName} is now {changedItem}.',
                 'Please contact {supportContact} if you need assistance.',
+            ],
+            NotificationActionType::PasswordResetLink => [
+                'Hi {memberName}, here is your link to set a new password for {organisationName}.',
+                '',
+                '{resetUrl}',
+                '',
+                'It works once and expires in {expiresIn}. If you did not ask for it, ignore this message and tell {supportContact}.',
             ],
         });
     }

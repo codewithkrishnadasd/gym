@@ -6,6 +6,7 @@ namespace App\Providers;
 
 use App\Models\Attendance;
 use App\Models\Club;
+use App\Models\Document;
 use App\Models\Expense;
 use App\Models\FeePayment;
 use App\Models\FinancialAccount;
@@ -15,6 +16,7 @@ use App\Models\MessageTemplate;
 use App\Models\Organisation;
 use App\Models\OrganisationUser;
 use App\Models\Plan;
+use App\Models\StorageBucket;
 use Illuminate\Auth\Middleware\Authenticate;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\Relation;
@@ -70,6 +72,8 @@ class AppServiceProvider extends ServiceProvider
             'financial_account' => FinancialAccount::class,
             'organisation' => Organisation::class,
             'message_template' => MessageTemplate::class,
+            'document' => Document::class,
+            'storage_bucket' => StorageBucket::class,
         ]);
 
         // The `auth` middleware serves two entirely separate guards (the

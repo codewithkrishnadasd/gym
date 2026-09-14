@@ -89,12 +89,21 @@
                     </x-ui.select>
 
                     @if ($accounts->isNotEmpty())
-                        <x-ui.select wire:model="financialAccountId" name="financialAccountId" label="Received into">
-                            <option value="">Not specified</option>
+                        <x-ui.select wire:model="financialAccountId" name="financialAccountId" label="Received into" required>
+                            <option value="">Choose an account…</option>
                             @foreach ($accounts as $account)
                                 <option value="{{ $account->id }}">{{ $account->name }} ({{ $account->account_type->label() }})</option>
                             @endforeach
                         </x-ui.select>
+                    @else
+                        {{-- Every payment must name a receiving account, so there is
+                             nothing useful this form can do until one exists. --}}
+                        <div class="sm:col-span-2">
+                            <x-ui.alert tone="caution" title="No account to receive this payment">
+                                Every payment has to name the account the money went into. Ask an admin to add a
+                                bank, UPI, or cash account under Finance → Accounts first.
+                            </x-ui.alert>
+                        </div>
                     @endif
 
                     <x-ui.input class="sm:col-span-2" wire:model="transactionReference" name="transactionReference"
@@ -121,7 +130,10 @@
                 @endif
 
                 <div class="flex flex-col gap-2">
-                    <x-ui.button type="submit" variant="primary" size="lg" wire:loading.attr="disabled" wire:target="save">
+                    {{-- Disabled with no account to receive into: submitting could
+                         only ever fail validation. --}}
+                    <x-ui.button type="submit" variant="primary" size="lg" wire:loading.attr="disabled" wire:target="save"
+                        :disabled="$accounts->isEmpty()">
                         <span wire:loading.remove wire:target="save">
                             {{ $isAdmin && $confirmImmediately ? 'Record and confirm' : 'Submit payment' }}
                         </span>

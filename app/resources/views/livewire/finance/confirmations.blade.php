@@ -16,12 +16,14 @@
             hint="submission age" />
     </div>
 
-    @if ($lastConfirmedNotificationId)
-        <div class="mb-4">
-            <livewire:notifications.action-panel :notification-id="$lastConfirmedNotificationId"
-                :key="'queue-panel-'.$lastConfirmedNotificationId" />
-        </div>
-    @endif
+    {{-- Mounted unconditionally so a message composed by a Livewire action on
+         this page has a listener to reach. Rendered with no notification it
+         draws nothing; keyed to the page, not the message, so the component
+         survives from one action to the next. --}}
+    <div class="mb-4">
+        <livewire:notifications.action-panel :notification-id="$lastConfirmedNotificationId"
+            key="confirmations-panel" />
+    </div>
 
     <x-ui.card :padded="false">
         <x-ui.filters>
@@ -75,6 +77,17 @@
                                     @if ($payment->subscription)
                                         <p class="text-xs text-ink-muted">Plan: {{ $payment->subscription->plan->name }}</p>
                                     @endif
+
+                                    {{-- Confirming credits this account, so it is stated on the
+                                         row rather than hidden behind the payment page. --}}
+                                    <p class="mt-1 inline-flex items-center gap-1.5 rounded-md bg-sunken px-2 py-1 text-xs text-ink-soft">
+                                        <x-heroicon-o-arrow-right-circle class="h-3.5 w-3.5 shrink-0 text-ink-muted" />
+                                        Credits
+                                        <span class="font-medium text-ink">{{ $payment->financialAccount?->name ?? 'no account named' }}</span>
+                                        @if ($payment->transaction_reference)
+                                            <span class="numeric text-ink-muted">· ref {{ $payment->transaction_reference }}</span>
+                                        @endif
+                                    </p>
                                 </div>
                             </div>
 
@@ -88,6 +101,7 @@
 
                                     <x-ui.button size="sm" variant="primary" icon="check"
                                         wire:click="confirm({{ $payment->id }})"
+                                        data-confirm-title="Confirm this payment?" data-confirm-action="Confirm payment" data-confirm-tone="accent" data-confirm="Confirm {{ $organisation->money($payment->amount_minor) }} from {{ $payment->member->name }} as credited to {{ $payment->financialAccount?->name ?? 'no named account' }}?"
                                         wire:loading.attr="disabled" wire:target="confirm({{ $payment->id }})">
                                         <span wire:loading.remove wire:target="confirm({{ $payment->id }})">Confirm</span>
                                         <span wire:loading wire:target="confirm({{ $payment->id }})"><x-ui.spinner size="xs" /></span>

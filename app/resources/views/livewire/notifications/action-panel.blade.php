@@ -5,8 +5,20 @@
             reflects what is on screen right now. Building the href server-side
             meant the link carried the text from before the last keystroke.
         --}}
-        <x-ui.card
-            x-data="{
+        <x-ui.card>
+            {{--
+                copy() goes through the window helper rather than the clipboard
+                API directly: that API does not exist outside a secure context,
+                so on plain HTTP the button threw and did nothing.
+
+                The Alpine scope lives on a plain element, not on <x-ui.card>:
+                Blade does not compile @js() inside an x-component tag's
+                attribute, so the directive reached the browser as literal text
+                and every expression on the card failed with "copied is not
+                defined".
+            --}}
+            <div
+                x-data="{
                 message: @js($message),
                 digits: @js($recipientDigits),
                 editing: false,
@@ -16,11 +28,35 @@
                         ? `https://wa.me/${this.digits}?text=${encodeURIComponent(this.message)}`
                         : null;
                 },
-                copy() {
-                    navigator.clipboard.writeText(this.message).then(() => {
+                copyFailed: false,
+                async copy() {
+                    if (await window.copyToClipboard(this.message)) {
                         this.copied = true;
                         setTimeout(() => this.copied = false, 2000);
+
+                        return;
+                    }
+
+                    // Nothing automatic worked, so open the editor with the text
+                    // selected — the operator can still copy it by hand.
+                    this.copyFailed = true;
+                    this.editing = true;
+
+                    this.$nextTick(() => {
+                        const field = this.$refs.editor;
+
+                        field?.focus();
+                        field?.select();
                     });
+                },
+                // Leaving the editor commits the edit, so the message list and
+                // this panel can never show different wording.
+                toggleEdit() {
+                    if (this.editing) {
+                        this.$wire.saveMessage(this.message);
+                    }
+
+                    this.editing = ! this.editing;
                 },
             }">
             <div class="flex flex-wrap items-start justify-between gap-3">
@@ -28,20 +64,40 @@
                     <span class="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-positive-soft text-positive">
                         <x-heroicon-o-chat-bubble-left-right class="h-4 w-4" />
                     </span>
-                    <div>
-                        <p class="text-sm font-semibold text-ink">Notify {{ $notification->recipient_name }}</p>
-                        <p class="text-xs text-ink-muted">
-                            {{ $displayPhone ?? 'No usable WhatsApp number on file' }}
+                    <div class="min-w-0">
+                        <p class="truncate text-sm font-semibold text-ink">
+                            Notify {{ $notification->recipient_name }}
                         </p>
+                        <p class="numeric truncate text-xs text-ink-muted">
+                            {{ $displayPhone ?? 'No usable WhatsApp number on file' }}
+                            @if ($context === 'queue')
+                                &middot; queued {{ $notification->created_at?->diffForHumans() }}
+                                @if ($notification->createdBy?->user)
+                                    by {{ $notification->createdBy->user->name }}
+                                @endif
+                            @endif
+                        </p>
+                        @if ($notification->opened_at)
+                            <p class="truncate text-xs text-positive">
+                                Sent {{ $notification->opened_at->diffForHumans() }}
+                                @if ($notification->openedBy?->user)
+                                    by {{ $notification->openedBy->user->name }}
+                                @endif
+                            </p>
+                        @endif
                     </div>
                 </div>
 
-                <x-ui.badge :tone="$notification->status->tone()">{{ $notification->status->label() }}</x-ui.badge>
+                <div class="flex min-w-0 flex-wrap items-center gap-1.5">
+                    <x-ui.badge tone="neutral" :dot="false">{{ $notification->action_type->label() }}</x-ui.badge>
+                    <x-ui.badge :tone="$notification->status->tone()">{{ $notification->status->label() }}</x-ui.badge>
+                </div>
             </div>
 
             <div class="mt-3">
                 <label class="sr-only" for="wa-message-{{ $notification->id }}">Message to send</label>
-                <textarea id="wa-message-{{ $notification->id }}" x-model="message" x-show="editing" x-cloak rows="8"
+                <textarea id="wa-message-{{ $notification->id }}" x-ref="editor" x-model="message" x-show="editing" x-cloak rows="8"
+                    x-on:change="$wire.saveMessage(message)"
                     class="w-full rounded-lg border border-hairline-strong bg-surface px-3 py-2 font-mono text-[13px] leading-relaxed text-ink focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25"></textarea>
 
                 <pre x-show="! editing"
@@ -55,32 +111,58 @@
                         href="{{ $recipientDigits ? 'https://wa.me/'.$recipientDigits.'?text='.rawurlencode($message) : '#' }}"
                         x-on:click="$wire.markOpened(message)"
                         class="inline-flex min-h-[38px] items-center justify-center gap-1.5 rounded-lg bg-positive px-3.5 py-2 text-sm font-medium text-white transition hover:opacity-90 max-lg:min-h-[44px]">
-                        <x-heroicon-o-arrow-top-right-on-square class="h-4 w-4" />
+                        <x-icon.whatsapp class="h-4 w-4 shrink-0" />
                         Open WhatsApp
                     </a>
 
-                    <template x-if="! digits">
-                        <x-ui.badge tone="caution">WhatsApp unavailable — copy the message instead</x-ui.badge>
-                    </template>
+                    <span x-show="! digits" x-cloak
+                        class="inline-flex items-center gap-1.5 rounded-md bg-caution-soft px-2 py-1 text-xs font-medium text-caution">
+                        <x-heroicon-o-exclamation-triangle class="h-3.5 w-3.5 shrink-0" />
+                        No usable WhatsApp number — copy the message instead
+                    </span>
 
                     <x-ui.button type="button" size="md" icon="clipboard-document" x-on:click="copy()">
                         <span x-show="! copied">Copy message</span>
                         <span x-show="copied" x-cloak class="text-positive">Copied</span>
                     </x-ui.button>
 
-                    <x-ui.button type="button" size="md" variant="ghost" x-on:click="editing = ! editing">
+                    <span x-show="copyFailed" x-cloak
+                        class="inline-flex items-center gap-1.5 rounded-md bg-caution-soft px-2 py-1 text-xs font-medium text-caution">
+                        <x-heroicon-o-exclamation-triangle class="h-3.5 w-3.5 shrink-0" />
+                        Your browser blocked copying — the message is selected, press Ctrl/Cmd+C
+                    </span>
+
+                    <x-ui.button type="button" size="md" variant="ghost" icon="pencil-square"
+                        x-on:click="toggleEdit()">
                         {{-- Server-rendered fallback so the label is never blank
                              in the moment before Alpine hydrates. --}}
                         <span x-text="editing ? 'Preview' : 'Edit message'">Edit message</span>
                     </x-ui.button>
 
-                    <x-ui.button type="button" size="md" variant="ghost" wire:click="skip">Skip</x-ui.button>
+                    @if ($context === 'queue' && $notification->status === \App\Enums\NotificationStatus::Ready)
+                        {{-- In the queue, skipping is a decision not to send: it
+                             takes the message out of the outstanding list. Only
+                             offered while it is still outstanding. --}}
+                        <x-ui.button type="button" size="md" variant="ghost" icon="x-mark" wire:click="skip"
+                            data-confirm-title="Skip this message?" data-confirm-action="Skip" data-confirm-tone="danger" data-confirm="Skip this message? It comes off the list of messages still to send.">Skip</x-ui.button>
+                    @elseif ($context !== 'queue')
+                        {{-- Straight after an action, closing is just moving on.
+                             The message stays in Messages to send later. --}}
+                        <x-ui.button type="button" size="md" variant="ghost" icon="x-mark" wire:click="dismiss">Close</x-ui.button>
+                    @endif
                 </div>
 
                 <p class="mt-2 text-xs text-ink-muted">
-                    Opening WhatsApp records that the link was launched. It is not confirmation that the message was
-                    delivered or read.
+                    @if ($context === 'queue')
+                        Opening WhatsApp marks this as sent and takes it off the outstanding list.
+                    @else
+                        Opening WhatsApp marks this as sent. Closing leaves it in
+                        <a href="{{ route('tenant.notifications.index') }}" wire:navigate
+                            class="underline underline-offset-2 hover:text-ink">Messages</a> to send later.
+                    @endif
+                    Either way, "sent" records that you launched WhatsApp — not that it was delivered or read.
                 </p>
+            </div>
             </div>
         </x-ui.card>
     @endif

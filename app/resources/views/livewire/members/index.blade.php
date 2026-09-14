@@ -23,9 +23,18 @@
             </x-ui.filter-select>
 
             <x-ui.filter-select wire:model.live="status" label="Status">
-                <option value="">All statuses</option>
+                <option value="">All except removed</option>
                 @foreach ($statuses as $case)
                     <option value="{{ $case->value }}">{{ $case->label() }}</option>
+                @endforeach
+            </x-ui.filter-select>
+
+            {{-- Separate from Status on purpose: a member can be perfectly
+                 active while their plan lapsed last week. --}}
+            <x-ui.filter-select wire:model.live="plan" label="Plan">
+                <option value="">Any plan state</option>
+                @foreach ($planStates as $state)
+                    <option value="{{ $state->value }}">{{ $state->label() }}</option>
                 @endforeach
             </x-ui.filter-select>
         </x-ui.filters>
@@ -35,8 +44,8 @@
         <div wire:loading.remove>
             @if ($members->isEmpty())
                 <x-ui.empty icon="user-group"
-                    :title="$search !== '' || $status !== '' || $club !== '' ? 'Nothing matches those filters' : 'No '.strtolower($organisation->term('member_plural')).' yet'"
-                    :description="$search !== '' || $status !== '' || $club !== '' ? 'Try a different search or clear the filters.' : 'Add your first '.strtolower($organisation->term('member_singular')).' to start tracking plans, attendance, and fees.'">
+                    :title="$search !== '' || $status !== '' || $club !== '' || $plan !== '' ? 'Nothing matches those filters' : 'No '.strtolower($organisation->term('member_plural')).' yet'"
+                    :description="$search !== '' || $status !== '' || $club !== '' || $plan !== '' ? 'Try a different search or clear the filters.' : 'Add your first '.strtolower($organisation->term('member_singular')).' to start tracking plans, attendance, and fees.'">
                     <x-slot:actions>
                         @can('create', \App\Models\Member::class)
                             <x-ui.button variant="primary" icon="plus" :href="route('tenant.members.create')" wire:navigate>
@@ -75,8 +84,17 @@
                             <x-ui.td>{{ $member->primaryClub?->name ?? 'Unassigned' }}</x-ui.td>
                             <x-ui.td>
                                 @if ($subscription)
+                                    @php $health = $subscription->health($today); @endphp
+
                                     <p class="text-ink">{{ $subscription->plan->name }}</p>
-                                    <p class="numeric text-xs text-ink-muted">to {{ $subscription->end_date->format('d M Y') }}</p>
+                                    <div class="mt-0.5 flex flex-wrap items-center gap-1.5">
+                                        <span class="numeric text-xs text-ink-muted">to {{ $subscription->end_date->format('d M Y') }}</span>
+                                        {{-- Only drawn when it needs acting on; a badge on every
+                                             healthy row is noise that trains people to ignore it. --}}
+                                        @if ($health->needsAttention())
+                                            <x-ui.badge :tone="$health->tone()">{{ $health->detailedLabel($subscription, $today) }}</x-ui.badge>
+                                        @endif
+                                    </div>
                                 @else
                                     <span class="text-ink-muted">No active plan</span>
                                 @endif
@@ -93,10 +111,10 @@
                                     @endcan
                                     @can('archive', $member)
                                         @if ($member->status->value === 'archived')
-                                            <x-ui.button size="sm" variant="ghost" wire:click="restore({{ $member->id }})">Restore</x-ui.button>
+                                            <x-ui.button size="sm" variant="ghost" icon="arrow-uturn-left" wire:click="restore({{ $member->id }})">Restore</x-ui.button>
                                         @else
-                                            <x-ui.button size="sm" variant="ghost" wire:click="archive({{ $member->id }})"
-                                                wire:confirm="Archive {{ $member->name }}?">Archive</x-ui.button>
+                                            <x-ui.button size="sm" variant="ghost" icon="trash" wire:click="archive({{ $member->id }})"
+                                                data-confirm-title="Remove this member?" data-confirm-action="Remove" data-confirm-tone="danger" data-confirm="Remove {{ $member->name }}? They stay in historical reports and can be restored.">Remove</x-ui.button>
                                         @endif
                                     @endcan
                                 </div>
@@ -123,6 +141,10 @@
                                     </p>
                                     <div class="mt-1.5 flex flex-wrap items-center gap-1.5">
                                         <x-ui.badge :tone="$member->status->tone()">{{ $member->status->label() }}</x-ui.badge>
+                                        @php $health = $subscription?->health($today); @endphp
+                                        @if ($health?->needsAttention())
+                                            <x-ui.badge :tone="$health->tone()">{{ $health->detailedLabel($subscription, $today) }}</x-ui.badge>
+                                        @endif
                                         @if ($due > 0)
                                             <x-ui.badge tone="caution">{{ $organisation->money($due) }} due</x-ui.badge>
                                         @endif

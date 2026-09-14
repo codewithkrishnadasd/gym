@@ -81,7 +81,12 @@ class Index extends Component
                 fn ($query) => $query->where('name', 'ilike', "%{$this->search}%")
                     ->orWhere('code', 'ilike', "%{$this->search}%")
             ))
-            ->when($this->status !== '', fn ($query) => $query->where('status', $this->status))
+            // Removed rows only appear when explicitly filtered for.
+            ->when(
+                $this->status !== '',
+                fn ($query) => $query->where('status', $this->status),
+                fn ($query) => $query->where('status', '!=', ClubStatus::Archived),
+            )
             ->orderBy('name');
 
         return $query->paginate(15);

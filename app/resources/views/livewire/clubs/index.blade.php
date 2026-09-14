@@ -15,7 +15,7 @@
     <x-ui.card :padded="false">
         <x-ui.filters search="search" :placeholder="'Search by name or code…'">
             <x-ui.filter-select wire:model.live="status" label="Status">
-                <option value="">All statuses</option>
+                <option value="">All except removed</option>
                 @foreach ($statuses as $case)
                     <option value="{{ $case->value }}">{{ $case->label() }}</option>
                 @endforeach
@@ -72,10 +72,10 @@
                                     @endcan
                                     @can('archive', $club)
                                         @if ($club->status->value === 'archived')
-                                            <x-ui.button size="sm" variant="ghost" wire:click="restore({{ $club->id }})">Restore</x-ui.button>
+                                            <x-ui.button size="sm" variant="ghost" icon="arrow-uturn-left" wire:click="restore({{ $club->id }})">Restore</x-ui.button>
                                         @else
-                                            <x-ui.button size="sm" variant="ghost" wire:click="archive({{ $club->id }})"
-                                                wire:confirm="Archive “{{ $club->name }}”? It stays in historical reports.">Archive</x-ui.button>
+                                            <x-ui.button size="sm" variant="ghost" icon="trash" wire:click="archive({{ $club->id }})"
+                                                data-confirm-title="Remove this club?" data-confirm-action="Remove" data-confirm-tone="danger" data-confirm="Remove “{{ $club->name }}”? It stays in historical reports and can be restored.">Remove</x-ui.button>
                                         @endif
                                     @endcan
                                 </div>

@@ -7,14 +7,22 @@ namespace App\Livewire\Settings;
 use App\Enums\NotificationActionType;
 use App\Livewire\Concerns\ResolvesMembership;
 use App\Models\AuditEvent;
+use App\Models\Expense;
 use App\Models\MessageTemplate;
+use App\Models\Organisation;
+use App\Support\Images\BrandImage;
 use App\Support\PhoneNumber;
 use App\Support\WhatsApp\MessageComposer;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 use Livewire\Attributes\Url;
 use Livewire\Component;
+use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
+use Livewire\WithFileUploads;
+use RuntimeException;
 
 /**
  * Tenant-side organisation settings: profile, terminology, and notification
@@ -25,7 +33,7 @@ use Livewire\Component;
  */
 class OrganisationSettings extends Component
 {
-    use ResolvesMembership;
+    use ResolvesMembership, WithFileUploads;
 
     #[Url]
     public string $tab = 'profile';
@@ -66,6 +74,15 @@ class OrganisationSettings extends Component
     /** @var array<int, string> */
     public array $enabledActions = [];
 
+    // Branding
+    public ?TemporaryUploadedFile $brandImage = null;
+
+    // Expense categories
+    /** @var array<int, array{name: string, active: bool}> */
+    public array $expenseCategories = [];
+
+    public string $newCategory = '';
+
     // Message templates
     public string $templateAction = 'fee_payment_confirmed';
 
@@ -101,7 +118,235 @@ class OrganisationSettings extends Component
             ->values()
             ->all();
 
+        $this->expenseCategories = $organisation->expenseCategoryList();
+
         $this->loadTemplate();
+    }
+
+    /**
+     * One upload becomes both the sidebar logo and the browser-tab favicon.
+     *
+     * Done inline rather than queued: GD takes a few tens of milliseconds at
+     * these sizes, and an operator who has just picked a picture should see it
+     * appear, not a "processing…" placeholder they have to refresh to clear.
+     */
+    public function updatedBrandImage(): void
+    {
+        $organisation = $this->organisation();
+        $this->authorize('manageSettings', $organisation);
+
+        $this->validate([
+            'brandImage' => ['required', 'image', 'mimes:jpg,jpeg,png,gif', 'max:8192'],
+        ], [
+            'brandImage.image' => 'Upload a JPEG, PNG, or GIF image.',
+            'brandImage.max' => 'That image is larger than 8 MB. Any reasonable logo is far smaller.',
+        ], ['brandImage' => 'image']);
+
+        $upload = $this->brandImage;
+
+        if ($upload === null) {
+            return;
+        }
+
+        try {
+            $derived = BrandImage::derive($upload->getRealPath());
+        } catch (RuntimeException $exception) {
+            $this->addError('brandImage', $exception->getMessage());
+            $this->reset('brandImage');
+
+            return;
+        }
+
+        $disk = Storage::disk(config('filesystems.default'));
+        $directory = 'organisations/'.$organisation->id.'/branding';
+
+        $logoPath = $directory.'/logo-'.Str::random(16).'.'.$derived['logoExtension'];
+        $faviconPath = $directory.'/favicon-'.Str::random(16).'.png';
+
+        $disk->put($logoPath, $derived['logo']);
+        $disk->put($faviconPath, $derived['favicon']);
+
+        $previous = [
+            'logo_path' => $organisation->logo_path,
+            'favicon_path' => $organisation->favicon_path,
+        ];
+
+        $this->persist(
+            ['logo_path' => $logoPath, 'favicon_path' => $faviconPath],
+            $previous,
+            'organisation.branding_updated',
+        );
+
+        // Only after the new paths are committed, so a failed write never
+        // leaves the organisation pointing at files that no longer exist.
+        $this->deleteBrandingFiles($previous);
+
+        $this->reset('brandImage');
+
+        session()->flash('status', 'Logo and favicon updated.');
+    }
+
+    public function removeBrandImage(): void
+    {
+        $organisation = $this->organisation();
+        $this->authorize('manageSettings', $organisation);
+
+        $previous = [
+            'logo_path' => $organisation->logo_path,
+            'favicon_path' => $organisation->favicon_path,
+        ];
+
+        $this->persist(
+            ['logo_path' => null, 'favicon_path' => null],
+            $previous,
+            'organisation.branding_removed',
+        );
+
+        $this->deleteBrandingFiles($previous);
+
+        session()->flash('status', 'Logo and favicon removed.');
+    }
+
+    /**
+     * @param  array{logo_path: string|null, favicon_path: string|null}  $paths
+     */
+    private function deleteBrandingFiles(array $paths): void
+    {
+        $disk = Storage::disk(config('filesystems.default'));
+
+        foreach (array_filter($paths) as $path) {
+            $disk->delete($path);
+        }
+    }
+
+    /**
+     * Adds a category to the working list. Nothing is written until the
+     * operator saves, so a mistyped entry can be taken back out first.
+     */
+    public function addCategory(): void
+    {
+        $category = trim($this->newCategory);
+
+        if ($category === '') {
+            return;
+        }
+
+        // Case-insensitive, because "Rent" and "rent" would otherwise become
+        // two lines in every expense report.
+        $exists = collect($this->expenseCategories)
+            ->contains(fn (array $existing): bool => mb_strtolower($existing['name']) === mb_strtolower($category));
+
+        if ($exists) {
+            $this->addError('newCategory', 'That category is already on the list.');
+
+            return;
+        }
+
+        if (count($this->expenseCategories) >= 60) {
+            $this->addError('newCategory', 'Sixty categories is the limit — a longer list stops being useful to pick from.');
+
+            return;
+        }
+
+        $this->expenseCategories[] = ['name' => $category, 'active' => true];
+        $this->newCategory = '';
+        $this->resetErrorBag('newCategory');
+    }
+
+    /**
+     * Takes a category out of use without erasing it.
+     *
+     * This is the only thing that can be done to a category with expenses
+     * behind it: new expenses can no longer be filed under it, while every
+     * report, filter and existing row that references it keeps working.
+     */
+    public function toggleCategory(int $index): void
+    {
+        if (! isset($this->expenseCategories[$index])) {
+            return;
+        }
+
+        $this->expenseCategories[$index]['active'] = ! $this->expenseCategories[$index]['active'];
+    }
+
+    /**
+     * Deleting is allowed only while nothing references the category. Removing
+     * one that has expenses behind it would leave those rows — and every report
+     * that groups by category — describing something the system denies exists.
+     */
+    public function removeCategory(int $index): void
+    {
+        $category = $this->expenseCategories[$index] ?? null;
+
+        if ($category === null) {
+            return;
+        }
+
+        if ((Expense::categoryUsage()[$category['name']] ?? 0) > 0) {
+            $this->addError('expenseCategories', '"'.$category['name'].'" has expenses filed under it, so it cannot be deleted. Deactivate it instead — it will stop appearing on new expenses but stay in your reports.');
+
+            return;
+        }
+
+        unset($this->expenseCategories[$index]);
+
+        $this->expenseCategories = array_values($this->expenseCategories);
+        $this->resetErrorBag('expenseCategories');
+    }
+
+    public function restoreDefaultCategories(): void
+    {
+        // Merged rather than replaced: wiping the list would delete categories
+        // that have expenses behind them, which removeCategory() refuses to do
+        // one at a time and should not do wholesale either.
+        $existing = collect($this->expenseCategories)
+            ->keyBy(fn (array $category): string => mb_strtolower($category['name']));
+
+        foreach (Organisation::DEFAULT_EXPENSE_CATEGORIES as $name) {
+            if (! $existing->has(mb_strtolower($name))) {
+                $this->expenseCategories[] = ['name' => $name, 'active' => true];
+            }
+        }
+    }
+
+    public function saveExpenseCategories(): void
+    {
+        $organisation = $this->organisation();
+        $this->authorize('manageSettings', $organisation);
+
+        $this->validate([
+            'expenseCategories' => ['array', 'max:60'],
+            'expenseCategories.*.name' => ['required', 'string', 'max:60'],
+        ], [], ['expenseCategories.*.name' => 'category']);
+
+        /** @var array<string, array{name: string, active: bool}> $unique */
+        $unique = [];
+
+        foreach ($this->expenseCategories as $category) {
+            $name = trim($category['name']);
+
+            if ($name !== '') {
+                $unique[mb_strtolower($name)] = ['name' => $name, 'active' => (bool) $category['active']];
+            }
+        }
+
+        $categories = array_values($unique);
+
+        if (collect($categories)->every(fn (array $category): bool => ! $category['active'])) {
+            $this->addError('expenseCategories', 'Keep at least one category active — expenses cannot be filed without one.');
+
+            return;
+        }
+
+        $this->expenseCategories = $categories;
+
+        $this->persist(
+            ['expense_categories' => $categories],
+            ['expense_categories' => $organisation->expense_categories],
+            'organisation.expense_categories_updated',
+        );
+
+        session()->flash('status', 'Expense categories saved.');
     }
 
     /**
@@ -318,6 +563,8 @@ class OrganisationSettings extends Component
                 ->where('action_type', $this->templateAction)
                 ->exists(),
             'phonePreview' => PhoneNumber::forDisplay($this->contactPhone ?: '9876543210', $this->defaultCountryCode),
+            // Drives whether a category offers Delete or only Deactivate.
+            'categoryUsage' => Expense::categoryUsage(),
         ])->layout('components.layouts.app', ['heading' => 'Settings']);
     }
 }

@@ -7,6 +7,11 @@ namespace App\Enums;
 enum NotificationStatus: string
 {
     case Ready = 'ready';
+    /**
+     * Stored as "opened" because that is literally what happened — the
+     * operator launched the deep link. Shown as "Sent", which is what it means
+     * to them; the panel still says plainly that it is not a delivery receipt.
+     */
     case Opened = 'opened';
     case Skipped = 'skipped';
     case Unavailable = 'unavailable';
@@ -16,7 +21,7 @@ enum NotificationStatus: string
     {
         return match ($this) {
             self::Ready => 'Ready to send',
-            self::Opened => 'WhatsApp opened',
+            self::Opened => 'Sent',
             self::Skipped => 'Skipped',
             self::Unavailable => 'No usable number',
             self::Failed => 'Failed',

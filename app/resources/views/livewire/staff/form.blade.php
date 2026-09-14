@@ -10,17 +10,24 @@
                     <x-ui.input wire:model="name" name="name" label="Full name" required />
 
                     @if ($organisationUser)
-                        <x-ui.field label="WhatsApp number" hint="The sign-in number cannot be changed after the invitation.">
-                            <input type="text" disabled value="{{ $phone }}"
-                                class="min-h-[40px] w-full cursor-not-allowed rounded-lg border border-hairline-strong bg-sunken px-3 py-2 text-sm text-ink-muted">
-                        </x-ui.field>
+                        <x-ui.input wire:model="phone" name="phone" label="WhatsApp number" type="tel" required
+                            inputmode="tel"
+                            hint="This is how they sign in. One person is one account across every organisation, so changing it changes their sign-in everywhere." />
                     @else
                         <x-ui.input wire:model="phone" name="phone" label="WhatsApp number" type="tel" required
                             inputmode="tel" placeholder="98765 43210"
                             hint="This is how they sign in. If they already have an account, it is reused." />
 
-                        <x-ui.input class="sm:col-span-2" wire:model="password" name="password" label="Temporary password"
-                            type="password" hint="Only needed if this number has no account yet. Minimum 8 characters." />
+                        {{-- No password field: a new account gets a single-use link on
+                             WhatsApp and chooses its own, so no password is ever known
+                             to both an admin and its owner. --}}
+                        <div class="sm:col-span-2">
+                            <x-ui.alert tone="info" title="They set their own password">
+                                If this number is new, a one-time link is created when you save. Send it to them on
+                                WhatsApp from the panel that appears — it expires in
+                                {{ \App\Actions\Auth\IssuePasswordResetLink::lifetimeMinutes() }} minutes.
+                            </x-ui.alert>
+                        </div>
                     @endif
                 </div>
             </x-ui.card>
@@ -73,8 +80,19 @@
                                 </p>
                                 <div class="grid gap-0.5 sm:grid-cols-2">
                                     @foreach ($groupPermissions as $permission)
-                                        <x-ui.checkbox wire:model="permissions" value="{{ $permission->value }}"
-                                            :label="$permission->label()" />
+                                        @php
+                                            // Ticked because something else needs it. Shown as
+                                            // locked rather than silently re-ticking under the
+                                            // admin's cursor when they try to turn it off.
+                                            $requiredBy = $permission->requiredBy($permissions);
+                                        @endphp
+
+                                        <x-ui.checkbox wire:model.live="permissions" value="{{ $permission->value }}"
+                                            :label="$permission->label()"
+                                            :disabled="$requiredBy !== []"
+                                            :description="$requiredBy === []
+                                                ? null
+                                                : 'Required by '.collect($requiredBy)->map(fn ($dependent) => $dependent->label())->implode(', ')" />
                                     @endforeach
                                 </div>
                             </div>
@@ -106,4 +124,15 @@
             @endif
         </div>
     </form>
+
+    {{-- Only for an existing staff member: an upload needs a row to attach to,
+         and this saves itself rather than riding on the form above. --}}
+    @if ($organisationUser)
+        @can('viewAny', \App\Models\Document::class)
+            <div class="mt-5 lg:w-2/3">
+                <livewire:documents.panel subject-type="user" :subject-id="$organisationUser->id"
+                    :key="'documents-staff-'.$organisationUser->id" />
+            </div>
+        @endcan
+    @endif
 </div>

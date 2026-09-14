@@ -5,11 +5,14 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Platform;
 
 use App\Enums\DomainStatus;
+use App\Enums\FinancialAccountStatus;
+use App\Enums\FinancialAccountType;
 use App\Enums\MembershipRole;
 use App\Enums\MembershipStatus;
 use App\Enums\OrganisationStatus;
 use App\Http\Controllers\Controller;
 use App\Models\Domain;
+use App\Models\FinancialAccount;
 use App\Models\Organisation;
 use App\Models\OrganisationUser;
 use App\Models\PlatformAdmin;
@@ -97,6 +100,19 @@ class OrganisationController extends Controller
                 'name' => $validated['name'],
                 'slug' => $validated['slug'],
                 'created_by' => $platformAdmin->id,
+                // Seeded so the expense form is usable on day one; the admin
+                // prunes and extends the list in organisation settings.
+                'expense_categories' => Organisation::DEFAULT_EXPENSE_CATEGORIES,
+            ]);
+
+            // Every fee collection has to name the account it was received
+            // into, so a new organisation needs at least one before it can
+            // take a single payment. Cash is the safe universal default.
+            FinancialAccount::create([
+                'organisation_id' => $organisation->id,
+                'name' => 'Cash',
+                'account_type' => FinancialAccountType::Cash,
+                'status' => FinancialAccountStatus::Active,
             ]);
 
             Domain::create([
@@ -158,6 +174,9 @@ class OrganisationController extends Controller
             'timezone' => ['required', 'timezone'],
             'currency_code' => ['required', 'string', 'size:3', 'uppercase'],
             'locale' => ['required', 'string', 'max:10'],
+            // Branding is a platform-admin decision: it is the one visual
+            // setting a gym cannot change for itself.
+            'accent_color' => ['nullable', 'string', 'regex:/^#[0-9a-fA-F]{6}$/'],
             'contact_email' => ['nullable', 'email', 'max:255'],
             'contact_phone' => ['nullable', 'string', 'max:50'],
             'terminology_member_singular' => ['required', 'string', 'max:50'],

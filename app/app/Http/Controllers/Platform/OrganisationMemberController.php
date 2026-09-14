@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Platform;
 
+use App\Actions\Auth\IssuePasswordResetLink;
 use App\Http\Controllers\Controller;
 use App\Models\Organisation;
 use App\Models\OrganisationUser;
@@ -12,17 +13,20 @@ use App\Models\PlatformAuditEvent;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Str;
 
 class OrganisationMemberController extends Controller
 {
     /**
-     * Generates a new random password for the member's underlying `users`
-     * row and shows it to the platform admin once, to relay out of band —
-     * there is no self-service reset flow yet. Because `users` is the single
-     * shared login identity (MEP.md Section 5.3), this changes the person's
-     * password for every organisation they belong to, not just this one.
+     * Issues a single-use link the organisation's admin can follow to set
+     * their own password, and shows it to the platform admin once to relay.
+     *
+     * This replaces generating a password here. The old flow changed the
+     * person's password immediately — locking them out until the new one
+     * reached them — left the platform admin knowing a working credential
+     * indefinitely, and did so across every organisation the person belongs
+     * to, since `users` is one shared login identity (MEP.md 5.3). A link
+     * changes nothing until its owner uses it, expires on its own, and is
+     * never known to two people at once.
      */
     public function resetPassword(Organisation $organisation, OrganisationUser $organisationUser): RedirectResponse
     {
@@ -33,20 +37,27 @@ class OrganisationMemberController extends Controller
 
         /** @var User $user */
         $user = $organisationUser->user;
-        $plainPassword = Str::password(14);
 
-        $user->update(['password' => Hash::make($plainPassword)]);
+        $issued = app(IssuePasswordResetLink::class)->handle($organisation, $user, $platformAdmin);
 
+        // The URL is deliberately absent from the audit record: it is a
+        // credential until used, and the audit log is read by more people and
+        // kept far longer than the link is valid.
         PlatformAuditEvent::record(
             actor: $platformAdmin,
-            action: 'user.password_reset',
+            action: 'user.password_reset_link_issued',
             entityType: 'user',
             entityId: $user->id,
-            metadata: ['organisation_id' => $organisation->id, 'phone' => $user->phone],
+            metadata: [
+                'organisation_id' => $organisation->id,
+                'phone' => $user->phone,
+                'expires_at' => $issued->link->expires_at->toIso8601String(),
+            ],
         );
 
         return redirect()->route('platform.organisations.edit', $organisation)
-            ->with('generated_password', $plainPassword)
-            ->with('generated_password_for', $user->name.' ('.$user->phone.')');
+            ->with('reset_link', $issued->url)
+            ->with('reset_link_for', $user->name.' ('.$user->phone.')')
+            ->with('reset_link_expires', $issued->expiresLabel());
     }
 }

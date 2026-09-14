@@ -1,13 +1,13 @@
 <div>
     <x-ui.flash />
 
-    {{-- Offered after inviting or updating someone (MEP 6.5). --}}
-    @if (session('notification_id'))
-        <div class="mb-4">
-            <livewire:notifications.action-panel :notification-id="session('notification_id')"
-                :key="'staff-panel-'.session('notification_id')" />
-        </div>
-    @endif
+    {{-- Mounted unconditionally so a message composed by a Livewire action on
+         this page has a listener to reach. Rendered with no notification it
+         draws nothing; keyed to the page, not the message, so the component
+         survives from one action to the next. --}}
+    <div class="mb-4">
+        <livewire:notifications.action-panel :notification-id="session('notification_id')" key="staff-panel" />
+    </div>
 
     <x-ui.page-header :title="$organisation->term('user_plural')"
         :description="'People who can sign in to '.$organisation->name.'. Each can be assigned to several '.strtolower($organisation->term('club_plural')).'.'">
@@ -30,7 +30,7 @@
             </x-ui.filter-select>
 
             <x-ui.filter-select wire:model.live="status" label="Status">
-                <option value="">All statuses</option>
+                <option value="">All except removed</option>
                 @foreach ($statuses as $case)
                     <option value="{{ $case->value }}">{{ $case->label() }}</option>
                 @endforeach
@@ -98,19 +98,31 @@
                             <x-ui.td><x-ui.badge :tone="$person->status->tone()">{{ $person->status->label() }}</x-ui.badge></x-ui.td>
                             <x-ui.td align="right">
                                 <div class="flex items-center justify-end gap-1">
+                                    @can('issuePasswordResetLink', $person)
+                                        <x-ui.button size="sm" variant="ghost" icon="key"
+                                            wire:click="sendResetLink({{ $person->id }})"
+                                            data-confirm-title="Create a password link?" data-confirm-action="Create link" data-confirm-tone="accent" data-confirm="Create a password link for {{ $person->user?->name }}? Any earlier link stops working."
+                                            wire:loading.attr="disabled" wire:target="sendResetLink({{ $person->id }})">Reset link</x-ui.button>
+                                    @endcan
+
                                     @can('update', $person)
                                         <x-ui.button size="sm" variant="ghost" :href="route('tenant.staff.edit', $person)" wire:navigate>Edit</x-ui.button>
 
-                                        @if ($person->status->value === 'active')
-                                            <x-ui.button size="sm" variant="ghost" wire:click="suspend({{ $person->id }})"
-                                                wire:confirm="Suspend {{ $person->user?->name }}? They will not be able to sign in.">Suspend</x-ui.button>
+                                        {{-- Suspend and Remove are different things: a suspension
+                                             is expected to end, removal is not. --}}
+                                        @if ($person->status->value === 'deactivated')
+                                            <x-ui.button size="sm" variant="ghost" icon="arrow-uturn-left"
+                                                wire:click="reactivate({{ $person->id }})">Restore</x-ui.button>
                                         @else
-                                            <x-ui.button size="sm" variant="ghost" wire:click="reactivate({{ $person->id }})">Reactivate</x-ui.button>
-                                        @endif
+                                            @if ($person->status->value === 'active')
+                                                <x-ui.button size="sm" variant="ghost" icon="pause-circle" wire:click="suspend({{ $person->id }})"
+                                                    data-confirm-title="Suspend this person?" data-confirm-action="Suspend" data-confirm-tone="danger" data-confirm="Suspend {{ $person->user?->name }}? They will not be able to sign in until you reactivate them.">Suspend</x-ui.button>
+                                            @else
+                                                <x-ui.button size="sm" variant="ghost" icon="play-circle" wire:click="reactivate({{ $person->id }})">Reactivate</x-ui.button>
+                                            @endif
 
-                                        @if ($person->status->value !== 'deactivated')
-                                            <x-ui.button size="sm" variant="ghost" wire:click="deactivate({{ $person->id }})"
-                                                wire:confirm="Deactivate {{ $person->user?->name }}? This removes their access permanently.">Deactivate</x-ui.button>
+                                            <x-ui.button size="sm" variant="ghost" icon="trash" wire:click="deactivate({{ $person->id }})"
+                                                data-confirm-title="Remove this person?" data-confirm-action="Remove" data-confirm-tone="danger" data-confirm="Remove {{ $person->user?->name }}? They lose access immediately. They stay in historical reports and can be restored.">Remove</x-ui.button>
                                         @endif
                                     @endcan
                                 </div>
@@ -139,10 +151,17 @@
                             @can('update', $person)
                                 <div class="mt-3 flex flex-wrap items-center gap-2">
                                     <x-ui.button size="sm" :href="route('tenant.staff.edit', $person)" wire:navigate>Edit</x-ui.button>
-                                    @if ($person->status->value === 'active')
-                                        <x-ui.button size="sm" variant="danger" wire:click="suspend({{ $person->id }})">Suspend</x-ui.button>
+                                    @can('issuePasswordResetLink', $person)
+                                        <x-ui.button size="sm" icon="key" wire:click="sendResetLink({{ $person->id }})"
+                                            data-confirm-title="Create a password link?" data-confirm-action="Create link" data-confirm-tone="accent" data-confirm="Create a password link for {{ $person->user?->name }}? Any earlier link stops working.">Reset link</x-ui.button>
+                                    @endcan
+                                    @if ($person->status->value === 'deactivated')
+                                        <x-ui.button size="sm" icon="arrow-uturn-left" wire:click="reactivate({{ $person->id }})">Restore</x-ui.button>
+                                    @elseif ($person->status->value === 'active')
+                                        <x-ui.button size="sm" variant="danger" icon="trash" wire:click="deactivate({{ $person->id }})"
+                                            data-confirm-title="Remove this person?" data-confirm-action="Remove" data-confirm-tone="danger" data-confirm="Remove {{ $person->user?->name }}? They lose access immediately and can be restored.">Remove</x-ui.button>
                                     @else
-                                        <x-ui.button size="sm" wire:click="reactivate({{ $person->id }})">Reactivate</x-ui.button>
+                                        <x-ui.button size="sm" icon="play-circle" wire:click="reactivate({{ $person->id }})">Reactivate</x-ui.button>
                                     @endif
                                 </div>
                             @endcan

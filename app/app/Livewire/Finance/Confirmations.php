@@ -67,10 +67,23 @@ class Confirmations extends Component
         $this->lifecycleError = null;
         $this->lastConfirmedNotificationId = $result->notification?->id;
 
+        // Dispatched rather than left to the prop: a child Livewire component
+        // keeps its own state across a parent re-render, so a freshly composed
+        // message only reaches an already-mounted panel as an event.
+        if ($result->notification !== null) {
+            $this->dispatch('notification-created', notificationId: $result->notification->id);
+        }
+
         /** @var Member $member */
         $member = $result->payment->member;
 
-        session()->flash('status', 'Payment confirmed for '.$member->name.'.');
+        // Naming the account in the confirmation makes the balance change
+        // traceable from the notice alone, without opening the payment.
+        $account = $result->payment->financialAccount?->name;
+
+        session()->flash('status', $account === null
+            ? 'Payment confirmed for '.$member->name.'.'
+            : 'Payment confirmed for '.$member->name.' — credited to '.$account.'.');
     }
 
     public function startReject(int $paymentId): void
@@ -110,7 +123,9 @@ class Confirmations extends Component
     private function pendingPayment(int $paymentId): FeePayment
     {
         /** @var FeePayment $payment */
-        $payment = FeePayment::query()->with('member:id,name')->findOrFail($paymentId);
+        $payment = FeePayment::query()
+            ->with(['member:id,name', 'financialAccount:id,name'])
+            ->findOrFail($paymentId);
 
         return $payment;
     }
@@ -121,7 +136,16 @@ class Confirmations extends Component
     protected function queue(): LengthAwarePaginator
     {
         return FeePayment::query()
-            ->with(['member:id,name,phone', 'club:id,name', 'collectedBy.user:id,name', 'subscription.plan:id,name'])
+            // financialAccount is eager-loaded because the queue names the
+            // receiving account on every row — an admin confirming a payment
+            // is signing off that the money reached that account.
+            ->with([
+                'member:id,name,phone',
+                'club:id,name',
+                'collectedBy.user:id,name',
+                'subscription.plan:id,name',
+                'financialAccount:id,name,account_type',
+            ])
             ->where('confirmation_status', ConfirmationStatus::PendingAdminConfirmation)
             ->when($this->club !== '', fn (Builder $query) => $query->where('club_id', $this->club))
             ->when($this->collector !== '', fn (Builder $query) => $query->where('collected_by', $this->collector))

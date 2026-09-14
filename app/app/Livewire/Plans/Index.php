@@ -42,7 +42,7 @@ class Index extends Component
 
         $plan->update(['status' => PlanStatus::Archived]);
 
-        session()->flash('status', "\"{$plan->name}\" was archived. Existing subscriptions are unaffected.");
+        session()->flash('status', "\"{$plan->name}\" was removed. Existing subscriptions are unaffected.");
     }
 
     public function restore(Plan $plan): void
@@ -60,7 +60,12 @@ class Index extends Component
         return Plan::query()
             ->withCount(['subscriptions as active_subscriptions_count' => fn ($query) => $query->where('status', SubscriptionStatus::Active)])
             ->when($this->search !== '', fn ($query) => $query->where('name', 'ilike', "%{$this->search}%"))
-            ->when($this->status !== '', fn ($query) => $query->where('status', $this->status))
+            // Removed rows only appear when explicitly filtered for.
+            ->when(
+                $this->status !== '',
+                fn ($query) => $query->where('status', $this->status),
+                fn ($query) => $query->where('status', '!=', PlanStatus::Archived),
+            )
             ->orderBy('status')
             ->orderBy('price_minor')
             ->paginate(15);

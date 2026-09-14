@@ -7,6 +7,7 @@ namespace App\Http\Controllers\Tenant;
 use App\Enums\ClubAssignmentStatus;
 use App\Http\Controllers\Controller;
 use App\Models\Club;
+use App\Models\Document;
 use App\Models\Expense;
 use App\Models\FeePayment;
 use App\Models\Organisation;
@@ -14,6 +15,7 @@ use App\Models\OrganisationUser;
 use App\Models\User;
 use App\Support\Reporting\OrganisationMetrics;
 use App\Support\Reporting\ReportPeriod;
+use App\Support\Storage\BucketDisk;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -97,6 +99,39 @@ class DocumentController extends Controller
             $expense->receipt_path,
             'receipt-EXP-'.$expense->id.'.'.pathinfo($expense->receipt_path, PATHINFO_EXTENSION),
             ['Cache-Control' => 'private, max-age=300'],
+        );
+    }
+
+    /**
+     * Streams a member or staff document out of the organisation's own bucket.
+     *
+     * Proxied rather than redirected to a signed object URL: the policy check
+     * has to happen on every fetch, and a signed URL, once issued, is a
+     * bearer token for an identity document that outlives the session it was
+     * created in.
+     */
+    public function memberDocument(Document $document): StreamedResponse
+    {
+        $this->authorize('view', $document);
+
+        $bucket = $document->bucket;
+
+        abort_if($bucket === null, 404);
+
+        $disk = BucketDisk::for($bucket);
+
+        abort_unless($disk->exists($document->path), 404);
+
+        return $disk->response(
+            $document->path,
+            $document->original_filename,
+            [
+                'Cache-Control' => 'private, no-store',
+                // Never rendered inline from our own origin: an uploaded SVG
+                // or HTML file would otherwise run as a same-origin script.
+                'Content-Disposition' => 'attachment; filename="'.addslashes($document->original_filename).'"',
+                'X-Content-Type-Options' => 'nosniff',
+            ],
         );
     }
 

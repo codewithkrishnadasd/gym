@@ -31,15 +31,57 @@ class ActionPanel extends Component
 
     public ?int $notificationId = null;
 
-    public function mount(?int $notificationId = null): void
+    /**
+     * 'event' — shown straight after an action, where dismissing must leave the
+     * message in the queue to send later.
+     * 'queue' — shown inside the message list, where skipping is a decision not
+     * to send at all.
+     */
+    public string $context = 'event';
+
+    public function mount(?int $notificationId = null, string $context = 'event'): void
     {
         $this->notificationId = $notificationId;
+        $this->context = $context;
     }
 
     #[On('notification-created')]
     public function show(int $notificationId): void
     {
         $this->notificationId = $notificationId;
+    }
+
+    /**
+     * Persists an edit so the message list shows the same wording the operator
+     * is looking at here.
+     *
+     * Without this the edit lived only in the browser and reached the database
+     * on "Open WhatsApp" alone — so editing and then closing the panel silently
+     * threw the change away, and the queue kept offering the original text.
+     */
+    public function saveMessage(string $message): void
+    {
+        $notification = $this->notification();
+
+        if (! $notification || trim($message) === '') {
+            return;
+        }
+
+        $this->authorize('sendNotifications', $this->organisation());
+
+        // Once it has gone out, the snapshot is the record of what was sent.
+        // Rewriting it afterwards would make the history a lie.
+        if ($notification->status !== NotificationStatus::Ready) {
+            return;
+        }
+
+        if ($notification->message_snapshot === $message) {
+            return;
+        }
+
+        $notification->forceFill(['message_snapshot' => $message])->save();
+
+        $this->dispatch('notification-updated');
     }
 
     /**
@@ -64,8 +106,14 @@ class ActionPanel extends Component
             'opened_at' => now(),
             ...(trim($message) === '' ? [] : ['message_snapshot' => $message]),
         ])->save();
+
+        $this->dispatch('notification-updated');
     }
 
+    /**
+     * Marks the message as deliberately not sent, which takes it off the
+     * outstanding list.
+     */
     public function skip(): void
     {
         $notification = $this->notification();
@@ -76,11 +124,23 @@ class ActionPanel extends Component
 
         $this->authorize('sendNotifications', $this->organisation());
 
+        // Skipping something already launched would rewrite what happened.
+        if ($notification->status !== NotificationStatus::Ready) {
+            return;
+        }
+
         $notification->forceFill(['status' => NotificationStatus::Skipped])->save();
 
         $this->notificationId = null;
+
+        $this->dispatch('notification-updated');
     }
 
+    /**
+     * Closes the panel without touching the notification. Used after an action,
+     * where the operator is moving on rather than deciding never to send — the
+     * message stays in the queue for them to pick up later.
+     */
     public function dismiss(): void
     {
         $this->notificationId = null;
@@ -90,7 +150,9 @@ class ActionPanel extends Component
     {
         return $this->notificationId === null
             ? null
-            : WhatsappActionNotification::query()->find($this->notificationId);
+            : WhatsappActionNotification::query()
+                ->with(['createdBy.user:id,name', 'openedBy.user:id,name'])
+                ->find($this->notificationId);
     }
 
     public function render(): View

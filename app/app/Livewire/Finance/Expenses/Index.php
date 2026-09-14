@@ -131,14 +131,16 @@ class Index extends Component
 
     public function render(): View
     {
+        $organisation = $this->organisation();
+
         $completed = (int) $this->baseQuery()->clone()->where('status', ExpenseStatus::Completed)->sum('amount_minor');
 
         return view('livewire.finance.expenses.index', [
-            'organisation' => $this->organisation(),
+            'organisation' => $organisation,
             'expenses' => $this->expenses(),
             'clubs' => $this->accessibleClubs(true),
             'accounts' => FinancialAccount::query()->orderBy('name')->get(),
-            'categories' => Expense::categories(),
+            'categories' => Expense::categoriesForFilter($organisation),
             'totalCompleted' => $completed,
             'reversedTotal' => (int) $this->baseQuery()->clone()->where('status', ExpenseStatus::Reversed)->sum('amount_minor'),
         ])->layout('components.layouts.app', ['heading' => 'Expenses']);

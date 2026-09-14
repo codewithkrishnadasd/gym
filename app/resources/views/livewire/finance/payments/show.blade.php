@@ -116,8 +116,9 @@
         </div>
 
         <div class="space-y-5">
-            @if ($canNotify && $payment->isConfirmed())
-                <livewire:notifications.action-panel :notification-id="$notificationId" :key="'panel-'.$payment->id.'-'.$notificationId" />
+            @if ($canNotify)
+                <livewire:notifications.action-panel :notification-id="$notificationId"
+                    :key="'panel-'.$payment->id" />
             @endif
 
             <x-ui.card title="{{ $organisation->term('member_singular') }}">

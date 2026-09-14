@@ -2,7 +2,7 @@
     <x-ui.flash />
 
     <x-ui.page-header title="Plans"
-        description="Pricing and duration for the memberships you sell. Archiving a plan hides it from new sales without touching existing subscriptions.">
+        description="Pricing and duration for the memberships you sell. Removing a plan hides it from new sales without touching existing subscriptions.">
         <x-slot:actions>
             @can('create', \App\Models\Plan::class)
                 <x-ui.button variant="primary" icon="plus" :href="route('tenant.plans.create')" wire:navigate>New plan</x-ui.button>
@@ -13,9 +13,9 @@
     <x-ui.card :padded="false">
         <x-ui.filters search="search" placeholder="Search plans…">
             <x-ui.filter-select wire:model.live="status" label="Status">
-                <option value="">All statuses</option>
+                <option value="">All except removed</option>
                 @foreach ($statuses as $case)
-                    <option value="{{ $case->value }}">{{ ucfirst($case->value) }}</option>
+                    <option value="{{ $case->value }}">{{ $case->label() }}</option>
                 @endforeach
             </x-ui.filter-select>
         </x-ui.filters>
@@ -60,8 +60,8 @@
                             <x-ui.td align="right" numeric>{{ $plan->session_limit ?? 'Unlimited' }}</x-ui.td>
                             <x-ui.td align="right" numeric>{{ $plan->active_subscriptions_count }}</x-ui.td>
                             <x-ui.td>
-                                <x-ui.badge :tone="$plan->status->value === 'active' ? 'positive' : 'neutral'">
-                                    {{ ucfirst($plan->status->value) }}
+                                <x-ui.badge :tone="$plan->status->tone()">
+                                    {{ $plan->status->label() }}
                                 </x-ui.badge>
                             </x-ui.td>
                             <x-ui.td align="right">
@@ -71,10 +71,10 @@
                                     @endcan
                                     @can('archive', \App\Models\Plan::class)
                                         @if ($plan->status->value === 'archived')
-                                            <x-ui.button size="sm" variant="ghost" wire:click="restore({{ $plan->id }})">Restore</x-ui.button>
+                                            <x-ui.button size="sm" variant="ghost" icon="arrow-uturn-left" wire:click="restore({{ $plan->id }})">Restore</x-ui.button>
                                         @else
-                                            <x-ui.button size="sm" variant="ghost" wire:click="archive({{ $plan->id }})"
-                                                wire:confirm="Archive “{{ $plan->name }}”? It will no longer be available for new subscriptions.">Archive</x-ui.button>
+                                            <x-ui.button size="sm" variant="ghost" icon="trash" wire:click="archive({{ $plan->id }})"
+                                                data-confirm-title="Remove this plan?" data-confirm-action="Remove" data-confirm-tone="danger" data-confirm="Remove “{{ $plan->name }}”? It will no longer be available for new subscriptions.">Remove</x-ui.button>
                                         @endif
                                     @endcan
                                 </div>
@@ -94,8 +94,8 @@
                                         {{ $organisation->money($plan->price_minor) }} &middot; {{ $plan->duration_days }} days
                                     </p>
                                 </div>
-                                <x-ui.badge :tone="$plan->status->value === 'active' ? 'positive' : 'neutral'">
-                                    {{ ucfirst($plan->status->value) }}
+                                <x-ui.badge :tone="$plan->status->tone()">
+                                    {{ $plan->status->label() }}
                                 </x-ui.badge>
                             </div>
 
@@ -105,10 +105,10 @@
                                 @endcan
                                 @can('archive', \App\Models\Plan::class)
                                     @if ($plan->status->value === 'archived')
-                                        <x-ui.button size="sm" wire:click="restore({{ $plan->id }})">Restore</x-ui.button>
+                                        <x-ui.button size="sm" icon="arrow-uturn-left" wire:click="restore({{ $plan->id }})">Restore</x-ui.button>
                                     @else
-                                        <x-ui.button size="sm" variant="danger" wire:click="archive({{ $plan->id }})"
-                                            wire:confirm="Archive “{{ $plan->name }}”?">Archive</x-ui.button>
+                                        <x-ui.button size="sm" variant="danger" icon="trash" wire:click="archive({{ $plan->id }})"
+                                            data-confirm-title="Remove this plan?" data-confirm-action="Remove" data-confirm-tone="danger" data-confirm="Remove “{{ $plan->name }}”? It will no longer be available for new subscriptions.">Remove</x-ui.button>
                                     @endif
                                 @endcan
                             </div>

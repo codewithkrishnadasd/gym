@@ -86,8 +86,16 @@ class Form extends Component
 
         $organisation = $this->organisation();
 
+        // A deactivated category is still recognised everywhere old expenses
+        // are read, so it has to be rejected here explicitly — the picker
+        // hides it, but the field accepts typed values.
+        $retired = array_diff($organisation->allExpenseCategories(), $organisation->expenseCategories());
+
         $validated = $this->validate([
-            'category' => ['required', 'string', 'max:100'],
+            'category' => [
+                'required', 'string', 'max:100',
+                Rule::notIn($retired),
+            ],
             'amount' => ['required', 'numeric', 'gt:0'],
             'expenseDate' => ['required', 'date', 'before_or_equal:today'],
             'clubId' => ['nullable', Rule::exists('clubs', 'id')->where('organisation_id', $organisation->id)],
@@ -100,6 +108,7 @@ class Form extends Component
             'receipt' => ['nullable', 'file', 'mimes:jpg,jpeg,png,webp,pdf', 'max:5120'],
         ], [
             'description.required_without' => 'Add a description or a payee so this expense can be identified later.',
+            'category.not_in' => 'That category is no longer in use. Pick another, or ask an admin to reactivate it in Settings.',
         ]);
 
         $money = Money::parseMajor($validated['amount'], $organisation->currency_code);
@@ -192,7 +201,7 @@ class Form extends Component
             'organisation' => $organisation,
             'clubs' => $this->accessibleClubs(true),
             'accounts' => FinancialAccount::query()->where('status', FinancialAccountStatus::Active)->orderBy('name')->get(),
-            'categories' => Expense::categories(),
+            'categories' => Expense::categoriesForEntry($organisation),
             'targetTypes' => ExpenseTargetType::cases(),
             'members' => $this->targetType === ExpenseTargetType::Member->value
                 ? Member::query()->orderBy('name')->limit(200)->get()

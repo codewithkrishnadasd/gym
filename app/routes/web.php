@@ -6,8 +6,10 @@ use App\Http\Controllers\Platform\OrganisationController as PlatformOrganisation
 use App\Http\Controllers\Platform\OrganisationDomainController as PlatformOrganisationDomainController;
 use App\Http\Controllers\Platform\OrganisationMemberController as PlatformOrganisationMemberController;
 use App\Http\Controllers\Tenant\AuthController as TenantAuthController;
+use App\Http\Controllers\Tenant\BrandingController;
 use App\Http\Controllers\Tenant\DocumentController;
 use App\Http\Controllers\Tenant\ExportController;
+use App\Http\Controllers\Tenant\PasswordResetController;
 use App\Http\Middleware\EnsureActiveMembership;
 use App\Livewire\Attendance\Roster as AttendanceRoster;
 use App\Livewire\Audit\Index as AuditIndex;
@@ -27,6 +29,7 @@ use App\Livewire\Finance\Payments\Show as PaymentShow;
 use App\Livewire\Members\Form as MemberForm;
 use App\Livewire\Members\Index as MemberIndex;
 use App\Livewire\Members\Show as MemberShow;
+use App\Livewire\Notifications\Index as NotificationIndex;
 use App\Livewire\Plans\Form as PlanForm;
 use App\Livewire\Plans\Index as PlanIndex;
 use App\Livewire\Reports\Index as ReportIndex;
@@ -68,6 +71,21 @@ Route::domain(config('platform.hostname'))->group(function (): void {
 // middleware (prepended to the `web` group) based on the request hostname.
 Route::get('/', [TenantAuthController::class, 'showLogin'])->name('tenant.login');
 Route::post('/login', [TenantAuthController::class, 'login'])->name('tenant.login.attempt');
+
+// Branding is served unauthenticated because both images appear on the
+// sign-in page and the browser fetches a favicon without a session. Only the
+// two paths held on the organisation record are reachable.
+Route::get('/branding/logo', [BrandingController::class, 'logo'])->name('tenant.branding.logo');
+Route::get('/branding/favicon', [BrandingController::class, 'favicon'])->name('tenant.branding.favicon');
+
+// Redeeming a password reset link. Throttled per IP: the token is 256 bits, so
+// this is about keeping a scanner from generating load, not about guessability.
+Route::middleware('throttle:10,1')->group(function (): void {
+    Route::get('/set-password/{token}', [PasswordResetController::class, 'show'])
+        ->name('tenant.password.set');
+    Route::post('/set-password/{token}', [PasswordResetController::class, 'store'])
+        ->name('tenant.password.set.store');
+});
 Route::post('/logout', [TenantAuthController::class, 'logout'])
     ->middleware('auth:web')
     ->name('tenant.logout');
@@ -144,6 +162,13 @@ Route::middleware(['auth:web', EnsureActiveMembership::class])->group(function (
         Route::get('/export', [ExportController::class, 'report'])->name('export');
         Route::get('/pdf', [DocumentController::class, 'reportSummary'])->name('pdf');
     });
+
+    Route::get('/messages', NotificationIndex::class)->name('tenant.notifications.index');
+
+    // Streamed through the app so the policy runs on every fetch — see
+    // DocumentController::memberDocument().
+    Route::get('/documents/{document}', [DocumentController::class, 'memberDocument'])
+        ->name('tenant.documents.download');
 
     Route::get('/audit-log', AuditIndex::class)->name('tenant.audit.index');
 

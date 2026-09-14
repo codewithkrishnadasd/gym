@@ -75,9 +75,9 @@
                     <p class="mt-3 text-center text-sm font-medium text-ink">{{ $account->name }}</p>
 
                     @if ($account->upi_id)
-                        <div class="mt-2" x-data="{ copied: false }">
+                        <div class="mt-2" x-data="{ copied: false, upi: @js($account->upi_id) }">
                             <button type="button"
-                                x-on:click="navigator.clipboard.writeText(@js($account->upi_id)).then(() => { copied = true; setTimeout(() => copied = false, 2000) })"
+                                x-on:click="copied = await window.copyToClipboard(upi); setTimeout(() => copied = false, 2000)"
                                 class="flex w-full min-h-[44px] items-center justify-between gap-2 rounded-lg border border-hairline bg-raised px-3 py-2 text-sm transition hover:bg-sunken">
                                 <span class="truncate font-medium text-ink">{{ $account->upi_id }}</span>
                                 <span class="shrink-0 text-xs text-ink-muted" x-show="! copied">Copy</span>

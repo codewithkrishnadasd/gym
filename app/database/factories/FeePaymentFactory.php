@@ -9,6 +9,7 @@ use App\Enums\PaymentMethod;
 use App\Enums\WhatsappStatus;
 use App\Models\Club;
 use App\Models\FeePayment;
+use App\Models\FinancialAccount;
 use App\Models\Member;
 use App\Models\Organisation;
 use App\Models\OrganisationUser;
@@ -31,6 +32,11 @@ class FeePaymentFactory extends Factory
             'amount_minor' => fake()->numberBetween(1000, 10000),
             'currency_code' => 'USD',
             'payment_method' => PaymentMethod::Cash,
+            // Required on every payment. Derived from the organisation already
+            // resolved above so the account never belongs to a different one.
+            'financial_account_id' => fn (array $attributes): int => FinancialAccount::factory()
+                ->create(['organisation_id' => $attributes['organisation_id']])
+                ->id,
             'payment_date' => now()->toDateString(),
             'collected_by' => OrganisationUser::factory(),
             'confirmation_status' => ConfirmationStatus::PendingAdminConfirmation,

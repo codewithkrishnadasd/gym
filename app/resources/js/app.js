@@ -205,3 +205,109 @@ new MutationObserver(() => renderAll()).observe(document.documentElement, {
     attributes: true,
     attributeFilter: ['data-theme'],
 });
+
+/**
+ * Copies text to the clipboard, returning whether it worked.
+ *
+ * `navigator.clipboard` only exists in a secure context — HTTPS or localhost.
+ * Reached over plain HTTP (a LAN address, an IP, a domain before its
+ * certificate is in place) the property is simply undefined, and calling it
+ * throws. The old `document.execCommand` path still works there, so it is used
+ * as the fallback rather than leaving the button dead.
+ *
+ * Never throws: callers use the boolean to offer manual copying instead.
+ */
+window.copyToClipboard = async function copyToClipboard(text) {
+    if (typeof text !== 'string' || text === '') {
+        return false;
+    }
+
+    if (window.isSecureContext && navigator.clipboard?.writeText) {
+        try {
+            await navigator.clipboard.writeText(text);
+
+            return true;
+        } catch {
+            // Permission denied, or the document was not focused. Fall through
+            // to the legacy path rather than giving up.
+        }
+    }
+
+    const area = document.createElement('textarea');
+
+    area.value = text;
+    area.setAttribute('readonly', '');
+    // Off-screen rather than hidden: a display:none element cannot be selected,
+    // and scrolling the page under the user would be worse than either.
+    area.style.cssText = 'position:fixed;top:0;left:-9999px;opacity:0';
+
+    document.body.appendChild(area);
+    area.select();
+    area.setSelectionRange(0, area.value.length);
+
+    let copied = false;
+
+    try {
+        copied = document.execCommand('copy');
+    } catch {
+        copied = false;
+    }
+
+    area.remove();
+
+    return copied;
+};
+
+/**
+ * Routes every `data-confirm` control through the styled confirmation dialog
+ * instead of window.confirm().
+ *
+ * Intercepting in the capture phase is what makes this work with Livewire and
+ * Alpine alike: both bind their handlers in the bubble phase, so stopping the
+ * event here means neither has run yet. On confirmation the original click is
+ * replayed with a bypass flag, and whatever would normally have happened —
+ * a wire:click, a form submit, a link — happens then.
+ *
+ * Attributes:
+ *   data-confirm         the question (required)
+ *   data-confirm-title   heading, default "Are you sure?"
+ *   data-confirm-action  confirm button label, default "Continue"
+ *   data-confirm-tone    "danger" (default) or "accent"
+ */
+document.addEventListener(
+    'click',
+    (event) => {
+        const trigger = event.target.closest?.('[data-confirm]');
+
+        if (!trigger || trigger.dataset.confirmed === 'true') {
+            return;
+        }
+
+        // Without a dialog on the page, swallowing the click would turn every
+        // confirmable action into a silent no-op. Let it through instead.
+        if (!document.querySelector('[data-confirm-dialog]')) {
+            return;
+        }
+
+        event.preventDefault();
+        event.stopPropagation();
+        event.stopImmediatePropagation();
+
+        window.dispatchEvent(
+            new CustomEvent('confirm-request', {
+                detail: {
+                    message: trigger.dataset.confirm,
+                    title: trigger.dataset.confirmTitle || 'Are you sure?',
+                    action: trigger.dataset.confirmAction || 'Continue',
+                    tone: trigger.dataset.confirmTone || 'danger',
+                    accept() {
+                        trigger.dataset.confirmed = 'true';
+                        trigger.click();
+                        delete trigger.dataset.confirmed;
+                    },
+                },
+            }),
+        );
+    },
+    true,
+);

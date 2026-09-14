@@ -31,4 +31,18 @@ return [
 
     'horizon_phones' => array_filter(explode(',', (string) env('PLATFORM_HORIZON_PHONES', ''))),
 
+    /*
+    |--------------------------------------------------------------------------
+    | Password Reset Links
+    |--------------------------------------------------------------------------
+    |
+    | How long a password reset link stays usable. Short on purpose: the link
+    | is handed over on WhatsApp, so it lives in a chat history that outlasts
+    | any legitimate need for it. Long enough that someone who reads the
+    | message an hour later can still use it, and no longer.
+    |
+    */
+
+    'password_reset_link_minutes' => (int) env('PASSWORD_RESET_LINK_MINUTES', 60),
+
 ];

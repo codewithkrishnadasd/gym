@@ -9,6 +9,7 @@ enum MemberStatus: string
     case Active = 'active';
     case Paused = 'paused';
     case Inactive = 'inactive';
+    /** Stored as "archived" so existing rows and audit history stay valid; shown to operators as "Removed". */
     case Archived = 'archived';
 
     public function label(): string
@@ -17,7 +18,7 @@ enum MemberStatus: string
             self::Active => 'Active',
             self::Paused => 'Paused',
             self::Inactive => 'Inactive',
-            self::Archived => 'Archived',
+            self::Archived => 'Removed',
         };
     }
 

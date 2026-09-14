@@ -9,6 +9,7 @@ enum MembershipStatus: string
     case Invited = 'invited';
     case Active = 'active';
     case Suspended = 'suspended';
+    /** Stored as "deactivated" so existing rows and audit history stay valid; shown as "Removed". */
     case Deactivated = 'deactivated';
 
     public function label(): string
@@ -17,7 +18,7 @@ enum MembershipStatus: string
             self::Invited => 'Invited',
             self::Active => 'Active',
             self::Suspended => 'Suspended',
-            self::Deactivated => 'Deactivated',
+            self::Deactivated => 'Removed',
         };
     }
 

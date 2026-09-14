@@ -65,7 +65,7 @@ final class Navigation
                 'icon' => 'building-office-2',
                 'active' => 'tenant.clubs.*',
             ] : null,
-            $isAdmin ? [
+            ($isAdmin || $can('staff.view')) ? [
                 'label' => $organisation->term('user_plural'),
                 'route' => 'tenant.staff.index',
                 'icon' => 'identification',
@@ -113,6 +113,17 @@ final class Navigation
 
         if ($financeItems !== []) {
             $sections[] = ['heading' => 'Finance', 'items' => $financeItems];
+        }
+
+        $messagingItems = ($isAdmin || $can('notifications.send')) ? [[
+            'label' => 'Messages',
+            'route' => 'tenant.notifications.index',
+            'icon' => 'chat-bubble-left-right',
+            'active' => 'tenant.notifications.*',
+        ]] : [];
+
+        if ($messagingItems !== []) {
+            $sections[] = ['heading' => 'Messaging', 'items' => $messagingItems];
         }
 
         $insightItems = array_values(array_filter([

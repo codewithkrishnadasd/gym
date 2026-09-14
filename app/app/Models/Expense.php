@@ -24,22 +24,55 @@ class Expense extends Model
     use BelongsToOrganisation, HasFactory;
 
     /**
-     * A fixed starter set so category filtering and reporting group reliably
-     * instead of fragmenting across free-typed spellings. Operators can still
-     * enter their own category, which appears in the list once used.
+     * The categories a *new* expense may be filed under: the organisation's
+     * active categories only. A deactivated one is deliberately absent, which
+     * is the whole point of deactivating rather than deleting it.
      *
      * @return array<int, string>
      */
-    public static function categories(): array
+    public static function categoriesForEntry(Organisation $organisation): array
     {
-        $defaults = [
-            'Rent', 'Utilities', 'Salaries', 'Equipment', 'Maintenance',
-            'Marketing', 'Supplies', 'Insurance', 'Software', 'Other',
-        ];
+        return collect($organisation->expenseCategories())->sort()->values()->all();
+    }
 
+    /**
+     * The categories to offer when filtering and reporting: everything
+     * configured, active or not, plus anything already recorded.
+     *
+     * Deactivated and free-typed categories have to appear here or their
+     * expenses become unreachable — the money was still spent, and a report
+     * that silently omits it is worse than one with an extra row.
+     *
+     * @return array<int, string>
+     */
+    public static function categoriesForFilter(Organisation $organisation): array
+    {
         $used = self::query()->distinct()->orderBy('category')->pluck('category')->all();
 
-        return collect($defaults)->merge($used)->unique()->sort()->values()->all();
+        return collect($organisation->allExpenseCategories())
+            ->merge($used)
+            ->unique()
+            ->sort()
+            ->values()
+            ->all();
+    }
+
+    /**
+     * How many expenses reference each category, so settings can refuse to
+     * delete one that is in use.
+     *
+     * @return array<string, int>
+     */
+    public static function categoryUsage(): array
+    {
+        /** @var array<string, int> $counts */
+        $counts = self::query()
+            ->selectRaw('category, COUNT(*) AS total')
+            ->groupBy('category')
+            ->pluck('total', 'category')
+            ->all();
+
+        return $counts;
     }
 
     protected function casts(): array

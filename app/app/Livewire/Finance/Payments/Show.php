@@ -62,6 +62,14 @@ class Show extends Component
 
         $this->payment = $result->payment->fresh() ?? $this->payment;
         $this->notificationId = $result->notification?->id;
+
+        // Dispatched rather than left to the prop: a child Livewire component
+        // keeps its own state across a parent re-render, so a freshly composed
+        // message only reaches an already-mounted panel as an event.
+        if ($result->notification !== null) {
+            $this->dispatch('notification-created', notificationId: $result->notification->id);
+        }
+
         $this->lifecycleError = null;
 
         $this->dispatch('close-modal');

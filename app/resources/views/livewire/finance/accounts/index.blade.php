@@ -2,7 +2,7 @@
     <x-ui.flash />
 
     <x-ui.page-header title="Financial accounts"
-        description="Where money is received and spent. Archiving an account never changes historical transactions.">
+        description="Where money is received and spent. Removing an account never changes historical transactions.">
         <x-slot:actions>
             @can('create', \App\Models\FinancialAccount::class)
                 <x-ui.button variant="primary" icon="plus" :href="route('tenant.finance.accounts.create')" wire:navigate>
@@ -15,7 +15,7 @@
     <x-ui.card :padded="false">
         <x-ui.filters>
             <x-ui.filter-select wire:model.live="status" label="Status">
-                <option value="">All statuses</option>
+                <option value="">All except removed</option>
                 @foreach ($statuses as $case)
                     <option value="{{ $case->value }}">{{ $case->label() }}</option>
                 @endforeach
@@ -82,10 +82,10 @@
                                 @endcan
                                 @can('archive', \App\Models\FinancialAccount::class)
                                     @if ($account->status->value === 'archived')
-                                        <x-ui.button size="sm" variant="ghost" wire:click="restore({{ $account->id }})">Restore</x-ui.button>
+                                        <x-ui.button size="sm" variant="ghost" icon="arrow-uturn-left" wire:click="restore({{ $account->id }})">Restore</x-ui.button>
                                     @else
-                                        <x-ui.button size="sm" variant="ghost" wire:click="archive({{ $account->id }})"
-                                            wire:confirm="Archive “{{ $account->name }}”?">Archive</x-ui.button>
+                                        <x-ui.button size="sm" variant="ghost" icon="trash" wire:click="archive({{ $account->id }})"
+                                            data-confirm-title="Remove this account?" data-confirm-action="Remove" data-confirm-tone="danger" data-confirm="Remove “{{ $account->name }}”? Historical transactions are unchanged.">Remove</x-ui.button>
                                     @endif
                                 @endcan
                             </div>

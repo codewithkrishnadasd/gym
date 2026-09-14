@@ -79,6 +79,24 @@ final class OrganisationMetrics
             ->count();
     }
 
+    /**
+     * Plans whose term has already ended but which nothing has replaced.
+     *
+     * Counted from `end_date` rather than the status column, because that
+     * column only changes when a renewal supersedes the term — a plan that ran
+     * out and was never renewed is still stored as active. These are the
+     * members who have quietly stopped paying.
+     */
+    public function lapsedSubscriptions(): int
+    {
+        $today = Carbon::today($this->organisation->timezone);
+
+        return $this->subscriptionScope()
+            ->where('status', SubscriptionStatus::Active)
+            ->whereDate('end_date', '<', $today->toDateString())
+            ->count();
+    }
+
     public function revenueCollected(): int
     {
         return (int) $this->paymentScope()
@@ -587,6 +605,17 @@ final class OrganisationMetrics
                 'tone' => 'info',
                 'title' => $expiring.' '.str('plan')->plural($expiring).' expiring within 7 days',
                 'detail' => 'Renew these before they lapse.',
+            ];
+        }
+
+        $lapsed = $this->lapsedSubscriptions();
+
+        if ($lapsed > 0) {
+            $alerts[] = [
+                'tone' => 'caution',
+                'title' => $lapsed.' '.str('plan')->plural($lapsed).' already lapsed',
+                'detail' => 'These terms ended and were never renewed. Filter the '
+                    .strtolower($this->organisation->term('member_plural')).' list by "Expired" to see who.',
             ];
         }
 
