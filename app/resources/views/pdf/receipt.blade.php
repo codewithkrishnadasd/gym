@@ -92,6 +92,12 @@
                     <td class="right">{{ $organisation->money($payment->discount_minor) }}</td>
                 </tr>
             @endif
+            @if ($payment->credit_applied_minor > 0)
+                <tr>
+                    <td><div class="muted">Applied from earlier payment</div></td>
+                    <td class="right">{{ $organisation->money($payment->credit_applied_minor) }}</td>
+                </tr>
+            @endif
         </table>
     </div>
 

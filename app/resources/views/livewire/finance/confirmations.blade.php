@@ -79,6 +79,9 @@
                                         @if ($payment->discount_minor > 0)
                                             · includes a {{ $organisation->money($payment->discount_minor) }} discount
                                         @endif
+                                        @if ($payment->credit_applied_minor > 0)
+                                            · applies {{ $organisation->money($payment->credit_applied_minor) }} of earlier unlinked money
+                                        @endif
                                     </p>
                                     @if ($payment->invoice)
                                         <p class="text-xs text-ink-muted">

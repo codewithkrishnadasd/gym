@@ -49,16 +49,16 @@ final class ReverseFeePayment
 
             if ($locked->invoice_id !== null) {
                 Invoice::query()->whereKey($locked->invoice_id)->lockForUpdate()->first()
-                    ?->withdrawPayment($locked->amount_minor, $locked->discount_minor);
+                    ?->withdrawPayment($locked->settledMinor(), $locked->discount_minor);
             }
 
             if ($locked->purpose === PaymentPurpose::Admission) {
                 Member::query()->whereKey($locked->member_id)->lockForUpdate()->first()
-                    ?->withdrawAdmissionPayment($locked->amount_minor, $locked->discount_minor);
+                    ?->withdrawAdmissionPayment($locked->settledMinor(), $locked->discount_minor);
             }
 
             if ($subscription) {
-                $subscription->withdrawPayment($locked->amount_minor, $locked->discount_minor);
+                $subscription->withdrawPayment($locked->settledMinor(), $locked->discount_minor);
             }
 
             AuditEvent::record(
@@ -71,6 +71,7 @@ final class ReverseFeePayment
                     'reason' => $reason,
                     'amount_minor' => $locked->amount_minor,
                     'discount_minor' => $locked->discount_minor,
+                    'credit_applied_minor' => $locked->credit_applied_minor,
                     'subscription_id' => $locked->subscription_id,
                     'invoice_id' => $locked->invoice_id,
                 ],

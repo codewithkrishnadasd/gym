@@ -25,7 +25,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  */
 #[Fillable([
     'organisation_id', 'club_id', 'member_id', 'subscription_id', 'invoice_id', 'purpose', 'payer_name',
-    'amount_minor', 'discount_minor', 'currency_code', 'payment_method', 'financial_account_id',
+    'amount_minor', 'discount_minor', 'credit_applied_minor', 'currency_code', 'payment_method', 'financial_account_id',
     'transaction_reference', 'payment_date', 'collected_by', 'notes',
 ])]
 class FeePayment extends Model
@@ -41,6 +41,7 @@ class FeePayment extends Model
             'whatsapp_status' => WhatsappStatus::class,
             'amount_minor' => 'integer',
             'discount_minor' => 'integer',
+            'credit_applied_minor' => 'integer',
             'purpose' => PaymentPurpose::class,
             'payment_date' => 'date',
             'confirmed_at' => 'datetime',
@@ -125,5 +126,20 @@ class FeePayment extends Model
     protected function publicRouteName(): string
     {
         return 'tenant.public.receipt';
+    }
+
+    /**
+     * Everything this payment put towards its target: money received now plus
+     * earlier unlinked money applied. Discounts are separate — they reduce
+     * what is owed rather than pay it.
+     */
+    public function settledMinor(): int
+    {
+        return $this->amount_minor + $this->credit_applied_minor;
+    }
+
+    public function isUnlinked(): bool
+    {
+        return $this->purpose === PaymentPurpose::Other;
     }
 }

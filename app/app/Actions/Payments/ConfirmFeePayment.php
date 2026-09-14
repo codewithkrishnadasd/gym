@@ -73,18 +73,20 @@ final class ConfirmFeePayment
                 ? null
                 : Invoice::query()->whereKey($locked->invoice_id)->lockForUpdate()->first();
 
-            $invoice?->applyPayment($locked->amount_minor, $locked->discount_minor);
+            // Money received now plus any earlier unlinked money applied is
+            // what the target counts as paid; the discount is separate.
+            $invoice?->applyPayment($locked->settledMinor(), $locked->discount_minor);
 
             // An admission fee is owed by the member rather than by a term or
             // a document, so its balance lives on the member row.
             if ($locked->purpose === PaymentPurpose::Admission) {
                 /** @var Member $payer */
                 $payer = Member::query()->whereKey($locked->member_id)->lockForUpdate()->firstOrFail();
-                $payer->applyAdmissionPayment($locked->amount_minor, $locked->discount_minor);
+                $payer->applyAdmissionPayment($locked->settledMinor(), $locked->discount_minor);
             }
 
             if ($subscription) {
-                $subscription->applyPayment($locked->amount_minor, $locked->discount_minor);
+                $subscription->applyPayment($locked->settledMinor(), $locked->discount_minor);
                 $subscription->refresh();
 
                 // A subscription that is now fully paid and still within its
@@ -105,6 +107,7 @@ final class ConfirmFeePayment
                 [
                     'amount_minor' => $locked->amount_minor,
                     'discount_minor' => $locked->discount_minor,
+                    'credit_applied_minor' => $locked->credit_applied_minor,
                     'purpose' => $locked->purpose->value,
                     'currency_code' => $locked->currency_code,
                     'subscription_id' => $locked->subscription_id,
@@ -136,6 +139,9 @@ final class ConfirmFeePayment
                     'purpose' => $locked->purposeLabel(),
                     'discount' => $locked->discount_minor > 0
                         ? Money::ofMinor($locked->discount_minor, $locked->currency_code)->format($organisation->locale)
+                        : null,
+                    'creditApplied' => $locked->credit_applied_minor > 0
+                        ? Money::ofMinor($locked->credit_applied_minor, $locked->currency_code)->format($organisation->locale)
                         : null,
                     'clubName' => $club->name,
                     'paymentDate' => $locked->payment_date->format('d M Y'),

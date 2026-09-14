@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Enums\ConfirmationStatus;
 use App\Enums\MemberStatus;
+use App\Enums\PaymentPurpose;
 use App\Models\Concerns\BelongsToOrganisation;
 use Database\Factories\MemberFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -126,5 +128,41 @@ class Member extends Model
             'admission_paid_minor' => max(0, $this->admission_paid_minor - $amountMinor),
             'admission_discount_minor' => max(0, $this->admission_discount_minor - $discountMinor),
         ])->save();
+    }
+
+    /**
+     * Confirmed money paid without a link to anything.
+     */
+    public function unlinkedPaidMinor(): int
+    {
+        return (int) $this->feePayments()
+            ->where('confirmation_status', ConfirmationStatus::Confirmed)
+            ->where('purpose', PaymentPurpose::Other)
+            ->sum('amount_minor');
+    }
+
+    /**
+     * How much of that unlinked money has since been applied to a plan,
+     * invoice or admission fee through later payments.
+     */
+    public function creditAppliedMinor(): int
+    {
+        return (int) $this->feePayments()
+            ->where('confirmation_status', ConfirmationStatus::Confirmed)
+            ->sum('credit_applied_minor');
+    }
+
+    /**
+     * Unlinked money still available to apply. Pending applications are
+     * counted too, so two collections cannot both spend the same credit while
+     * the first awaits confirmation.
+     */
+    public function unlinkedCreditMinor(): int
+    {
+        $reserved = (int) $this->feePayments()
+            ->where('confirmation_status', ConfirmationStatus::PendingAdminConfirmation)
+            ->sum('credit_applied_minor');
+
+        return max(0, $this->unlinkedPaidMinor() - $this->creditAppliedMinor() - $reserved);
     }
 }

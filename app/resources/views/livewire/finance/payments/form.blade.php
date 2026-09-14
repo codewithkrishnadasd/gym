@@ -96,6 +96,24 @@
                             ? 'Optional. Written off what is owed; amount and discount together may not exceed '.$organisation->money($targetOutstanding).'.'
                             : 'Optional. Needs a plan, invoice, or admission fee to come off.'" />
 
+                    @if ($availableCredit > 0 && $target !== 'other')
+                        {{-- Money this member paid earlier without saying what for. It
+                             is not a discount: it was received, just never linked. --}}
+                        <div class="sm:col-span-2 rounded-lg border border-info/25 bg-info-soft p-3">
+                            <x-ui.checkbox wire:model.live="useCredit"
+                                :label="'Use money already paid without a link — '.$organisation->money($availableCredit).' available'"
+                                description="Puts earlier unlinked payments towards this. It counts as paid, not as a discount, and is not counted as revenue again." />
+
+                            @if ($useCredit)
+                                <div class="mt-3 max-w-xs">
+                                    <x-ui.input wire:model="creditAmount" name="creditAmount" label="Amount to apply" inputmode="decimal"
+                                        :prefix="$organisation->currencySymbol()" placeholder="0.00"
+                                        :hint="'Up to '.$organisation->money($availableCredit).'. Amount, discount and this together may not exceed what is owed.'" />
+                                </div>
+                            @endif
+                        </div>
+                    @endif
+
                     <x-ui.input wire:model="paymentDate" name="paymentDate" label="Payment date" type="date" required />
 
                     <x-ui.select wire:model="paymentMethod" name="paymentMethod" label="Payment method" required>

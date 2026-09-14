@@ -57,6 +57,15 @@ class Form extends Component
     /** Taken off what is owed alongside the amount handed over. */
     public string $discount = '';
 
+    /**
+     * Whether to put earlier unlinked money towards this payment's target,
+     * and how much. Only offered while the member has such credit and the
+     * payment is for something.
+     */
+    public bool $useCredit = false;
+
+    public string $creditAmount = '';
+
     public string $paymentMethod = 'cash';
 
     public ?int $financialAccountId = null;
@@ -110,6 +119,8 @@ class Form extends Component
     public function selectTarget(string $target): void
     {
         $this->discount = '';
+        $this->useCredit = false;
+        $this->creditAmount = '';
 
         if ($target === 'admission' && $this->admissionOutstanding() > 0) {
             $this->target = 'admission';
@@ -151,6 +162,36 @@ class Form extends Component
     public function updatedTarget(string $value): void
     {
         $this->selectTarget($value);
+    }
+
+    /**
+     * Ticking "use unlinked money" proposes the most it can cover: whatever is
+     * still owed after the amount and discount, up to the credit available.
+     */
+    public function updatedUseCredit(bool $value): void
+    {
+        if (! $value) {
+            $this->creditAmount = '';
+
+            return;
+        }
+
+        $organisation = $this->organisation();
+        $outstanding = $this->targetOutstanding() ?? 0;
+        $amount = Money::parseMajor($this->amount !== '' ? $this->amount : '0', $organisation->currency_code)->minor ?? 0;
+        $discount = Money::parseMajor($this->discount !== '' ? $this->discount : '0', $organisation->currency_code)->minor ?? 0;
+        $room = max(0, $outstanding - $amount - $discount);
+
+        $this->creditAmount = $this->major(min($room, $this->availableCredit()));
+    }
+
+    private function availableCredit(): int
+    {
+        if ($this->memberId === null) {
+            return 0;
+        }
+
+        return Member::query()->find($this->memberId)?->unlinkedCreditMinor() ?? 0;
     }
 
     private function major(int $minor): string
@@ -258,6 +299,8 @@ class Form extends Component
             'invoiceId' => ['nullable', Rule::exists('invoices', 'id')->where('organisation_id', $organisation->id)],
             'amount' => ['required', 'numeric', 'min:0'],
             'discount' => ['nullable', 'numeric', 'min:0'],
+            'useCredit' => ['boolean'],
+            'creditAmount' => ['nullable', 'numeric', 'min:0'],
             'paymentMethod' => ['required', Rule::enum(PaymentMethod::class)],
             // Every collection has to name the account the money landed in:
             // without it the account balances on the finance pages are a
@@ -302,17 +345,42 @@ class Form extends Component
             : null;
         $discountMinor = $discount->minor ?? 0;
 
-        if ($money === null || $money->minor < 0 || $discountMinor < 0) {
+        $creditMinor = 0;
+
+        if ($this->useCredit && $validated['creditAmount'] !== null && $validated['creditAmount'] !== '') {
+            $creditMinor = Money::parseMajor((string) $validated['creditAmount'], $organisation->currency_code)->minor ?? 0;
+        }
+
+        if ($money === null || $money->minor < 0 || $discountMinor < 0 || $creditMinor < 0) {
             $this->addError('amount', 'Enter a valid amount.');
 
             return;
         }
 
-        // Nothing handed over and nothing written off is not a payment.
-        if ($money->minor + $discountMinor <= 0) {
-            $this->addError('amount', 'Enter an amount received, a discount, or both.');
+        // Nothing handed over, nothing written off and nothing applied is
+        // not a payment.
+        if ($money->minor + $discountMinor + $creditMinor <= 0) {
+            $this->addError('amount', 'Enter an amount received, a discount, credit to apply, or a combination.');
 
             return;
+        }
+
+        // Unlinked money can only go towards something, and only as much as
+        // the member actually has sitting unlinked.
+        if ($creditMinor > 0) {
+            if ($this->target === 'other') {
+                $this->addError('creditAmount', 'Choose the plan, invoice, or admission fee this money should go towards.');
+
+                return;
+            }
+
+            $available = $member->unlinkedCreditMinor();
+
+            if ($creditMinor > $available) {
+                $this->addError('creditAmount', 'Only '.$organisation->money($available).' of unlinked money is available for this '.strtolower($organisation->term('member_singular')).'.');
+
+                return;
+            }
         }
 
         $purpose = PaymentPurpose::Other;
@@ -332,9 +400,10 @@ class Form extends Component
         // with no way to express a refund.
         $outstanding = $this->targetOutstanding();
 
-        if ($outstanding !== null && $money->minor + $discountMinor > $outstanding) {
-            $this->addError($discountMinor > 0 ? 'discount' : 'amount', 'Only '.$organisation->money($outstanding).' is still owed here'
-                .($discountMinor > 0 ? ' — the amount and discount together exceed it.' : '.'));
+        if ($outstanding !== null && $money->minor + $discountMinor + $creditMinor > $outstanding) {
+            $field = $creditMinor > 0 ? 'creditAmount' : ($discountMinor > 0 ? 'discount' : 'amount');
+            $this->addError($field, 'Only '.$organisation->money($outstanding).' is still owed here'
+                .($discountMinor > 0 || $creditMinor > 0 ? ' — the amount, discount and applied credit together exceed it.' : '.'));
 
             return;
         }
@@ -385,6 +454,7 @@ class Form extends Component
                 'payer_name' => $member->name,
                 'amount_minor' => $money->minor,
                 'discount_minor' => $discountMinor,
+                'credit_applied_minor' => $creditMinor,
                 'currency_code' => $organisation->currency_code,
                 'payment_method' => $validated['paymentMethod'],
                 'financial_account_id' => $validated['financialAccountId'],
@@ -477,6 +547,7 @@ class Form extends Component
             'openInvoices' => $this->openInvoicesForMember(),
             'admissionOutstanding' => $selectedMember?->admissionOutstandingMinor() ?? 0,
             'targetOutstanding' => $this->targetOutstanding(),
+            'availableCredit' => $selectedMember?->unlinkedCreditMinor() ?? 0,
             'methods' => PaymentMethod::cases(),
             'accounts' => auth()->user()?->can('select', FinancialAccount::class)
                 ? FinancialAccount::query()->where('status', FinancialAccountStatus::Active)->orderBy('name')->get()

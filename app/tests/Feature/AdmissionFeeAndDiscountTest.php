@@ -248,3 +248,102 @@ it('applies a discount given at the counter to the plan balance', function (): v
         ->and($subscription->amount_due_minor)->toBe(450000)
         ->and($subscription->discount_minor)->toBe(0);
 });
+
+it('shows money paid without a link and lets it be applied to a plan, separately from a real discount', function (): void {
+    $this->member = Member::factory()->create(['organisation_id' => $this->organisation->id, 'primary_club_id' => $this->club->id, 'name' => 'Alex Morgan']);
+
+    // Paid at the counter with nothing chosen: sits as credit.
+    $unlinked = collectFee(['target' => 'other', 'amount' => '1000']);
+
+    expect($unlinked->purpose)->toBe(PaymentPurpose::Other)
+        ->and($this->member->fresh()?->unlinkedCreditMinor())->toBe(100000);
+
+    $this->get('http://fees.test/members/'.$this->member->id.'?tab=payments')
+        ->assertOk()
+        ->assertSee('Paid without a link')
+        ->assertSee('1,000.00 available')
+        ->assertSee('Apply to a plan or bill')
+        ->assertSee('Not linked')
+        // Every row can be opened, where confirm / reject / reverse live.
+        ->assertSee('/finance/payments/'.$unlinked->id, false)
+        ->assertSeeText('View');
+
+    // Then a plan starts; the counter takes 3000, writes off 500 as a real
+    // discount and applies 700 of the unlinked money.
+    $subscription = app(CreateSubscription::class)->handle($this->member, $this->plan, $this->admin);
+
+    Livewire::test(PaymentForm::class)
+        ->call('selectMember', $this->member->id)
+        ->assertSee('Use money already paid without a link')
+        ->set('amount', '3000')
+        ->set('discount', '500')
+        ->set('useCredit', true)
+        // Proposes what is left to cover, capped by the credit: 4500 − 3000 − 500 = 1000, credit is 1000.
+        ->assertSet('creditAmount', '1000')
+        ->set('creditAmount', '700')
+        ->set('financialAccountId', $this->account->id)
+        ->set('confirmImmediately', true)
+        ->call('save')
+        ->assertHasNoErrors();
+
+    $payment = FeePayment::query()->latest('id')->firstOrFail();
+    $subscription->refresh();
+
+    expect($payment->amount_minor)->toBe(300000)
+        ->and($payment->discount_minor)->toBe(50000)
+        ->and($payment->credit_applied_minor)->toBe(70000)
+        // Paid on the term = money now + credit; the discount lowers what is owed.
+        ->and($subscription->amount_paid_minor)->toBe(370000)
+        ->and($subscription->amount_due_minor)->toBe(400000)
+        ->and($subscription->outstandingMinor())->toBe(30000)
+        ->and($this->member->fresh()?->unlinkedCreditMinor())->toBe(30000);
+
+    $this->get('http://fees.test/finance/payments/'.$payment->id)->assertOk()->assertSee('from money paid earlier without a link');
+
+    // Reversing gives the credit back and undoes both parts on the term.
+    app(ReverseFeePayment::class)->handle($payment, $this->admin, 'Entered wrongly');
+    $subscription->refresh();
+
+    expect($subscription->amount_paid_minor)->toBe(0)
+        ->and($subscription->amount_due_minor)->toBe(450000)
+        ->and($this->member->fresh()?->unlinkedCreditMinor())->toBe(100000);
+});
+
+it('will not apply more unlinked money than exists, nor to nothing, nor beyond what is owed', function (): void {
+    $this->member = Member::factory()->create(['organisation_id' => $this->organisation->id, 'primary_club_id' => $this->club->id]);
+    collectFee(['target' => 'other', 'amount' => '200']);
+    app(CreateSubscription::class)->handle($this->member, $this->plan, $this->admin);
+
+    Livewire::test(PaymentForm::class)
+        ->call('selectMember', $this->member->id)
+        ->set('financialAccountId', $this->account->id)
+        ->set('amount', '0')
+        ->set('useCredit', true)
+        ->set('creditAmount', '500')
+        ->call('save')
+        ->assertHasErrors(['creditAmount']);
+
+    Livewire::test(PaymentForm::class)
+        ->call('selectMember', $this->member->id)
+        ->set('target', 'other')
+        ->set('financialAccountId', $this->account->id)
+        ->set('amount', '0')
+        ->set('useCredit', true)
+        ->set('creditAmount', '100')
+        ->call('save')
+        ->assertHasErrors(['creditAmount']);
+
+    // Credit alone can settle a balance: zero handed over is fine here.
+    Livewire::test(PaymentForm::class)
+        ->call('selectMember', $this->member->id)
+        ->set('financialAccountId', $this->account->id)
+        ->set('amount', '0')
+        ->set('useCredit', true)
+        ->set('creditAmount', '200')
+        ->set('confirmImmediately', true)
+        ->call('save')
+        ->assertHasNoErrors();
+
+    expect($this->member->fresh()?->unlinkedCreditMinor())->toBe(0)
+        ->and(FeePayment::query()->latest('id')->firstOrFail()->amount_minor)->toBe(0);
+});

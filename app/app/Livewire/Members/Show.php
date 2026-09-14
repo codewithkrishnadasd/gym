@@ -259,7 +259,7 @@ class Show extends Component
     protected function payments(): Collection
     {
         return $this->member->feePayments()
-            ->with(['club:id,name', 'collectedBy.user:id,name', 'subscription.plan:id,name'])
+            ->with(['club:id,name', 'collectedBy.user:id,name', 'subscription.plan:id,name', 'invoice:id,number'])
             ->orderByDesc('payment_date')
             ->orderByDesc('id')
             ->get();
@@ -302,6 +302,9 @@ class Show extends Component
             'attendanceRate' => $attendance->isEmpty() ? 0 : (int) round($presentMarks / $attendance->count() * 100),
             'presentMarks' => $presentMarks,
             'totalPaid' => (int) $confirmed->sum('amount_minor'),
+            'unlinkedPaid' => $this->member->unlinkedPaidMinor(),
+            'creditApplied' => $this->member->creditAppliedMinor(),
+            'unlinkedAvailable' => $this->member->unlinkedCreditMinor(),
             // Plan balances plus whatever is left of the admission fee: the
             // one figure the desk needs when the member walks in.
             'outstanding' => (int) $subscriptions

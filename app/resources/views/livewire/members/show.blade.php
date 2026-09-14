@@ -274,6 +274,34 @@
             </div>
         </x-ui.card>
     @else
+        @if ($unlinkedPaid > 0)
+            {{-- Money received without saying what for. Shown apart from the
+                 ledger because it is the one figure that still needs a decision:
+                 apply it to something, or leave it as credit. --}}
+            <div class="mb-4">
+                <x-ui.alert :tone="$unlinkedAvailable > 0 ? 'info' : 'positive'" title="Paid without a link">
+                    <div class="flex flex-wrap items-center justify-between gap-3">
+                        <span class="numeric">
+                            {{ $organisation->money($unlinkedPaid) }} received without a plan, invoice or admission fee
+                            · {{ $organisation->money($creditApplied) }} since applied
+                            · <strong>{{ $organisation->money($unlinkedAvailable) }} available</strong>
+                        </span>
+                        @if ($unlinkedAvailable > 0)
+                            @can('create', \App\Models\FeePayment::class)
+                                <x-ui.button size="sm" variant="primary" icon="link"
+                                    :href="route('tenant.finance.payments.create', ['member' => $member->id])" wire:navigate>
+                                    Apply to a plan or bill
+                                </x-ui.button>
+                            @endcan
+                        @endif
+                    </div>
+                    @if ($unlinkedAvailable > 0)
+                        <p class="mt-1.5 text-xs opacity-80">On the Collect fee form, choose what it is for and tick “Use money already paid without a link”. It counts as paid — separate from any real discount.</p>
+                    @endif
+                </x-ui.alert>
+            </div>
+        @endif
+
         <x-ui.card :padded="false" title="Payment ledger"
             :description="'Paid '.$organisation->money($totalPaid).' · '.$organisation->money($outstanding).' outstanding'">
             @if ($payments->isEmpty())
@@ -291,11 +319,12 @@
                 <x-ui.table>
                     <x-slot:head>
                         <x-ui.th>Date</x-ui.th>
-                        <x-ui.th>Plan</x-ui.th>
+                        <x-ui.th>For</x-ui.th>
                         <x-ui.th>Method</x-ui.th>
                         <x-ui.th>Collected by</x-ui.th>
                         <x-ui.th align="right">Amount</x-ui.th>
                         <x-ui.th>Status</x-ui.th>
+                        <x-ui.th align="right"></x-ui.th>
                     </x-slot:head>
 
                     @foreach ($payments as $payment)
@@ -303,12 +332,31 @@
                             <x-ui.td numeric class="whitespace-nowrap">
                                 <a href="{{ route('tenant.finance.payments.show', $payment) }}" wire:navigate
                                     class="font-medium text-ink hover:text-accent">{{ $payment->payment_date->format('d M Y') }}</a>
+                                <span class="block"><x-ui.reference :value="$organisation->reference('payment', $payment->id)" /></span>
                             </x-ui.td>
-                            <x-ui.td>{{ $payment->subscription?->plan?->name ?? '—' }}</x-ui.td>
+                            <x-ui.td>
+                                @if ($payment->isUnlinked())
+                                    <span class="text-ink-muted">Not linked</span>
+                                @else
+                                    {{ $payment->purposeLabel() }}
+                                @endif
+                                @if ($payment->discount_minor > 0 || $payment->credit_applied_minor > 0)
+                                    <p class="text-xs text-ink-muted">
+                                        @if ($payment->discount_minor > 0) {{ $organisation->money($payment->discount_minor) }} discount @endif
+                                        @if ($payment->discount_minor > 0 && $payment->credit_applied_minor > 0) · @endif
+                                        @if ($payment->credit_applied_minor > 0) {{ $organisation->money($payment->credit_applied_minor) }} from unlinked money @endif
+                                    </p>
+                                @endif
+                            </x-ui.td>
                             <x-ui.td>{{ $payment->payment_method->label() }}</x-ui.td>
                             <x-ui.td>{{ $payment->collectedBy?->user?->name ?? '—' }}</x-ui.td>
                             <x-ui.td align="right" numeric class="font-medium text-ink">{{ $organisation->money($payment->amount_minor) }}</x-ui.td>
                             <x-ui.td><x-ui.badge :tone="$payment->confirmation_status->tone()">{{ $payment->confirmation_status->label() }}</x-ui.badge></x-ui.td>
+                            <x-ui.td align="right">
+                                {{-- The detail page is where a payment is confirmed, rejected
+                                     or reversed, so every row gets there in one click. --}}
+                                <x-ui.button size="sm" variant="ghost" icon="eye" :href="route('tenant.finance.payments.show', $payment)" wire:navigate>View</x-ui.button>
+                            </x-ui.td>
                         </tr>
                     @endforeach
                 </x-ui.table>

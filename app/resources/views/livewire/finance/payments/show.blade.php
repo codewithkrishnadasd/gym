@@ -46,11 +46,18 @@
                         <p class="numeric font-[family-name:var(--font-display)] text-3xl font-semibold tracking-tight">
                             {{ $organisation->money($payment->amount_minor) }}
                         </p>
-                        @if ($payment->discount_minor > 0)
+                        @if ($payment->discount_minor > 0 || $payment->credit_applied_minor > 0)
                             <p class="numeric mt-0.5 text-sm text-ink-soft">
-                                plus {{ $organisation->money($payment->discount_minor) }} discount
-                                <span class="text-ink-muted">· {{ $organisation->money($payment->amount_minor + $payment->discount_minor) }} settled in total</span>
+                                @if ($payment->credit_applied_minor > 0)
+                                    plus {{ $organisation->money($payment->credit_applied_minor) }} from money paid earlier without a link
+                                @endif
+                                @if ($payment->discount_minor > 0)
+                                    {{ $payment->credit_applied_minor > 0 ? 'and' : 'plus' }} {{ $organisation->money($payment->discount_minor) }} discount
+                                @endif
+                                <span class="text-ink-muted">· {{ $organisation->money($payment->settledMinor() + $payment->discount_minor) }} settled in total</span>
                             </p>
+                        @elseif ($payment->isUnlinked() && $payment->isConfirmed())
+                            <p class="mt-0.5 text-sm text-ink-soft">Not linked to a plan, invoice or admission fee — sits as credit for this {{ strtolower($organisation->term('member_singular')) }} until applied.</p>
                         @endif
                     </div>
                     <x-ui.badge :tone="$payment->confirmation_status->tone()">{{ $payment->confirmation_status->label() }}</x-ui.badge>
