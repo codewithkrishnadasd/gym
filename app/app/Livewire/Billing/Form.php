@@ -1,0 +1,269 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Livewire\Billing;
+
+use App\Actions\Billing\IssueInvoice;
+use App\Enums\BillableItemStatus;
+use App\Enums\MemberStatus;
+use App\Livewire\Concerns\ResolvesMembership;
+use App\Models\BillableItem;
+use App\Models\Invoice;
+use App\Models\Member;
+use App\Support\Money;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
+use Illuminate\Validation\Rule;
+use Illuminate\View\View;
+use InvalidArgumentException;
+use Livewire\Component;
+
+/**
+ * Raising an invoice (MEP.md 6.8): pick the member, build the lines from the
+ * price list or by hand, set a due date, issue.
+ *
+ * Prices on the form are what gets billed. They start from the catalogue but
+ * are editable per line, because a discount agreed at the counter is a fact
+ * about this invoice, not a reason to change the price list.
+ *
+ * @phpstan-type LineState array{billable_item_id: int|null, description: string, quantity: int, price: string}
+ */
+class Form extends Component
+{
+    use ResolvesMembership;
+
+    public string $memberSearch = '';
+
+    public ?int $memberId = null;
+
+    /** @var array<int, LineState> */
+    public array $lines = [];
+
+    public ?int $pickedItemId = null;
+
+    public string $dueDate = '';
+
+    public string $notes = '';
+
+    public function mount(?int $member = null): void
+    {
+        $this->authorize('create', Invoice::class);
+
+        // Reached from a member's page with ?member=<id> — a query parameter,
+        // which Livewire does not pass to mount() on its own.
+        $member ??= request()->integer('member') ?: null;
+
+        $this->dueDate = Carbon::today($this->organisation()->timezone)->addDays(7)->toDateString();
+
+        if ($member !== null) {
+            $this->selectMember($member);
+        }
+    }
+
+    public function selectMember(int $memberId): void
+    {
+        $member = $this->searchableMembers(true)->firstWhere('id', $memberId);
+
+        if (! $member) {
+            return;
+        }
+
+        $this->memberId = $member->id;
+        $this->memberSearch = '';
+    }
+
+    public function clearMember(): void
+    {
+        $this->reset(['memberId', 'memberSearch']);
+    }
+
+    /**
+     * Adds a line from the price list, pre-filled with its current price. The
+     * same item picked twice bumps the quantity rather than repeating a row.
+     */
+    public function addItem(): void
+    {
+        if ($this->pickedItemId === null) {
+            return;
+        }
+
+        $item = $this->catalogue()->firstWhere('id', $this->pickedItemId);
+
+        if (! $item) {
+            return;
+        }
+
+        foreach ($this->lines as $index => $line) {
+            if ($line['billable_item_id'] === $item->id) {
+                $this->lines[$index]['quantity']++;
+                $this->pickedItemId = null;
+
+                return;
+            }
+        }
+
+        $this->lines[] = [
+            'billable_item_id' => $item->id,
+            'description' => $item->name,
+            'quantity' => 1,
+            'price' => (string) Money::ofMinor($item->unit_price_minor, $this->organisation()->currency_code)->major(),
+        ];
+
+        $this->pickedItemId = null;
+    }
+
+    /**
+     * A blank line for something not on the price list. Kept deliberately
+     * possible: a one-off charge should not require an admin to edit settings
+     * first.
+     */
+    public function addCustomLine(): void
+    {
+        $this->lines[] = [
+            'billable_item_id' => null,
+            'description' => '',
+            'quantity' => 1,
+            'price' => '',
+        ];
+    }
+
+    public function removeLine(int $index): void
+    {
+        unset($this->lines[$index]);
+
+        $this->lines = array_values($this->lines);
+    }
+
+    public function issue(): void
+    {
+        $this->authorize('create', Invoice::class);
+
+        $organisation = $this->organisation();
+
+        $this->validate([
+            'memberId' => ['required', Rule::exists('members', 'id')->where('organisation_id', $organisation->id)],
+            'lines' => ['required', 'array', 'min:1'],
+            'lines.*.description' => ['required', 'string', 'max:160'],
+            'lines.*.quantity' => ['required', 'integer', 'min:1', 'max:999'],
+            'lines.*.price' => ['required', 'numeric', 'min:0'],
+            'dueDate' => ['nullable', 'date'],
+            'notes' => ['nullable', 'string', 'max:1000'],
+        ], [
+            'lines.required' => 'Add at least one line before issuing.',
+            'lines.*.description.required' => 'Every line needs a description.',
+            'lines.*.price.required' => 'Every line needs a price.',
+        ], [
+            'memberId' => $organisation->term('member_singular'),
+            'lines.*.description' => 'description',
+            'lines.*.quantity' => 'quantity',
+            'lines.*.price' => 'price',
+        ]);
+
+        /** @var Member $member */
+        $member = Member::query()->findOrFail($this->memberId);
+
+        // Club scope comes from the member, never from the client.
+        $this->authorize('createForClub', [Invoice::class, $member->primary_club_id]);
+
+        $lines = [];
+
+        foreach ($this->lines as $index => $line) {
+            $money = Money::parseMajor((string) $line['price'], $organisation->currency_code);
+
+            if ($money === null) {
+                $this->addError('lines.'.$index.'.price', 'Enter a valid price.');
+
+                return;
+            }
+
+            $lines[] = [
+                'billable_item_id' => $line['billable_item_id'],
+                'description' => $line['description'],
+                'quantity' => (int) $line['quantity'],
+                'unit_price_minor' => $money->minor,
+            ];
+        }
+
+        try {
+            $issued = app(IssueInvoice::class)->handle(
+                member: $member,
+                lines: $lines,
+                actor: $this->currentMembership(),
+                dueDate: $this->dueDate !== '' ? Carbon::parse($this->dueDate) : null,
+                notes: $this->notes ?: null,
+            );
+        } catch (InvalidArgumentException $exception) {
+            $this->addError('lines', $exception->getMessage());
+
+            return;
+        }
+
+        session()->flash('status', 'Invoice '.$issued->invoice->number.' issued for '.$member->name.'.');
+        session()->flash('notification_id', $issued->notification?->id);
+
+        $this->redirect(route('tenant.billing.show', $issued->invoice), navigate: true);
+    }
+
+    public function totalMinor(): int
+    {
+        $currency = $this->organisation()->currency_code;
+        $total = 0;
+
+        foreach ($this->lines as $line) {
+            $money = Money::parseMajor((string) $line['price'], $currency);
+            $total += ($money === null ? 0 : $money->minor) * max(1, (int) $line['quantity']);
+        }
+
+        return $total;
+    }
+
+    /**
+     * @return Collection<int, Member>
+     */
+    protected function searchableMembers(bool $ignoreSearchLength = false): Collection
+    {
+        if (! $ignoreSearchLength && mb_strlen($this->memberSearch) < 2) {
+            return collect();
+        }
+
+        return Member::query()
+            ->with('primaryClub:id,name')
+            ->whereIn('primary_club_id', $this->accessibleClubIds())
+            ->whereIn('status', [MemberStatus::Active, MemberStatus::Paused])
+            ->when($this->memberSearch !== '', fn ($query) => $query->where(
+                fn ($inner) => $inner->where('name', 'ilike', "%{$this->memberSearch}%")
+                    ->orWhere('phone', 'ilike', "%{$this->memberSearch}%")
+            ))
+            ->when($this->memberId !== null && $this->memberSearch === '', fn ($query) => $query->orWhere('id', $this->memberId))
+            ->orderBy('name')
+            ->limit(8)
+            ->get();
+    }
+
+    /**
+     * @return Collection<int, BillableItem>
+     */
+    protected function catalogue(): Collection
+    {
+        return BillableItem::query()
+            ->where('status', BillableItemStatus::Active)
+            ->orderBy('name')
+            ->get();
+    }
+
+    public function render(): View
+    {
+        $selectedMember = $this->memberId === null
+            ? null
+            : Member::query()->with('primaryClub:id,name')->find($this->memberId);
+
+        return view('livewire.billing.form', [
+            'organisation' => $this->organisation(),
+            'results' => $this->memberId === null ? $this->searchableMembers() : collect(),
+            'selectedMember' => $selectedMember,
+            'catalogue' => $this->catalogue(),
+            'total' => $this->totalMinor(),
+        ])->layout('components.layouts.app', ['heading' => 'New invoice']);
+    }
+}

@@ -71,7 +71,26 @@ class Form extends Component
             $this->emergencyPhone = (string) ($member->emergency_contact['phone'] ?? '');
         } else {
             $this->joinedAt = now($this->organisation()->timezone)->toDateString();
+            $this->primaryClubId = $this->presetClubId();
         }
+    }
+
+    /**
+     * The club a new member starts in when the form is opened from a club
+     * page (`?club=`), or the only club the acting user can add to. Anything
+     * outside the user's reach is ignored rather than rejected, since the
+     * picker below only offers reachable clubs anyway.
+     */
+    private function presetClubId(): ?int
+    {
+        $accessible = $this->accessibleClubs()->pluck('id')->all();
+        $requested = (int) request()->query('club', 0);
+
+        if ($requested > 0 && in_array($requested, $accessible, true)) {
+            return $requested;
+        }
+
+        return count($accessible) === 1 ? $accessible[0] : null;
     }
 
     public function save(): void
@@ -83,13 +102,17 @@ class Form extends Component
             'phone' => ['required', 'string', 'max:50'],
             'dateOfBirth' => ['nullable', 'date'],
             'gender' => ['nullable', 'string', 'max:30'],
-            'primaryClubId' => ['required', Rule::exists('clubs', 'id')->where('organisation_id', app('tenant')->id)],
+            // Limited to the acting user's clubs, not merely the organisation's:
+            // staff may only add members to clubs they are assigned to.
+            'primaryClubId' => ['required', Rule::in($this->accessibleClubs()->pluck('id')->all())],
             'addressLine' => ['nullable', 'string', 'max:255'],
             'joinedAt' => ['required', 'date'],
             'status' => ['required', Rule::enum(MemberStatus::class)],
             'notes' => ['nullable', 'string', 'max:2000'],
             'emergencyName' => ['nullable', 'string', 'max:255'],
             'emergencyPhone' => ['nullable', 'string', 'max:50'],
+        ], [
+            'primaryClubId.in' => 'You can only add '.strtolower($this->organisation()->term('member_plural')).' to a '.strtolower($this->organisation()->term('club_singular')).' you are assigned to.',
         ]);
 
         $membership = $this->currentMembership();

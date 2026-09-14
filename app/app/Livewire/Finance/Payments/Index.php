@@ -111,7 +111,7 @@ class Index extends Component
     protected function payments(): LengthAwarePaginator
     {
         return $this->baseQuery()
-            ->with(['member:id,name,phone', 'club:id,name', 'collectedBy.user:id,name', 'financialAccount:id,name'])
+            ->with(['member:id,name,phone', 'club:id,name', 'collectedBy.user:id,name', 'financialAccount:id,name', 'invoice:id,number'])
             ->orderByDesc('payment_date')
             ->orderByDesc('id')
             ->paginate(20);

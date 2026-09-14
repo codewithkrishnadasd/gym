@@ -3,6 +3,10 @@
 
     // Documents are a separate permission from the member record itself, so the
     // tab is absent rather than empty for staff who cannot open them.
+    if (auth()->user()?->can('viewAny', \App\Models\Invoice::class)) {
+        $tabs['billing'] = 'Billing';
+    }
+
     if (auth()->user()?->can('viewAny', \App\Models\Document::class)) {
         $tabs['documents'] = 'Documents';
     }
@@ -279,6 +283,56 @@
                 </x-ui.table>
             @endif
         </x-ui.card>
+    @endif
+
+    @if ($tab === 'billing')
+        @php
+            $invoices = $member->invoices()->with('club:id,name')->orderByDesc('id')->get();
+            $owed = $invoices->filter->isOpen()->sum(fn ($invoice) => $invoice->outstandingMinor());
+        @endphp
+
+        <div class="space-y-5">
+            @can('create', \App\Models\Invoice::class)
+                <div class="flex flex-wrap items-center justify-between gap-3">
+                    <p class="text-sm text-ink-soft">
+                        @if ($owed > 0)
+                            <span class="font-medium text-caution">{{ $organisation->money($owed) }}</span> outstanding across open invoices.
+                        @else
+                            Nothing outstanding.
+                        @endif
+                    </p>
+                    <x-ui.button variant="primary" icon="plus" :href="route('tenant.billing.create', ['member' => $member->id])" wire:navigate>New invoice</x-ui.button>
+                </div>
+            @endcan
+
+            <x-ui.card :padded="false" title="Invoices" description="Bills for anything outside a plan. Payments can be made in parts.">
+                @if ($invoices->isEmpty())
+                    <x-ui.empty icon="document-text" title="No invoices" :description="'Nothing has been billed to '.$member->name.' outside their plan.'" />
+                @else
+                    <ul class="divide-y divide-[var(--c-hairline)]">
+                        @foreach ($invoices as $invoice)
+                            <li class="flex items-center justify-between gap-3 px-4 py-3">
+                                <div class="min-w-0">
+                                    <div class="flex flex-wrap items-center gap-2">
+                                        <a href="{{ route('tenant.billing.show', $invoice) }}" wire:navigate class="font-mono text-sm font-medium text-ink hover:text-accent">{{ $invoice->number }}</a>
+                                        <x-ui.badge :tone="$invoice->status->tone()">{{ $invoice->status->label() }}</x-ui.badge>
+                                    </div>
+                                    <p class="numeric text-xs {{ $invoice->isOverdue() ? 'text-critical' : 'text-ink-muted' }}">
+                                        Issued {{ $invoice->issue_date->format('d M Y') }} · due {{ $invoice->due_date?->format('d M Y') ?? 'on receipt' }}
+                                    </p>
+                                </div>
+                                <div class="shrink-0 text-right">
+                                    <p class="numeric text-sm font-semibold text-ink">{{ $organisation->money($invoice->total_minor) }}</p>
+                                    @if ($invoice->isOpen() && $invoice->paid_minor > 0)
+                                        <p class="numeric text-xs text-caution">{{ $organisation->money($invoice->outstandingMinor()) }} due</p>
+                                    @endif
+                                </div>
+                            </li>
+                        @endforeach
+                    </ul>
+                @endif
+            </x-ui.card>
+        </div>
     @endif
 
     @if ($tab === 'documents')

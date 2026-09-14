@@ -1,6 +1,6 @@
 @php
     $tenantOrg = $tenant ?? null;
-    $accent = $tenantOrg?->accentCss();
+    $accent = $tenantOrg?->themeCss();
 @endphp
 <!DOCTYPE html>
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
@@ -15,7 +15,7 @@
         <link rel="icon" href="{{ $tenantOrg->tabIconUrl() }}">
         <link rel="apple-touch-icon" href="{{ route('tenant.branding.app-icon', ['size' => 192]) }}">
         <link rel="manifest" href="{{ route('tenant.manifest') }}">
-        <meta name="theme-color" content="{{ $tenantOrg->accent_color ?: \App\Support\Theme\AccentPalette::DEFAULT_ACCENT }}">
+        <meta name="theme-color" content="{{ $tenantOrg->brandColor() }}">
         <meta name="apple-mobile-web-app-capable" content="yes">
         <x-install-script />
     @endif
@@ -60,6 +60,7 @@
             </div>
         </div>
     </div>
+    <x-ui.page-loader />
     <x-ui.confirm-dialog />
 </body>
 </html>

@@ -13,6 +13,9 @@ use App\Http\Controllers\Tenant\PasswordResetController;
 use App\Http\Middleware\EnsureActiveMembership;
 use App\Livewire\Attendance\Roster as AttendanceRoster;
 use App\Livewire\Audit\Index as AuditIndex;
+use App\Livewire\Billing\Form as BillingForm;
+use App\Livewire\Billing\Index as BillingIndex;
+use App\Livewire\Billing\Show as BillingShow;
 use App\Livewire\Clubs\Form as ClubForm;
 use App\Livewire\Clubs\Index as ClubIndex;
 use App\Livewire\Clubs\Show as ClubShow;
@@ -170,6 +173,13 @@ Route::middleware(['auth:web', EnsureActiveMembership::class])->group(function (
         Route::get('/', ReportIndex::class)->name('index');
         Route::get('/export', [ExportController::class, 'report'])->name('export');
         Route::get('/pdf', [DocumentController::class, 'reportSummary'])->name('pdf');
+    });
+
+    Route::prefix('billing')->name('tenant.billing.')->group(function (): void {
+        Route::get('/', BillingIndex::class)->name('index');
+        Route::get('/create', BillingForm::class)->name('create');
+        Route::get('/{invoice}', BillingShow::class)->name('show');
+        Route::get('/{invoice}/pdf', [DocumentController::class, 'invoice'])->name('pdf');
     });
 
     Route::get('/messages', NotificationIndex::class)->name('tenant.notifications.index');

@@ -14,12 +14,12 @@
 <div>
     <x-ui.page-header title="Reports" :description="$organisation->name.' · '.$period->label()">
         <x-slot:actions>
-            <x-ui.button icon="arrow-down-tray" :href="route('tenant.reports.export', ['report' => $tab, ...$exportQuery])">
+            <x-ui.download-button icon="arrow-down-tray" what="this report as a CSV" :note="'It covers '.$period->label().'.'" :href="route('tenant.reports.export', ['report' => $tab, ...$exportQuery])">
                 Export CSV
-            </x-ui.button>
-            <x-ui.button icon="document-arrow-down" :href="route('tenant.reports.pdf', ['report' => $tab, ...$exportQuery])" target="_blank">
+            </x-ui.download-button>
+            <x-ui.download-button icon="document-arrow-down" what="the PDF summary of this report" :note="'It covers '.$period->label().'.'" :href="route('tenant.reports.pdf', ['report' => $tab, ...$exportQuery])" target="_blank">
                 PDF summary
-            </x-ui.button>
+            </x-ui.download-button>
         </x-slot:actions>
     </x-ui.page-header>
 

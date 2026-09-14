@@ -27,6 +27,8 @@ enum Permission: string
     case AttendanceStaffMark = 'attendance.staff.mark';
     case FeesCollect = 'fees.collect';
     case FeesViewOwn = 'fees.view_own';
+    case BillingView = 'billing.view';
+    case BillingCreate = 'billing.create';
     case DocumentsView = 'documents.view';
     case DocumentsManage = 'documents.manage';
     case ClubsViewAssigned = 'clubs.view_assigned';
@@ -45,6 +47,8 @@ enum Permission: string
             self::AttendanceStaffMark => 'Mark staff attendance',
             self::FeesCollect => 'Collect fees (submitted for admin confirmation)',
             self::FeesViewOwn => 'View own collections',
+            self::BillingView => 'View invoices',
+            self::BillingCreate => 'Create invoices for members',
             self::DocumentsView => 'View member and staff documents',
             self::DocumentsManage => 'Upload and remove documents',
             self::ClubsViewAssigned => 'View assigned clubs',
@@ -78,6 +82,11 @@ enum Permission: string
             // action with no way to check what you attached.
             self::DocumentsManage => [self::DocumentsView],
 
+            // An invoice is raised against a member and has to be found again
+            // afterwards, so creating one needs both the member list and the
+            // invoice list.
+            self::BillingCreate => [self::BillingView, self::MembersView],
+
             // Messages a staff member can send are addressed to members, so
             // sending means being able to look the member up. Staff-facing
             // messages (invitations, reset links) are admin-only actions and
@@ -95,6 +104,7 @@ enum Permission: string
             self::StaffView => 'Staff',
             self::AttendanceMemberMark, self::AttendanceStaffMark => 'Attendance',
             self::FeesCollect, self::FeesViewOwn => 'Fees',
+            self::BillingView, self::BillingCreate => 'Billing',
             self::DocumentsView, self::DocumentsManage => 'Documents',
             self::ClubsViewAssigned, self::ReportsViewAssigned => 'Clubs and reports',
             self::NotificationsSend => 'Messaging',

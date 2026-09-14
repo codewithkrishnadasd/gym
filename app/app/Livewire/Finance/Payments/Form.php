@@ -6,12 +6,14 @@ namespace App\Livewire\Finance\Payments;
 
 use App\Actions\Payments\RecordFeePayment;
 use App\Enums\FinancialAccountStatus;
+use App\Enums\InvoiceStatus;
 use App\Enums\MemberStatus;
 use App\Enums\PaymentMethod;
 use App\Enums\SubscriptionStatus;
 use App\Livewire\Concerns\ResolvesMembership;
 use App\Models\FeePayment;
 use App\Models\FinancialAccount;
+use App\Models\Invoice;
 use App\Models\Member;
 use App\Models\MemberSubscription;
 use App\Support\Money;
@@ -38,6 +40,9 @@ class Form extends Component
     public ?int $memberId = null;
 
     public ?int $subscriptionId = null;
+
+    /** An invoice this payment settles, in full or in part. */
+    public ?int $invoiceId = null;
 
     public string $amount = '';
 
@@ -68,6 +73,53 @@ class Form extends Component
         if ($member !== null) {
             $this->selectMember($member);
         }
+
+        $invoice = request()->integer('invoice') ?: null;
+
+        if ($invoice !== null) {
+            $this->selectInvoice($invoice);
+        }
+    }
+
+    /**
+     * Chooses an invoice to pay against and defaults the amount to what is
+     * still owed on it. Choosing an invoice also clears any plan selection:
+     * one payment settles one thing.
+     */
+    public function selectInvoice(int $invoiceId): void
+    {
+        $invoice = $this->openInvoicesForMember()->firstWhere('id', $invoiceId);
+
+        // Not this member's, or no longer open: drop it rather than leave an
+        // id in place that save() would only reject later.
+        if (! $invoice) {
+            $this->invoiceId = null;
+
+            return;
+        }
+
+        $this->invoiceId = $invoice->id;
+        $this->subscriptionId = null;
+        $this->amount = (string) Money::ofMinor($invoice->outstandingMinor(), $this->organisation()->currency_code)->major();
+    }
+
+    public function updatedInvoiceId(mixed $value): void
+    {
+        if ($value === null || $value === '') {
+            $this->invoiceId = null;
+
+            return;
+        }
+
+        $this->selectInvoice((int) $value);
+    }
+
+    public function updatedSubscriptionId(mixed $value): void
+    {
+        // A plan and an invoice are two different things to pay for.
+        if ($value !== null && $value !== '') {
+            $this->invoiceId = null;
+        }
     }
 
     public function selectMember(int $memberId): void
@@ -81,6 +133,8 @@ class Form extends Component
         $this->memberId = $member->id;
         $this->memberSearch = '';
 
+        $this->invoiceId = null;
+
         $subscription = $this->subscriptionsForMember()->first();
         $this->subscriptionId = $subscription?->id;
 
@@ -93,7 +147,7 @@ class Form extends Component
 
     public function clearMember(): void
     {
-        $this->reset(['memberId', 'subscriptionId', 'amount', 'memberSearch']);
+        $this->reset(['memberId', 'subscriptionId', 'invoiceId', 'amount', 'memberSearch']);
     }
 
     public function save(): void
@@ -106,6 +160,7 @@ class Form extends Component
         $validated = $this->validate([
             'memberId' => ['required', Rule::exists('members', 'id')->where('organisation_id', $organisation->id)],
             'subscriptionId' => ['nullable', Rule::exists('member_subscriptions', 'id')->where('organisation_id', $organisation->id)],
+            'invoiceId' => ['nullable', Rule::exists('invoices', 'id')->where('organisation_id', $organisation->id)],
             'amount' => ['required', 'numeric', 'gt:0'],
             'paymentMethod' => ['required', Rule::enum(PaymentMethod::class)],
             // Every collection has to name the account the money landed in:
@@ -150,6 +205,29 @@ class Form extends Component
             return;
         }
 
+        // An invoice may only be paid by the member it was raised against, only
+        // while it is open, and never for more than is still owed on it: an
+        // overpayment would leave the balance wrong in the other direction with
+        // no way to express a refund.
+        $invoiceId = $validated['invoiceId'];
+        $invoice = null;
+
+        if ($invoiceId !== null) {
+            $invoice = $this->openInvoicesForMember()->firstWhere('id', $invoiceId);
+
+            if ($invoice === null) {
+                $this->addError('invoiceId', 'That invoice is not open for this '.strtolower($organisation->term('member_singular')).'.');
+
+                return;
+            }
+
+            if ($money->minor > $invoice->outstandingMinor()) {
+                $this->addError('amount', 'Only '.$organisation->money($invoice->outstandingMinor()).' is still owed on '.$invoice->number.'.');
+
+                return;
+            }
+        }
+
         // A subscription may only be paid by the member it belongs to.
         $subscriptionId = $validated['subscriptionId'];
 
@@ -161,7 +239,8 @@ class Form extends Component
             attributes: [
                 'club_id' => $member->primary_club_id,
                 'member_id' => $member->id,
-                'subscription_id' => $subscriptionId,
+                'subscription_id' => $invoice === null ? $subscriptionId : null,
+                'invoice_id' => $invoice?->id,
                 'payer_name' => $member->name,
                 'amount_minor' => $money->minor,
                 'currency_code' => $organisation->currency_code,
@@ -208,6 +287,23 @@ class Form extends Component
     }
 
     /**
+     * @return Collection<int, Invoice>
+     */
+    protected function openInvoicesForMember(): Collection
+    {
+        if ($this->memberId === null) {
+            return collect();
+        }
+
+        return Invoice::query()
+            ->where('member_id', $this->memberId)
+            ->whereIn('status', [InvoiceStatus::Issued, InvoiceStatus::PartiallyPaid])
+            ->orderBy('due_date')
+            ->orderBy('id')
+            ->get();
+    }
+
+    /**
      * @return Collection<int, MemberSubscription>
      */
     protected function subscriptionsForMember(): Collection
@@ -236,6 +332,7 @@ class Form extends Component
             'results' => $this->memberId === null ? $this->searchableMembers() : collect(),
             'selectedMember' => $selectedMember,
             'subscriptions' => $this->subscriptionsForMember(),
+            'openInvoices' => $this->openInvoicesForMember(),
             'methods' => PaymentMethod::cases(),
             'accounts' => auth()->user()?->can('select', FinancialAccount::class)
                 ? FinancialAccount::query()->where('status', FinancialAccountStatus::Active)->orderBy('name')->get()

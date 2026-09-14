@@ -7,7 +7,6 @@ namespace App\Http\Controllers\Tenant;
 use App\Http\Controllers\Controller;
 use App\Models\Organisation;
 use App\Support\Images\AppIcon;
-use App\Support\Theme\AccentPalette;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -75,7 +74,7 @@ class BrandingController extends Controller
         }
 
         $png = AppIcon::render(
-            (string) ($organisation->accent_color ?: AccentPalette::DEFAULT_ACCENT),
+            $organisation->brandColor(),
             $size,
             $logo,
         );
@@ -98,7 +97,7 @@ class BrandingController extends Controller
         /** @var Organisation $organisation */
         $organisation = app('tenant');
 
-        $accent = (string) ($organisation->accent_color ?: AccentPalette::DEFAULT_ACCENT);
+        $accent = $organisation->brandColor();
 
         $icons = array_map(static fn (int $size): array => [
             'src' => route('tenant.branding.app-icon', ['size' => $size]),

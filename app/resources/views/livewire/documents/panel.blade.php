@@ -122,8 +122,8 @@
                             </div>
 
                             <div class="flex shrink-0 items-center gap-1">
-                                <x-ui.button size="sm" variant="ghost" icon="arrow-down-tray"
-                                    :href="route('tenant.documents.download', $document)">Download</x-ui.button>
+                                <x-ui.download-button size="sm" variant="ghost" icon="arrow-down-tray" :what="'“'.$document->title.'”'"
+                                    :href="route('tenant.documents.download', $document)">Download</x-ui.download-button>
 
                                 @can('delete', $document)
                                     <x-ui.button size="sm" variant="ghost" icon="trash"

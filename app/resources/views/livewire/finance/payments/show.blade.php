@@ -5,7 +5,7 @@
         :description="$payment->member->name.' · '.$payment->club->name">
         <x-slot:actions>
             @can('notify', $payment)
-                <x-ui.button icon="document-arrow-down" :href="route('tenant.finance.payments.receipt', $payment)">Receipt PDF</x-ui.button>
+                <x-ui.download-button icon="document-arrow-down" what="the receipt for this payment as a PDF" :href="route('tenant.finance.payments.receipt', $payment)">Receipt PDF</x-ui.download-button>
             @endcan
 
             @can('confirm', $payment)
@@ -59,6 +59,12 @@
                     <x-ui.definition label="{{ $organisation->term('club_singular') }}" :value="$payment->club->name" />
                     <x-ui.definition label="Plan" :value="$payment->subscription?->plan?->name ?? 'Not linked to a plan'" />
                     <x-ui.definition label="Received into" :value="$payment->financialAccount?->name ?? 'Not specified'" />
+                    @if ($payment->invoice)
+                        <x-ui.definition label="Invoice">
+                            <a href="{{ route('tenant.billing.show', $payment->invoice) }}" wire:navigate class="font-mono text-accent hover:underline">{{ $payment->invoice->number }}</a>
+                            <span class="text-ink-muted">· {{ $payment->invoice->status->label() }}</span>
+                        </x-ui.definition>
+                    @endif
                     <x-ui.definition label="Reference" :value="$payment->transaction_reference ?: '—'" />
                     <x-ui.definition label="Collected by" :value="$payment->collectedBy?->user?->name ?? '—'" />
 

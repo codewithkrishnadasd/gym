@@ -5,8 +5,8 @@
         :description="$isAdmin ? 'Every fee collection in the organisation. Only confirmed payments count towards revenue.' : 'Fees you have collected and their confirmation status.'">
         <x-slot:actions>
             @can('viewAny', \App\Models\AuditEvent::class)
-                <x-ui.button icon="arrow-down-tray"
-                    :href="route('tenant.finance.payments.export', request()->query())">Export CSV</x-ui.button>
+                <x-ui.download-button icon="arrow-down-tray" what="a CSV of the payments shown" note="It uses the filters currently applied."
+                    :href="route('tenant.finance.payments.export', request()->query())">Export CSV</x-ui.download-button>
             @endcan
             @can('create', \App\Models\FeePayment::class)
                 <x-ui.button variant="primary" icon="plus" :href="route('tenant.finance.payments.create')" wire:navigate>
@@ -109,7 +109,12 @@
                             <x-ui.td numeric class="whitespace-nowrap">{{ $payment->payment_date->format('d M Y') }}</x-ui.td>
                             <x-ui.td>
                                 <p class="font-medium text-ink">{{ $payment->member->name }}</p>
-                                <p class="text-xs text-ink-muted">{{ $payment->transaction_reference ?: 'PMT-'.$payment->id }}</p>
+                                <p class="text-xs text-ink-muted">
+                                    {{ $payment->transaction_reference ?: 'PMT-'.$payment->id }}
+                                    @if ($payment->invoice)
+                                        · <a href="{{ route('tenant.billing.show', $payment->invoice_id) }}" wire:navigate class="font-mono hover:text-accent">{{ $payment->invoice->number }}</a>
+                                    @endif
+                                </p>
                             </x-ui.td>
                             <x-ui.td>{{ $payment->club->name }}</x-ui.td>
                             <x-ui.td>

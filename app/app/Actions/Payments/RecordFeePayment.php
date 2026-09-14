@@ -20,7 +20,7 @@ use Illuminate\Support\Facades\DB;
  * request, but that still runs through ConfirmFeePayment — it is not a
  * shortcut that writes `confirmed` directly.
  *
- * @phpstan-type PaymentAttributes array{club_id: int, member_id: int, subscription_id: int|null, payer_name: string, amount_minor: int, currency_code: string, payment_method: string, financial_account_id: int, transaction_reference: string|null, payment_date: string, notes: string|null}
+ * @phpstan-type PaymentAttributes array{club_id: int, member_id: int, subscription_id: int|null, invoice_id?: int|null, payer_name: string, amount_minor: int, currency_code: string, payment_method: string, financial_account_id: int, transaction_reference: string|null, payment_date: string, notes: string|null}
  */
 final class RecordFeePayment
 {

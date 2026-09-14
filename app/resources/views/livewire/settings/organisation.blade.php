@@ -14,6 +14,7 @@
         ['label' => 'Terminology', 'url' => route('tenant.settings.organisation', ['tab' => 'terminology']), 'active' => $tab === 'terminology'],
         ['label' => 'Notifications', 'url' => route('tenant.settings.organisation', ['tab' => 'notifications']), 'active' => $tab === 'notifications'],
         ['label' => 'Expense categories', 'url' => route('tenant.settings.organisation', ['tab' => 'expenses']), 'active' => $tab === 'expenses'],
+        ['label' => 'Billing', 'url' => route('tenant.settings.organisation', ['tab' => 'billing']), 'active' => $tab === 'billing'],
         ['label' => 'Storage', 'url' => route('tenant.settings.organisation', ['tab' => 'storage']), 'active' => $tab === 'storage'],
         ['label' => 'Message templates', 'url' => route('tenant.settings.organisation', ['tab' => 'templates']), 'active' => $tab === 'templates'],
     ]" />
@@ -301,6 +302,8 @@
                 </x-ui.card>
             </div>
         </div>
+    @elseif ($tab === 'billing')
+        <livewire:settings.billable-items />
     @elseif ($tab === 'storage')
         <livewire:settings.storage-buckets />
     @elseif ($tab === 'templates')

@@ -5,11 +5,13 @@ declare(strict_types=1);
 namespace App\Providers;
 
 use App\Models\Attendance;
+use App\Models\BillableItem;
 use App\Models\Club;
 use App\Models\Document;
 use App\Models\Expense;
 use App\Models\FeePayment;
 use App\Models\FinancialAccount;
+use App\Models\Invoice;
 use App\Models\Member;
 use App\Models\MemberSubscription;
 use App\Models\MessageTemplate;
@@ -74,6 +76,8 @@ class AppServiceProvider extends ServiceProvider
             'message_template' => MessageTemplate::class,
             'document' => Document::class,
             'storage_bucket' => StorageBucket::class,
+            'invoice' => Invoice::class,
+            'billable_item' => BillableItem::class,
         ]);
 
         // The `auth` middleware serves two entirely separate guards (the

@@ -86,7 +86,8 @@
             <x-ui.card title="Receipt">
                 @if ($expense?->receipt_path && ! $receipt)
                     <div class="flex items-center justify-between gap-2 rounded-lg border border-hairline bg-raised p-3">
-                        <a href="{{ route('tenant.finance.expenses.receipt', $expense) }}" target="_blank"
+                        <a href="{{ route('tenant.finance.expenses.receipt', $expense) }}" target="_blank" data-download
+                            data-confirm="Download the receipt attached to this expense?" data-confirm-title="Download file" data-confirm-action="Download" data-confirm-tone="accent"
                             class="inline-flex items-center gap-1.5 text-sm text-accent hover:underline">
                             <x-heroicon-o-paper-clip class="h-4 w-4" />
                             View current receipt

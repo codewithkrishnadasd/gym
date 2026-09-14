@@ -22,7 +22,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * classes, never by a direct model update. See MEP.md 5.11.
  */
 #[Fillable([
-    'organisation_id', 'club_id', 'member_id', 'subscription_id', 'payer_name',
+    'organisation_id', 'club_id', 'member_id', 'subscription_id', 'invoice_id', 'payer_name',
     'amount_minor', 'currency_code', 'payment_method', 'financial_account_id',
     'transaction_reference', 'payment_date', 'collected_by', 'notes',
 ])]
@@ -41,6 +41,14 @@ class FeePayment extends Model
             'payment_date' => 'date',
             'confirmed_at' => 'datetime',
         ];
+    }
+
+    /**
+     * @return BelongsTo<Invoice, $this>
+     */
+    public function invoice(): BelongsTo
+    {
+        return $this->belongsTo(Invoice::class);
     }
 
     /**

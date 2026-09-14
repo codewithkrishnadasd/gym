@@ -150,6 +150,7 @@ class Show extends Component
             'member:id,name,phone,primary_club_id',
             'club:id,name',
             'subscription.plan:id,name',
+            'invoice:id,number,status',
             'financialAccount:id,name,account_type',
             'collectedBy.user:id,name',
             'confirmedBy.user:id,name',

@@ -77,6 +77,15 @@ final class MessageComposer
                 'paymentDate' => 'The date of payment',
                 'endDate' => 'The date the plan is valid until',
                 'reference' => 'The receipt or transaction reference',
+                'invoiceNumber' => 'The invoice this payment was made against, if any',
+                'balanceDue' => 'What is still owed on that invoice after this payment',
+            ],
+            NotificationActionType::InvoiceIssued => [
+                'invoiceNumber' => 'The invoice number, e.g. INV-2026-0042',
+                'amount' => 'The invoice total, formatted in your currency',
+                'items' => 'The billed items, comma-separated',
+                'dueDate' => 'When payment is due',
+                'clubName' => 'The club the invoice belongs to',
             ],
             NotificationActionType::MemberAttendanceMarked,
             NotificationActionType::UserAttendanceMarked => [
@@ -176,6 +185,14 @@ final class MessageComposer
                 'Hi {memberName}, your account status with {organisationName} is now {changedItem}.',
                 'Please contact {supportContact} if you need assistance.',
             ],
+            NotificationActionType::InvoiceIssued => [
+                'Hi {memberName}, {organisationName} has issued invoice {invoiceNumber} for {amount}.',
+                'Items: {items}',
+                'Due: {dueDate}',
+                'Club: {clubName}',
+                '',
+                'Please pay at the counter or contact {supportContact} with any questions.',
+            ],
             NotificationActionType::PasswordResetLink => [
                 'Hi {memberName}, here is your link to set a new password for {organisationName}.',
                 '',
@@ -250,6 +267,10 @@ final class MessageComposer
             'amount' => $organisation->money(400000),
             'paymentDate' => now($organisation->timezone)->format('d M Y'),
             'reference' => 'REF001234',
+            'invoiceNumber' => 'INV-'.now($organisation->timezone)->format('Y').'-0042',
+            'balanceDue' => $organisation->money(150000),
+            'items' => '4 × Personal training, Locker rental',
+            'dueDate' => now($organisation->timezone)->addDays(7)->format('d M Y'),
             'roleLabel' => $organisation->term('user_singular'),
             'signInUrl' => 'https://'.($organisation->domains()->where('is_primary', true)->value('hostname') ?? 'your-gym.example.com'),
         ];

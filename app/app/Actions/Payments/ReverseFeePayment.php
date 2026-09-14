@@ -8,6 +8,7 @@ use App\Enums\ConfirmationStatus;
 use App\Exceptions\LifecycleViolation;
 use App\Models\AuditEvent;
 use App\Models\FeePayment;
+use App\Models\Invoice;
 use App\Models\OrganisationUser;
 use Illuminate\Support\Facades\DB;
 
@@ -44,6 +45,11 @@ final class ReverseFeePayment
 
             $subscription = $locked->subscription;
 
+            if ($locked->invoice_id !== null) {
+                Invoice::query()->whereKey($locked->invoice_id)->lockForUpdate()->first()
+                    ?->withdrawPayment($locked->amount_minor);
+            }
+
             if ($subscription) {
                 // Never let a withdrawal drive the paid total below zero, even
                 // if the subscription was edited between the two events.
@@ -62,6 +68,7 @@ final class ReverseFeePayment
                     'reason' => $reason,
                     'amount_minor' => $locked->amount_minor,
                     'subscription_id' => $locked->subscription_id,
+                    'invoice_id' => $locked->invoice_id,
                 ],
             );
 

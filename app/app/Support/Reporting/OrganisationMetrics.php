@@ -8,6 +8,7 @@ use App\Enums\AttendanceAction;
 use App\Enums\AttendanceSubjectType;
 use App\Enums\ConfirmationStatus;
 use App\Enums\ExpenseStatus;
+use App\Enums\InvoiceStatus;
 use App\Enums\MembershipStatus;
 use App\Enums\MemberStatus;
 use App\Enums\SubscriptionStatus;
@@ -15,6 +16,7 @@ use App\Models\Attendance;
 use App\Models\Club;
 use App\Models\Expense;
 use App\Models\FeePayment;
+use App\Models\Invoice;
 use App\Models\Member;
 use App\Models\MemberSubscription;
 use App\Models\Organisation;
@@ -115,6 +117,36 @@ final class OrganisationMetrics
             ->whereColumn('amount_paid_minor', '<', 'amount_due_minor')
             ->selectRaw('COALESCE(SUM(amount_due_minor - amount_paid_minor), 0) AS due')
             ->value('due');
+    }
+
+    /**
+     * Money still owed on open invoices — a separate figure from plan fees,
+     * because the two are collected and chased differently.
+     */
+    public function outstandingInvoices(): int
+    {
+        return (int) $this->invoiceScope()
+            ->whereIn('status', [InvoiceStatus::Issued, InvoiceStatus::PartiallyPaid])
+            ->selectRaw('COALESCE(SUM(total_minor - paid_minor), 0) AS due')
+            ->value('due');
+    }
+
+    public function overdueInvoices(): int
+    {
+        $today = Carbon::today($this->organisation->timezone);
+
+        return $this->invoiceScope()
+            ->whereIn('status', [InvoiceStatus::Issued, InvoiceStatus::PartiallyPaid])
+            ->whereDate('due_date', '<', $today->toDateString())
+            ->count();
+    }
+
+    /**
+     * @return Builder<Invoice>
+     */
+    private function invoiceScope(): Builder
+    {
+        return Invoice::query()->whereIn('club_id', $this->clubIds);
     }
 
     public function expensesRecorded(): int
@@ -605,6 +637,17 @@ final class OrganisationMetrics
                 'tone' => 'info',
                 'title' => $expiring.' '.str('plan')->plural($expiring).' expiring within 7 days',
                 'detail' => 'Renew these before they lapse.',
+            ];
+        }
+
+        $overdueInvoices = $this->overdueInvoices();
+
+        if ($overdueInvoices > 0) {
+            $alerts[] = [
+                'tone' => 'caution',
+                'title' => $overdueInvoices.' '.str('invoice')->plural($overdueInvoices).' overdue',
+                'detail' => $this->organisation->money($this->outstandingInvoices()).' still owed across open invoices.',
+                'route' => 'tenant.billing.index',
             ];
         }
 

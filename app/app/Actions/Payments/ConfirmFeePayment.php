@@ -14,6 +14,7 @@ use App\Exceptions\LifecycleViolation;
 use App\Models\AuditEvent;
 use App\Models\Club;
 use App\Models\FeePayment;
+use App\Models\Invoice;
 use App\Models\Member;
 use App\Models\Organisation;
 use App\Models\OrganisationUser;
@@ -63,6 +64,16 @@ final class ConfirmFeePayment
 
             $subscription = $locked->subscription;
 
+            // An invoice balance is maintained here, in the same locked
+            // transaction as the payment's own status change, for the same
+            // reason the subscription balance is: a payment marked confirmed
+            // with its credit unapplied is the one state that must not exist.
+            $invoice = $locked->invoice_id === null
+                ? null
+                : Invoice::query()->whereKey($locked->invoice_id)->lockForUpdate()->first();
+
+            $invoice?->applyPayment($locked->amount_minor);
+
             if ($subscription) {
                 $subscription->applyPayment($locked->amount_minor);
                 $subscription->refresh();
@@ -86,6 +97,7 @@ final class ConfirmFeePayment
                     'amount_minor' => $locked->amount_minor,
                     'currency_code' => $locked->currency_code,
                     'subscription_id' => $locked->subscription_id,
+                    'invoice_id' => $locked->invoice_id,
                 ],
             );
 
@@ -114,6 +126,10 @@ final class ConfirmFeePayment
                     'paymentDate' => $locked->payment_date->format('d M Y'),
                     'endDate' => $subscription?->end_date->format('d M Y'),
                     'reference' => $locked->transaction_reference ?: 'PMT-'.$locked->id,
+                    'invoiceNumber' => $invoice?->number,
+                    'balanceDue' => $invoice === null
+                        ? null
+                        : Money::ofMinor($invoice->outstandingMinor(), $invoice->currency_code)->format($organisation->locale),
                 ],
             );
 

@@ -19,7 +19,7 @@
     $brandInitial = mb_strtoupper(mb_substr($brandName, 0, 1));
     $brandLogoUrl = $isPlatform ? null : $organisation?->logoUrl();
     $faviconUrl = $isPlatform ? null : $organisation?->tabIconUrl();
-    $accent = $isPlatform ? null : $organisation?->accentCss();
+    $accent = $isPlatform ? null : $organisation?->themeCss();
     $pageTitle = $heading ?? ($isPlatform ? 'Root console' : 'Dashboard');
 
     $account = $isPlatform ? auth('platform')->user() : auth('web')->user();
@@ -42,7 +42,7 @@
              tenant domains: the platform console is an operator tool, not
              something anyone installs. --}}
         <link rel="manifest" href="{{ route('tenant.manifest') }}">
-        <meta name="theme-color" content="{{ $organisation?->accent_color ?: \App\Support\Theme\AccentPalette::DEFAULT_ACCENT }}">
+        <meta name="theme-color" content="{{ $organisation?->brandColor() ?? \App\Support\Theme\AccentPalette::DEFAULT_ACCENT }}">
         <meta name="apple-mobile-web-app-capable" content="yes">
         <link rel="apple-touch-icon" href="{{ route('tenant.branding.app-icon', ['size' => 192]) }}">
         <x-install-script />
@@ -185,6 +185,7 @@
         @endif
     </div>
 
+    <x-ui.page-loader />
     <x-ui.confirm-dialog />
 
     @livewireScripts

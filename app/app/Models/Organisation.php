@@ -7,7 +7,7 @@ namespace App\Models;
 use App\Enums\NotificationActionType;
 use App\Enums\OrganisationStatus;
 use App\Support\Money;
-use App\Support\Theme\AccentPalette;
+use App\Support\Theme\ThemeTokens;
 use Database\Factories\OrganisationFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -16,7 +16,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 #[Fillable([
-    'name', 'slug', 'logo_path', 'favicon_path', 'accent_color', 'status', 'timezone', 'currency_code', 'locale',
+    'name', 'slug', 'logo_path', 'favicon_path', 'accent_color', 'theme_colors', 'status', 'timezone', 'currency_code', 'locale',
     'default_country_code', 'contact_email', 'contact_phone', 'address',
     'notification_settings', 'expense_categories', 'created_by',
     'terminology_member_singular', 'terminology_member_plural',
@@ -47,6 +47,7 @@ class Organisation extends Model
             'address' => 'array',
             'notification_settings' => 'array',
             'expense_categories' => 'array',
+            'theme_colors' => 'array',
         ];
     }
 
@@ -257,15 +258,24 @@ class Organisation extends Model
     }
 
     /**
-     * The accent this organisation is branded with, as a CSS block for the
-     * document head. Returns null when nothing is configured, so the built-in
-     * palette is left alone rather than re-declared identically on every page.
+     * Everything this organisation has changed about the interface colours —
+     * the accent and any per-theme overrides — as a CSS block for the document
+     * head. Null when nothing is configured, so the built-in palette is left
+     * alone rather than restated on every page.
      */
-    public function accentCss(): ?string
+    public function themeCss(): ?string
     {
-        $accent = (string) $this->accent_color;
+        return ThemeTokens::css($this->accent_color, $this->theme_colors);
+    }
 
-        return AccentPalette::isValid($accent) ? AccentPalette::css($accent) : null;
+    /**
+     * The single colour that stands for the brand outside the stylesheet: the
+     * browser chrome tint, the installed-app icon. An explicit light-theme
+     * primary wins over the accent picker, which wins over the default.
+     */
+    public function brandColor(): string
+    {
+        return ThemeTokens::resolve($this->accent_color, $this->theme_colors)['light']['accent'];
     }
 
     public function currencySymbol(): string

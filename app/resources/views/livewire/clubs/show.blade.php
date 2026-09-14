@@ -124,7 +124,7 @@
                     :description="'Add a '.strtolower($organisation->term('member_singular')).' to this '.strtolower($organisation->term('club_singular')).'.'">
                     <x-slot:actions>
                         @can('create', \App\Models\Member::class)
-                            <x-ui.button size="sm" variant="primary" :href="route('tenant.members.create')" wire:navigate>
+                            <x-ui.button size="sm" variant="primary" :href="route('tenant.members.create', ['club' => $club->id])" wire:navigate>
                                 Add {{ $organisation->term('member_singular') }}
                             </x-ui.button>
                         @endcan

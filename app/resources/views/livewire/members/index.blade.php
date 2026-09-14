@@ -4,9 +4,9 @@
     <x-ui.page-header :title="$organisation->term('member_plural')"
         :description="'Everyone training with you. Each belongs to exactly one '.strtolower($organisation->term('club_singular')).'.'">
         <x-slot:actions>
-            <x-ui.button icon="arrow-down-tray" :href="route('tenant.members.export', request()->query())">Export CSV</x-ui.button>
+            <x-ui.download-button icon="arrow-down-tray" :what="'a CSV of the '.strtolower($organisation->term('member_plural')).' shown'" note="It uses the filters currently applied." :href="route('tenant.members.export', request()->query())">Export CSV</x-ui.download-button>
             @can('create', \App\Models\Member::class)
-                <x-ui.button variant="primary" icon="plus" :href="route('tenant.members.create')" wire:navigate>
+                <x-ui.button variant="primary" icon="plus" :href="route('tenant.members.create', array_filter(['club' => $club]))" wire:navigate>
                     Add {{ $organisation->term('member_singular') }}
                 </x-ui.button>
             @endcan
@@ -48,7 +48,7 @@
                     :description="$search !== '' || $status !== '' || $club !== '' || $plan !== '' ? 'Try a different search or clear the filters.' : 'Add your first '.strtolower($organisation->term('member_singular')).' to start tracking plans, attendance, and fees.'">
                     <x-slot:actions>
                         @can('create', \App\Models\Member::class)
-                            <x-ui.button variant="primary" icon="plus" :href="route('tenant.members.create')" wire:navigate>
+                            <x-ui.button variant="primary" icon="plus" :href="route('tenant.members.create', array_filter(['club' => $club]))" wire:navigate>
                                 Add {{ $organisation->term('member_singular') }}
                             </x-ui.button>
                         @endcan

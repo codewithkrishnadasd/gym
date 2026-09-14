@@ -3,7 +3,7 @@
 
     <x-ui.page-header title="Expenses" description="Money going out, by club, category, target, and funding account.">
         <x-slot:actions>
-            <x-ui.button icon="arrow-down-tray" :href="route('tenant.finance.expenses.export', request()->query())">Export CSV</x-ui.button>
+            <x-ui.download-button icon="arrow-down-tray" what="a CSV of the expenses shown" note="It uses the filters currently applied." :href="route('tenant.finance.expenses.export', request()->query())">Export CSV</x-ui.download-button>
             @can('create', \App\Models\Expense::class)
                 <x-ui.button variant="primary" icon="plus" :href="route('tenant.finance.expenses.create')" wire:navigate>
                     Record expense
@@ -102,8 +102,8 @@
                             <x-ui.td align="right">
                                 <div class="flex items-center justify-end gap-1">
                                     @if ($expense->receipt_path)
-                                        <x-ui.button size="sm" variant="ghost" :href="route('tenant.finance.expenses.receipt', $expense)"
-                                            target="_blank">Receipt</x-ui.button>
+                                        <x-ui.download-button size="sm" variant="ghost" what="the receipt attached to this expense" :href="route('tenant.finance.expenses.receipt', $expense)"
+                                            target="_blank">Receipt</x-ui.download-button>
                                     @endif
                                     @can('update', $expense)
                                         <x-ui.button size="sm" variant="ghost" :href="route('tenant.finance.expenses.edit', $expense)" wire:navigate>Edit</x-ui.button>

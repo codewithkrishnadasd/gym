@@ -83,4 +83,12 @@ class Member extends Model
     {
         return $this->morphMany(Attendance::class, 'subject');
     }
+
+    /**
+     * @return HasMany<Invoice, $this>
+     */
+    public function invoices(): HasMany
+    {
+        return $this->hasMany(Invoice::class);
+    }
 }

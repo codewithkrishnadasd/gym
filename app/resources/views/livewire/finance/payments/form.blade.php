@@ -63,8 +63,23 @@
 
             <x-ui.card title="Payment details">
                 <div class="grid gap-4 sm:grid-cols-2">
-                    @if ($subscriptions->isNotEmpty())
-                        <x-ui.select class="sm:col-span-2" wire:model="subscriptionId" name="subscriptionId"
+                    @if ($openInvoices->isNotEmpty())
+                        {{-- Paying an invoice and paying a plan are two different
+                             things; picking one clears the other. --}}
+                        <x-ui.select class="sm:col-span-2" wire:model.live="invoiceId" name="invoiceId"
+                            label="Apply to invoice" hint="The amount defaults to what is still owed. A smaller amount records a part payment.">
+                            <option value="">Not linked to an invoice</option>
+                            @foreach ($openInvoices as $openInvoice)
+                                <option value="{{ $openInvoice->id }}">
+                                    {{ $openInvoice->number }} — {{ $organisation->money($openInvoice->outstandingMinor()) }} outstanding
+                                    of {{ $organisation->money($openInvoice->total_minor) }}{{ $openInvoice->due_date ? ', due '.$openInvoice->due_date->format('d M') : '' }}
+                                </option>
+                            @endforeach
+                        </x-ui.select>
+                    @endif
+
+                    @if ($subscriptions->isNotEmpty() && $invoiceId === null)
+                        <x-ui.select class="sm:col-span-2" wire:model.live="subscriptionId" name="subscriptionId"
                             label="Apply to plan" hint="Confirmed payments are credited against the selected plan.">
                             <option value="">Not linked to a plan</option>
                             @foreach ($subscriptions as $subscription)

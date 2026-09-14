@@ -12,7 +12,7 @@
 
     $variants = [
         'primary' => 'bg-accent text-on-accent hover:opacity-90 elevate',
-        'secondary' => 'border border-hairline-strong bg-surface text-ink hover:bg-sunken',
+        'secondary' => 'border border-button-secondary-border bg-button-secondary text-button-secondary-ink hover:brightness-95',
         'ghost' => 'text-ink-soft hover:bg-sunken hover:text-ink',
         'danger' => 'border border-critical/30 bg-critical-soft text-critical hover:border-critical/60',
         'positive' => 'bg-positive text-white hover:opacity-90 elevate',

@@ -144,6 +144,7 @@ class Confirmations extends Component
                 'club:id,name',
                 'collectedBy.user:id,name',
                 'subscription.plan:id,name',
+                'invoice:id,number,total_minor,paid_minor,status',
                 'financialAccount:id,name,account_type',
             ])
             ->where('confirmation_status', ConfirmationStatus::PendingAdminConfirmation)

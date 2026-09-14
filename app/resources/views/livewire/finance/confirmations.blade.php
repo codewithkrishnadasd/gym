@@ -77,6 +77,12 @@
                                     @if ($payment->subscription)
                                         <p class="text-xs text-ink-muted">Plan: {{ $payment->subscription->plan->name }}</p>
                                     @endif
+                                    @if ($payment->invoice)
+                                        <p class="text-xs text-ink-muted">
+                                            Invoice: <span class="font-mono">{{ $payment->invoice->number }}</span>
+                                            · {{ $organisation->money($payment->invoice->outstandingMinor()) }} outstanding before this
+                                        </p>
+                                    @endif
 
                                     {{-- Confirming credits this account, so it is stated on the
                                          row rather than hidden behind the payment page. --}}

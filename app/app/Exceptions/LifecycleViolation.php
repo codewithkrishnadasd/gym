@@ -29,4 +29,9 @@ final class LifecycleViolation extends RuntimeException
     {
         return new self($message);
     }
+
+    public static function invoice(string $message): self
+    {
+        return new self($message);
+    }
 }

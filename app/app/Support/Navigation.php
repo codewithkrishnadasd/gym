@@ -91,6 +91,12 @@ final class Navigation
                 'active' => 'tenant.finance.payments.*',
                 'mobile' => true,
             ] : null,
+            ($isAdmin || $can('billing.view')) ? [
+                'label' => 'Invoices',
+                'route' => 'tenant.billing.index',
+                'icon' => 'document-text',
+                'active' => 'tenant.billing.*',
+            ] : null,
             $isAdmin ? [
                 'label' => 'Confirmations',
                 'route' => 'tenant.finance.confirmations',

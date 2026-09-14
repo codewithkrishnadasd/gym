@@ -19,6 +19,7 @@ use App\Models\PlatformAdmin;
 use App\Models\PlatformAuditEvent;
 use App\Models\User;
 use App\Support\PhoneNumber;
+use App\Support\Theme\ThemeTokens;
 use Closure;
 use DateTimeZone;
 use Illuminate\Http\RedirectResponse;
@@ -177,6 +178,9 @@ class OrganisationController extends Controller
             // Branding is a platform-admin decision: it is the one visual
             // setting a gym cannot change for itself.
             'accent_color' => ['nullable', 'string', 'regex:/^#[0-9a-fA-F]{6}$/'],
+            'theme' => ['nullable', 'array'],
+            'theme.*' => ['nullable', 'array'],
+            'theme.*.*' => ['nullable', 'string', 'regex:/^#[0-9a-fA-F]{6}$/'],
             'contact_email' => ['nullable', 'email', 'max:255'],
             'contact_phone' => ['nullable', 'string', 'max:50'],
             'terminology_member_singular' => ['required', 'string', 'max:50'],
@@ -189,6 +193,13 @@ class OrganisationController extends Controller
 
         /** @var PlatformAdmin $platformAdmin */
         $platformAdmin = Auth::guard('platform')->user();
+
+        // Only colours that were actually set are kept, so an untouched field
+        // keeps following the built-in palette (and the accent) rather than
+        // freezing today's value.
+        $theme = ThemeTokens::sanitize($validated['theme'] ?? []);
+        unset($validated['theme']);
+        $validated['theme_colors'] = $theme === [] ? null : $theme;
 
         $before = $organisation->only(array_keys($validated));
 

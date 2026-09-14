@@ -10,6 +10,7 @@ use App\Models\Club;
 use App\Models\Document;
 use App\Models\Expense;
 use App\Models\FeePayment;
+use App\Models\Invoice;
 use App\Models\Organisation;
 use App\Models\OrganisationUser;
 use App\Models\User;
@@ -100,6 +101,20 @@ class DocumentController extends Controller
             'receipt-EXP-'.$expense->id.'.'.pathinfo($expense->receipt_path, PATHINFO_EXTENSION),
             ['Cache-Control' => 'private, max-age=300'],
         );
+    }
+
+    public function invoice(Invoice $invoice): Response
+    {
+        $this->authorize('view', $invoice);
+
+        $invoice->loadMissing(['lines', 'member:id,name,phone', 'club:id,name', 'createdBy.user:id,name', 'payments']);
+
+        $pdf = Pdf::loadView('pdf.invoice', [
+            'organisation' => $this->tenant(),
+            'invoice' => $invoice,
+        ])->setPaper('a4');
+
+        return $pdf->download('invoice-'.$invoice->number.'.pdf');
     }
 
     /**

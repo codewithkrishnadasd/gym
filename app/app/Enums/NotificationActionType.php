@@ -31,6 +31,8 @@ enum NotificationActionType: string
      */
     case PasswordResetLink = 'password_reset_link';
 
+    case InvoiceIssued = 'invoice_issued';
+
     /**
      * Plain-language name for filters and message lists, where the raw enum
      * value ("member_plan_renewed") is readable but not what an operator calls
@@ -56,6 +58,7 @@ enum NotificationActionType: string
             self::UserStatusChanged => 'Staff status changed',
             self::UserAttendanceMarked => 'Staff attendance',
             self::PasswordResetLink => 'Password link',
+            self::InvoiceIssued => 'Invoice issued',
         };
     }
 

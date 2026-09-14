@@ -11,4 +11,5 @@ enum NotificationEntityType: string
     case FeePayment = 'fee_payment';
     case Subscription = 'subscription';
     case Attendance = 'attendance';
+    case Invoice = 'invoice';
 }
