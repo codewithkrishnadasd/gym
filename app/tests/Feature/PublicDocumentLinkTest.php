@@ -195,3 +195,50 @@ it('shows the full amount paid on the receipt with a breakup when earlier money 
     $this->get('http://links.test/finance/payments/'.$payment->id)->assertOk()->assertSee('₹3,000.00')->assertSee('₹2,300.00 received now');
     $this->get($payment->publicUrl())->assertOk()->assertSee('₹3,000.00')->assertSee('₹2,300.00 received now');
 });
+
+it('says what each receipt was for — the plan, the invoice items, or the admission fee', function (): void {
+    $this->actingAs($this->admin->user);
+
+    $invoice = issueOne();
+
+    $forInvoice = FeePayment::factory()->create([
+        'organisation_id' => $this->organisation->id,
+        'member_id' => $this->member->id,
+        'club_id' => $this->club->id,
+        'collected_by' => $this->admin->id,
+        'financial_account_id' => $this->account->id,
+        'purpose' => 'invoice',
+        'invoice_id' => $invoice->id,
+        'amount_minor' => 50000,
+        'confirmation_status' => 'confirmed',
+    ]);
+
+    $html = view('pdf.receipt', ['organisation' => $this->organisation, 'payment' => $forInvoice->load('member', 'club', 'invoice.lines')])->render();
+
+    expect($html)->toContain('Paid for')
+        ->toContain('Invoice '.$invoice->number)
+        ->toContain('Locker rental')
+        ->toContain('Invoice total');
+
+    $this->member->update(['admission_fee_minor' => 100000]);
+
+    $forAdmission = FeePayment::factory()->create([
+        'organisation_id' => $this->organisation->id,
+        'member_id' => $this->member->id,
+        'club_id' => $this->club->id,
+        'collected_by' => $this->admin->id,
+        'financial_account_id' => $this->account->id,
+        'purpose' => 'admission',
+        'amount_minor' => 40000,
+        'confirmation_status' => 'confirmed',
+    ]);
+
+    $html = view('pdf.receipt', ['organisation' => $this->organisation, 'payment' => $forAdmission->load('member', 'club')])->render();
+
+    expect($html)->toContain('Admission fee')->toContain('one-time joining fee')->toContain('₹1,000.00');
+
+    // The real PDF route still renders for each.
+    auth()->logout();
+    $this->get($forInvoice->publicUrl().'/pdf')->assertOk()->assertHeader('Content-Type', 'application/pdf');
+    $this->get($forAdmission->publicUrl().'/pdf')->assertOk()->assertHeader('Content-Type', 'application/pdf');
+});

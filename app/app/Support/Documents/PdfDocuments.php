@@ -34,10 +34,10 @@ final class PdfDocuments
     public static function receipt(FeePayment $payment, Organisation $organisation): PdfBuilder
     {
         $payment->loadMissing([
-            'member:id,name,phone',
+            'member:id,name,phone,admission_fee_minor,admission_discount_minor,admission_paid_minor',
             'club:id,name,phone,email,address',
             'subscription.plan:id,name',
-            'invoice:id,number',
+            'invoice.lines',
             'financialAccount:id,name,account_type',
             'collectedBy.user:id,name',
             'confirmedBy.user:id,name',
