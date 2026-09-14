@@ -5,6 +5,7 @@
 
     <x-ui.page-header :title="$task->title" :back="route('tenant.tasks.index')" back-label="Tasks"
         :description="collect([
+            $organisation->reference('task', $task->id),
             $task->category?->name,
             $task->start_date ? 'from '.$task->start_date->format('d M Y') : null,
             $task->due_date ? ($overdue ? 'overdue since ' : 'due ').$task->due_date->format('d M Y') : null,
@@ -119,14 +120,45 @@
 
             @if ($task->description)
                 <x-ui.card title="Description">
-                    <p class="whitespace-pre-line text-sm leading-relaxed text-ink-soft">{{ $task->description }}</p>
+                    {{-- Rendered server-side with raw HTML stripped (Task::descriptionHtml). --}}
+                    <div class="prose-task text-sm text-ink-soft">{!! $task->descriptionHtml() !!}</div>
                 </x-ui.card>
             @endif
         </div>
 
         <div class="space-y-5">
+            <x-ui.card title="People">
+                <dl class="grid gap-x-6">
+                    <x-ui.definition label="Assigned to">
+                        @if ($task->assignees->isEmpty())
+                            <span class="text-ink-muted">Nobody yet</span>
+                        @else
+                            <ul class="space-y-1.5">
+                                @foreach ($task->assignees as $person)
+                                    <li class="flex items-center gap-2">
+                                        <x-ui.avatar :name="$person->user?->name ?? '?'" size="sm" />
+                                        <span class="text-sm text-ink">{{ $person->user?->name }}</span>
+                                    </li>
+                                @endforeach
+                            </ul>
+                        @endif
+                    </x-ui.definition>
+                    <x-ui.definition :label="$organisation->term('member_singular')">
+                        @if ($task->member)
+                            <a href="{{ route('tenant.members.show', $task->member) }}" wire:navigate class="inline-flex items-center gap-2 text-accent hover:underline">
+                                <x-ui.avatar :name="$task->member->name" size="sm" tone="accent" /> {{ $task->member->name }}
+                            </a>
+                        @else
+                            <span class="text-ink-muted">Not about one {{ strtolower($organisation->term('member_singular')) }}</span>
+                        @endif
+                    </x-ui.definition>
+                    <x-ui.definition label="Reported by" :value="$task->createdBy?->user?->name ?? '—'" />
+                </dl>
+            </x-ui.card>
+
             <x-ui.card title="Details">
                 <dl class="grid gap-x-6">
+                    <x-ui.definition label="Reference" :value="$organisation->reference('task', $task->id)" />
                     <x-ui.definition label="Category" :value="$task->category?->name ?? '—'" />
                     <x-ui.definition label="Start date" :value="$task->start_date?->format('d M Y') ?? 'Not set'" />
                     <x-ui.definition label="Due date">
@@ -139,7 +171,6 @@
                             Not set
                         @endif
                     </x-ui.definition>
-                    <x-ui.definition label="Created by" :value="$task->createdBy?->user?->name ?? '—'" />
                     <x-ui.definition label="Created" :value="$task->created_at?->timezone($organisation->timezone)->format('d M Y, H:i') ?? '—'" />
                 </dl>
             </x-ui.card>

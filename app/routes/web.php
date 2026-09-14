@@ -10,6 +10,7 @@ use App\Http\Controllers\Tenant\BrandingController;
 use App\Http\Controllers\Tenant\DocumentController;
 use App\Http\Controllers\Tenant\ExportController;
 use App\Http\Controllers\Tenant\PasswordResetController;
+use App\Http\Controllers\Tenant\PublicDocumentController;
 use App\Http\Middleware\EnsureActiveMembership;
 use App\Livewire\Attendance\Roster as AttendanceRoster;
 use App\Livewire\Audit\Index as AuditIndex;
@@ -101,6 +102,16 @@ Route::middleware('throttle:10,1')->group(function (): void {
     Route::post('/set-password/{token}', [PasswordResetController::class, 'store'])
         ->name('tenant.password.set.store');
 });
+// Shared invoice and receipt links. Unauthenticated by design — the member
+// opens them from WhatsApp — so the 40-character token is the credential and
+// the routes are throttled to keep guessing from generating load.
+Route::middleware('throttle:60,1')->group(function (): void {
+    Route::get('/i/{token}', [PublicDocumentController::class, 'invoice'])->name('tenant.public.invoice');
+    Route::get('/i/{token}/pdf', [PublicDocumentController::class, 'invoicePdf'])->name('tenant.public.invoice.pdf');
+    Route::get('/r/{token}', [PublicDocumentController::class, 'receipt'])->name('tenant.public.receipt');
+    Route::get('/r/{token}/pdf', [PublicDocumentController::class, 'receiptPdf'])->name('tenant.public.receipt.pdf');
+});
+
 Route::post('/logout', [TenantAuthController::class, 'logout'])
     ->middleware('auth:web')
     ->name('tenant.logout');

@@ -36,6 +36,12 @@
                 </x-ui.filter-select>
             @endif
 
+            <x-ui.filter-select wire:model.live="who" label="People">
+                <option value="">Everyone</option>
+                <option value="mine">Assigned to me</option>
+                <option value="reported">Reported by me</option>
+            </x-ui.filter-select>
+
             <x-ui.filter-select wire:model.live="show" label="Show">
                 <option value="open">Open</option>
                 <option value="done">Done</option>
@@ -74,11 +80,18 @@
                                 class="flex flex-col gap-2 p-4 transition hover:bg-raised sm:flex-row sm:items-center sm:justify-between">
                                 <div class="min-w-0 flex-1">
                                     <div class="flex flex-wrap items-center gap-2">
+                                        <x-ui.reference :value="$organisation->reference('task', $task->id)" />
                                         <p @class(['truncate font-medium', 'text-ink' => ! $task->isDone(), 'text-ink-muted line-through' => $task->isDone()])>{{ $task->title }}</p>
                                         <x-tasks.status-chip :status="$task->status" />
                                     </div>
                                     <p class="mt-0.5 flex flex-wrap items-center gap-x-2 text-xs text-ink-muted">
                                         <span>{{ $task->category?->name }}</span>
+                                        @if ($task->member)
+                                            <span>· for {{ $task->member->name }}</span>
+                                        @endif
+                                        @if ($task->assignees->isNotEmpty())
+                                            <span>· {{ $task->assignees->map(fn ($person) => $person->user?->name)->filter()->join(', ') }}</span>
+                                        @endif
                                         @if ($task->due_date)
                                             <span @class(['font-medium text-critical' => $overdue])>
                                                 · {{ $overdue ? 'Overdue' : 'Due' }} {{ $task->due_date->format('d M') }}

@@ -144,6 +144,7 @@ final class IssueInvoice
                 'items' => $items,
                 'dueDate' => $invoice->due_date?->format('d M Y') ?? 'on receipt',
                 'clubName' => $invoice->club?->name,
+                'invoiceLink' => $invoice->publicUrl(),
             ],
         );
     }

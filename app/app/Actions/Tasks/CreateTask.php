@@ -20,7 +20,7 @@ use Illuminate\Support\Facades\DB;
 final class CreateTask
 {
     /**
-     * @param  array{title: string, description?: string|null, start_date?: string|null, due_date?: string|null, task_status_id?: int|null}  $attributes
+     * @param  array{title: string, description?: string|null, start_date?: string|null, due_date?: string|null, task_status_id?: int|null, member_id?: int|null, assignee_ids?: array<int, int>}  $attributes
      */
     public function handle(TaskCategory $category, array $attributes, OrganisationUser $actor): Task
     {
@@ -38,9 +38,12 @@ final class CreateTask
                 'description' => $attributes['description'] ?? null,
                 'start_date' => $attributes['start_date'] ?? null,
                 'due_date' => $attributes['due_date'] ?? null,
+                'member_id' => $attributes['member_id'] ?? null,
                 'created_by' => $actor->id,
                 'completed_at' => $status?->completes ? now() : null,
             ]);
+
+            $task->assignees()->sync($attributes['assignee_ids'] ?? []);
 
             foreach ($category->subCategories()->with('statuses')->get() as $position => $subCategory) {
                 $task->items()->create([
@@ -55,7 +58,13 @@ final class CreateTask
                 'task.created',
                 $actor,
                 null,
-                ['title' => $task->title, 'task_category_id' => $category->id, 'task_status_id' => $task->task_status_id],
+                [
+                    'title' => $task->title,
+                    'task_category_id' => $category->id,
+                    'task_status_id' => $task->task_status_id,
+                    'member_id' => $task->member_id,
+                    'assignee_ids' => array_values($attributes['assignee_ids'] ?? []),
+                ],
             );
 
             return $task;

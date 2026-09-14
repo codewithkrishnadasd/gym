@@ -14,6 +14,7 @@ use App\Models\Invoice;
 use App\Models\Organisation;
 use App\Models\OrganisationUser;
 use App\Models\User;
+use App\Support\Documents\PdfDocuments;
 use App\Support\Reporting\OrganisationMetrics;
 use App\Support\Reporting\ReportPeriod;
 use App\Support\Storage\BucketDisk;
@@ -39,21 +40,7 @@ class DocumentController extends Controller
 
         $organisation = $this->tenant();
 
-        $payment->loadMissing([
-            'member:id,name,phone',
-            'club:id,name,phone,email,address',
-            'subscription.plan:id,name',
-            'financialAccount:id,name,account_type',
-            'collectedBy.user:id,name',
-            'confirmedBy.user:id,name',
-        ]);
-
-        $pdf = Pdf::loadView('pdf.receipt', [
-            'organisation' => $organisation,
-            'payment' => $payment,
-        ])->setPaper('a4');
-
-        return $pdf->download('receipt-'.$organisation->reference('payment', $payment->id).'.pdf');
+        return PdfDocuments::receipt($payment, $organisation)->download(PdfDocuments::receiptFilename($payment, $organisation));
     }
 
     public function reportSummary(Request $request): Response
@@ -107,14 +94,7 @@ class DocumentController extends Controller
     {
         $this->authorize('view', $invoice);
 
-        $invoice->loadMissing(['lines', 'member:id,name,phone', 'club:id,name', 'createdBy.user:id,name', 'payments']);
-
-        $pdf = Pdf::loadView('pdf.invoice', [
-            'organisation' => $this->tenant(),
-            'invoice' => $invoice,
-        ])->setPaper('a4');
-
-        return $pdf->download('invoice-'.$invoice->number.'.pdf');
+        return PdfDocuments::invoice($invoice, $this->tenant())->download(PdfDocuments::invoiceFilename($invoice));
     }
 
     /**

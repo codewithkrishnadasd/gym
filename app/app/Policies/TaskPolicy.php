@@ -9,8 +9,9 @@ use App\Models\User;
 use App\Policies\Concerns\EvaluatesMembership;
 
 /**
- * Tasks are a team tool: every active member of the organisation, staff or
- * admin, can see and work them. Only the category set-up is admin-only
+ * Tasks are a team tool: every active member of the organisation can raise
+ * them. Admins see everything; staff see the tasks they reported and the ones
+ * assigned to them. Only the category set-up is admin-only
  * (TaskCategoryPolicy).
  */
 class TaskPolicy
@@ -24,7 +25,9 @@ class TaskPolicy
 
     public function view(User $user, Task $task): bool
     {
-        return $this->viewAny($user);
+        $membership = $this->membership($user);
+
+        return $membership !== null && ($membership->isAdmin() || $task->involves($membership));
     }
 
     public function create(User $user): bool
@@ -34,7 +37,7 @@ class TaskPolicy
 
     public function update(User $user, Task $task): bool
     {
-        return $this->viewAny($user);
+        return $this->view($user, $task);
     }
 
     public function delete(User $user, Task $task): bool

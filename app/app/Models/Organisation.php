@@ -298,6 +298,7 @@ class Organisation extends Model
         'payment' => ['prefix' => 'PMT', 'label' => 'Payments and receipts'],
         'expense' => ['prefix' => 'EXP', 'label' => 'Expenses'],
         'invoice' => ['prefix' => 'INV', 'label' => 'Invoices'],
+        'task' => ['prefix' => 'TSK', 'label' => 'Tasks'],
     ];
 
     /**

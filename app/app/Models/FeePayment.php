@@ -9,6 +9,7 @@ use App\Enums\PaymentMethod;
 use App\Enums\PaymentPurpose;
 use App\Enums\WhatsappStatus;
 use App\Models\Concerns\BelongsToOrganisation;
+use App\Models\Concerns\HasPublicLink;
 use Database\Factories\FeePaymentFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -30,7 +31,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class FeePayment extends Model
 {
     /** @use HasFactory<FeePaymentFactory> */
-    use BelongsToOrganisation, HasFactory;
+    use BelongsToOrganisation, HasFactory, HasPublicLink;
 
     protected function casts(): array
     {
@@ -119,5 +120,10 @@ class FeePayment extends Model
             PaymentPurpose::Admission => 'Admission fee',
             default => 'Other',
         };
+    }
+
+    protected function publicRouteName(): string
+    {
+        return 'tenant.public.receipt';
     }
 }

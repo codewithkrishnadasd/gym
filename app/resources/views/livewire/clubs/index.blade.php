@@ -67,6 +67,12 @@
                             <x-ui.td><x-ui.badge :tone="$club->status->tone()">{{ $club->status->label() }}</x-ui.badge></x-ui.td>
                             <x-ui.td align="right">
                                 <div class="flex items-center justify-end gap-1">
+                                    @if ($club->status->value === 'active')
+                                        @can('mark', [\App\Models\Attendance::class, \App\Enums\AttendanceSubjectType::Member, $club->id])
+                                            <x-ui.button size="sm" variant="ghost" icon="clipboard-document-check"
+                                                :href="route('tenant.attendance.members', ['clubId' => $club->id])" wire:navigate>Attendance</x-ui.button>
+                                        @endcan
+                                    @endif
                                     <x-ui.button size="sm" variant="ghost" :href="route('tenant.clubs.show', $club)" wire:navigate>View</x-ui.button>
                                     @can('update', $club)
                                         <x-ui.button size="sm" variant="ghost" :href="route('tenant.clubs.edit', $club)" wire:navigate>Edit</x-ui.button>
@@ -114,7 +120,13 @@
                                 </div>
                             </dl>
 
-                            <div class="mt-3 flex items-center gap-2">
+                            <div class="mt-3 flex flex-wrap items-center gap-2">
+                                @if ($club->status->value === 'active')
+                                    @can('mark', [\App\Models\Attendance::class, \App\Enums\AttendanceSubjectType::Member, $club->id])
+                                        <x-ui.button size="sm" variant="primary" icon="clipboard-document-check"
+                                            :href="route('tenant.attendance.members', ['clubId' => $club->id])" wire:navigate>Attendance</x-ui.button>
+                                    @endcan
+                                @endif
                                 <x-ui.button size="sm" :href="route('tenant.clubs.show', $club)" wire:navigate>View</x-ui.button>
                                 @can('update', $club)
                                     <x-ui.button size="sm" :href="route('tenant.clubs.edit', $club)" wire:navigate>Edit</x-ui.button>

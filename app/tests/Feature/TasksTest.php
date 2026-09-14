@@ -6,7 +6,9 @@ use App\Actions\Tasks\CreateTask;
 use App\Livewire\Settings\TaskCategories;
 use App\Livewire\Tasks\Form as TaskForm;
 use App\Livewire\Tasks\Show as TaskShow;
+use App\Models\Club;
 use App\Models\Domain;
+use App\Models\Member;
 use App\Models\Organisation;
 use App\Models\OrganisationUser;
 use App\Models\Task;
@@ -196,4 +198,67 @@ it('appears in the navigation for everyone and in settings for admins', function
 
     $this->get('http://tasks.test/dashboard')->assertOk()->assertSee('Tasks');
     $this->get('http://tasks.test/settings/organisation?tab=tasks')->assertOk()->assertSee('Categories')->assertSee('Maintenance');
+});
+
+it('assigns people and tags a member, and gives every task a reference', function (): void {
+    $admin = signIn($this->organisation, admin: true);
+    $helper = OrganisationUser::factory()->create(['organisation_id' => $this->organisation->id, 'user_id' => User::factory()->create(['name' => 'Helper Hari'])->id]);
+    $club = Club::factory()->create(['organisation_id' => $this->organisation->id]);
+    $member = Member::factory()->create(['organisation_id' => $this->organisation->id, 'primary_club_id' => $club->id, 'name' => 'Alex Morgan']);
+
+    Livewire::test(TaskForm::class)
+        ->set('categoryId', $this->category->id)
+        ->set('title', 'Call about renewal')
+        ->set('assigneeIds', [$helper->id, $admin->id])
+        ->call('selectMember', $member->id)
+        ->assertSet('memberId', $member->id)
+        ->call('save')
+        ->assertHasNoErrors();
+
+    $task = Task::query()->where('title', 'Call about renewal')->firstOrFail();
+
+    expect($task->assignees()->pluck('organisation_users.id')->sort()->values()->all())->toBe(collect([$helper->id, $admin->id])->sort()->values()->all())
+        ->and($task->member_id)->toBe($member->id);
+
+    $this->get('http://tasks.test/tasks')->assertOk()->assertSee('TSK-'.$task->id)->assertSee('for Alex Morgan')->assertSee('Helper Hari');
+    $this->get('http://tasks.test/tasks/'.$task->id)->assertOk()->assertSee('TSK-'.$task->id)->assertSee('Helper Hari')->assertSee('Alex Morgan');
+});
+
+it('shows staff only the tasks they reported or were assigned', function (): void {
+    $admin = OrganisationUser::factory()->admin()->create(['organisation_id' => $this->organisation->id]);
+    $me = signIn($this->organisation, admin: false);
+
+    $mine = app(CreateTask::class)->handle($this->category, ['title' => 'Handed to Priya', 'assignee_ids' => [$me->id]], $admin);
+    $reported = app(CreateTask::class)->handle($this->category, ['title' => 'Opened by Priya'], $me);
+    $other = app(CreateTask::class)->handle($this->category, ['title' => 'Somebody else’s'], $admin);
+
+    $this->get('http://tasks.test/tasks')->assertOk()->assertSee('Handed to Priya')->assertSee('Opened by Priya')->assertDontSee('Somebody else’s');
+    $this->get('http://tasks.test/tasks?who=mine')->assertOk()->assertSee('Handed to Priya')->assertDontSee('Opened by Priya');
+    $this->get('http://tasks.test/tasks?who=reported')->assertOk()->assertSee('Opened by Priya')->assertDontSee('Handed to Priya');
+
+    $this->get('http://tasks.test/tasks/'.$mine->id)->assertOk();
+    $this->get('http://tasks.test/tasks/'.$other->id)->assertForbidden();
+
+    // Admins still see everything.
+    $this->actingAs($admin->user);
+    $this->get('http://tasks.test/tasks')->assertOk()->assertSee('Somebody else’s');
+});
+
+it('renders the description as markdown with raw html stripped', function (): void {
+    $admin = signIn($this->organisation, admin: true);
+
+    $task = app(CreateTask::class)->handle($this->category, [
+        'title' => 'Formatted',
+        'description' => "## Checklist\n\n- [ ] Order belts\n- **Call** the supplier\n\n<script>alert(1)</script>",
+    ], $admin);
+
+    $html = $task->descriptionHtml();
+
+    expect($html)->toContain('<h2>Checklist</h2>')
+        ->toContain('<strong>Call</strong>')
+        ->toContain('<li>')
+        ->not->toContain('<script');
+
+    $this->get('http://tasks.test/tasks/'.$task->id)->assertOk()->assertSee('<strong>Call</strong>', false)->assertDontSee('alert(1)');
+    $this->get('http://tasks.test/tasks/'.$task->id.'/edit')->assertOk()->assertSee('markdownEditor(', false)->assertSee('Preview');
 });

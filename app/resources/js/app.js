@@ -1,6 +1,7 @@
 import Chart from 'chart.js/auto';
 import './loader';
 import './date-field';
+import './markdown-editor';
 
 /**
  * Charts are declared entirely in Blade: a <canvas data-chart="{...}"> holds

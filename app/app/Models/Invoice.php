@@ -7,6 +7,7 @@ namespace App\Models;
 use App\Enums\ConfirmationStatus;
 use App\Enums\InvoiceStatus;
 use App\Models\Concerns\BelongsToOrganisation;
+use App\Models\Concerns\HasPublicLink;
 use Database\Factories\InvoiceFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -30,7 +31,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class Invoice extends Model
 {
     /** @use HasFactory<InvoiceFactory> */
-    use BelongsToOrganisation, HasFactory;
+    use BelongsToOrganisation, HasFactory, HasPublicLink;
 
     protected function casts(): array
     {
@@ -162,5 +163,10 @@ class Invoice extends Model
     public function voidedBy(): BelongsTo
     {
         return $this->belongsTo(OrganisationUser::class, 'voided_by');
+    }
+
+    protected function publicRouteName(): string
+    {
+        return 'tenant.public.invoice';
     }
 }

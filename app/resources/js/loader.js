@@ -1,35 +1,25 @@
 /**
- * The app-wide loading bar (components/ui/page-loader.blade.php).
+ * The app-wide loading veil (components/ui/page-loader.blade.php).
  *
  * Every kind of wait routes through one counter: Livewire requests,
  * wire:navigate visits, plain form submits such as sign-in, and full page
- * navigations. The bar rushes to a third, trickles towards ninety per cent
- * while work is outstanding, and only runs to the end once the last pending
- * job finishes — so overlapping requests read as a single motion.
+ * navigations. The veil blurs the page with a spinner in the centre while
+ * anything is outstanding and lifts once the last pending job finishes — so
+ * overlapping requests read as a single wait.
  *
  * It appears only after a short grace period: most Livewire round trips are
- * done within it, and a bar that flashes for 60ms is noise, not feedback.
+ * done within it, and blurring the whole screen for 80ms is noise, not
+ * feedback.
  */
-const GRACE_MS = 120;
-const TRICKLE_MS = 350;
+const GRACE_MS = 180;
 const SAFETY_MS = 20000;
 
 let pending = 0;
-let progress = 0;
 let graceTimer = null;
-let trickleTimer = null;
 let safetyTimer = null;
 
 function element() {
     return document.querySelector('[data-page-loader]');
-}
-
-function paint(width) {
-    const bar = element()?.firstElementChild;
-
-    if (bar) {
-        bar.style.width = `${width}%`;
-    }
 }
 
 function show() {
@@ -41,45 +31,21 @@ function show() {
 
     loader.setAttribute('data-active', '');
     loader.setAttribute('aria-hidden', 'false');
-
-    progress = 30;
-    paint(progress);
-
-    clearInterval(trickleTimer);
-    trickleTimer = setInterval(() => {
-        // Ease towards 90 so the bar never sits still, and never lies about
-        // being finished.
-        progress += (90 - progress) * 0.12;
-        paint(progress);
-    }, TRICKLE_MS);
 }
 
 function hide() {
     const loader = element();
 
-    clearInterval(trickleTimer);
     clearTimeout(graceTimer);
     clearTimeout(safetyTimer);
     graceTimer = null;
 
-    if (!loader || !loader.hasAttribute('data-active')) {
+    if (!loader) {
         return;
     }
 
-    paint(100);
-
-    setTimeout(() => {
-        loader.removeAttribute('data-active');
-        loader.setAttribute('aria-hidden', 'true');
-
-        // Reset the width only once the fade has finished, or it would visibly
-        // snap back to zero while still on screen.
-        setTimeout(() => {
-            if (!loader.hasAttribute('data-active')) {
-                paint(0);
-            }
-        }, 300);
-    }, 150);
+    loader.removeAttribute('data-active');
+    loader.setAttribute('aria-hidden', 'true');
 }
 
 export function start() {
@@ -94,8 +60,8 @@ export function start() {
             }
         }, GRACE_MS);
 
-        // Should a "finished" signal ever be lost, the bar must not live on
-        // forever pretending something is still happening.
+        // Should a "finished" signal ever be lost, the veil must not sit over
+        // the page forever pretending something is still happening.
         clearTimeout(safetyTimer);
         safetyTimer = setTimeout(() => {
             pending = 0;

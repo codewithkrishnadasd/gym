@@ -33,7 +33,7 @@
 <body class="min-h-screen bg-app font-sans text-ink antialiased">
     <div class="flex min-h-screen flex-col">
         <div class="flex flex-1 items-center justify-center px-4 py-10 sm:px-6">
-            <div class="w-full max-w-sm">
+            <div class="w-full {{ $maxWidth ?? 'max-w-sm' }}">
                 <div class="mb-6 text-center">
                     @if ($tenantOrg?->logoUrl())
                         <img src="{{ $tenant->logoUrl() }}" alt="{{ $tenant->name }}"
@@ -50,7 +50,7 @@
                     <p class="mt-1 text-sm text-ink-muted">{{ $heading ?? 'Sign in' }}</p>
                 </div>
 
-                <div class="rounded-xl border border-hairline bg-surface p-5 elevate-lg sm:p-6">
+                <div class="rounded-xl border border-hairline bg-surface elevate-lg {{ ($padded ?? true) ? 'p-5 sm:p-6' : 'overflow-hidden' }}">
                     {{ $slot }}
                 </div>
 

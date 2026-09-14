@@ -270,7 +270,10 @@ class Form extends Component
                     ->where('status', FinancialAccountStatus::Active->value),
             ],
             'transactionReference' => ['nullable', 'string', 'max:255'],
-            'paymentDate' => ['required', 'date', 'before_or_equal:today'],
+            // "Today" in the organisation's timezone, not the server's: an
+            // evening payment in Kolkata is still today there while UTC has
+            // not caught up.
+            'paymentDate' => ['required', 'date', 'before_or_equal:'.Carbon::today($organisation->timezone)->toDateString()],
             'notes' => ['nullable', 'string', 'max:1000'],
         ], [
             'financialAccountId.required' => 'Choose the account this money was received into.',

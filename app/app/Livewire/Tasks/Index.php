@@ -37,6 +37,10 @@ class Index extends Component
     #[Url]
     public string $show = 'open';
 
+    /** '' (everything visible), 'mine' (assigned to me), 'reported' (raised by me). */
+    #[Url]
+    public string $who = '';
+
     public function mount(): void
     {
         $this->authorize('viewAny', Task::class);
@@ -60,8 +64,16 @@ class Index extends Component
      */
     protected function scope(): Builder
     {
+        $membership = $this->currentMembership();
+
         return Task::query()
-            ->when($this->search !== '', fn (Builder $query) => $query->where('title', 'ilike', '%'.$this->search.'%'))
+            // Staff see what they reported and what was handed to them.
+            ->when(! $membership->isAdmin(), fn (Builder $query) => $query->involving($membership))
+            ->when($this->who === 'mine', fn (Builder $query) => $query->whereHas('assignees', fn (Builder $assignees) => $assignees->where('organisation_users.id', $membership->id)))
+            ->when($this->who === 'reported', fn (Builder $query) => $query->where('created_by', $membership->id))
+            ->when($this->search !== '', fn (Builder $query) => $query->where(fn (Builder $inner) => $inner
+                ->where('title', 'ilike', '%'.$this->search.'%')
+                ->orWhereHas('member', fn (Builder $member) => $member->where('name', 'ilike', '%'.$this->search.'%'))))
             ->when($this->category !== '', fn (Builder $query) => $query->where('task_category_id', $this->category))
             ->when($this->status !== '', fn (Builder $query) => $query->where('task_status_id', $this->status))
             ->when($this->show === 'open', fn (Builder $query) => $query->whereNull('completed_at'))
@@ -74,7 +86,7 @@ class Index extends Component
     protected function tasks(): LengthAwarePaginator
     {
         return $this->scope()
-            ->with(['category:id,name', 'status', 'items.status'])
+            ->with(['category:id,name', 'status', 'items.status', 'member:id,name', 'assignees.user:id,name'])
             // Dated work first, soonest due at the top; undated after.
             ->orderByRaw('due_date ASC NULLS LAST')
             ->orderByDesc('id')
@@ -97,7 +109,9 @@ class Index extends Component
     {
         $organisation = $this->organisation();
         $today = Carbon::today($organisation->timezone);
-        $open = Task::query()->whereNull('completed_at');
+        $open = Task::query()
+            ->when(! $this->currentMembership()->isAdmin(), fn (Builder $query) => $query->involving($this->currentMembership()))
+            ->whereNull('completed_at');
 
         return view('livewire.tasks.index', [
             'organisation' => $organisation,

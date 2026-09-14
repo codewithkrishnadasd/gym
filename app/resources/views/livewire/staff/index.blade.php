@@ -12,6 +12,11 @@
     <x-ui.page-header :title="$organisation->term('user_plural')"
         :description="'People who can sign in to '.$organisation->name.'. Each can be assigned to several '.strtolower($organisation->term('club_plural')).'.'">
         <x-slot:actions>
+            @can('mark', [\App\Models\Attendance::class, \App\Enums\AttendanceSubjectType::User, null])
+                <x-ui.button icon="clipboard-document-check" :href="route('tenant.attendance.staff')" wire:navigate>
+                    Take attendance
+                </x-ui.button>
+            @endcan
             @can('create', \App\Models\OrganisationUser::class)
                 <x-ui.button variant="primary" icon="plus" :href="route('tenant.staff.create')" wire:navigate>
                     Invite {{ $organisation->term('user_singular') }}

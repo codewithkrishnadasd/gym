@@ -145,6 +145,8 @@ final class ConfirmFeePayment
                     'balanceDue' => $invoice === null
                         ? null
                         : Money::ofMinor($invoice->outstandingMinor(), $invoice->currency_code)->format($organisation->locale),
+                    'receiptLink' => $locked->publicUrl(),
+                    'invoiceLink' => $invoice?->publicUrl(),
                 ],
             );
 

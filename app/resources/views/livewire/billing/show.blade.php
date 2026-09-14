@@ -76,6 +76,12 @@
                 @endif
             </x-ui.card>
 
+            @unless ($invoice->status === \App\Enums\InvoiceStatus::Void)
+                <x-ui.card title="Share with the member" description="Anyone with this link can view and download the invoice — no sign-in needed. The WhatsApp message includes it.">
+                    <x-ui.share-link :url="$invoice->publicUrl()" label="Invoice link" />
+                </x-ui.card>
+            @endunless
+
             <x-ui.card title="Payments" :padded="false"
                 description="Only confirmed payments reduce the balance. A pending one is shown but does not count yet.">
                 @if ($invoice->payments->isEmpty())

@@ -5,8 +5,12 @@ declare(strict_types=1);
 namespace App\Livewire\Tasks;
 
 use App\Actions\Tasks\CreateTask;
+use App\Enums\MembershipStatus;
+use App\Enums\MemberStatus;
 use App\Livewire\Concerns\ResolvesMembership;
 use App\Models\AuditEvent;
+use App\Models\Member;
+use App\Models\OrganisationUser;
 use App\Models\Task;
 use App\Models\TaskCategory;
 use App\Models\TaskStatus;
@@ -38,6 +42,13 @@ class Form extends Component
 
     public string $dueDate = '';
 
+    /** @var array<int, int> */
+    public array $assigneeIds = [];
+
+    public ?int $memberId = null;
+
+    public string $memberSearch = '';
+
     public function mount(?Task $task = null): void
     {
         $this->task = $task;
@@ -51,8 +62,17 @@ class Form extends Component
             $this->description = (string) $task->description;
             $this->startDate = $task->start_date?->toDateString() ?? '';
             $this->dueDate = $task->due_date?->toDateString() ?? '';
+            $this->assigneeIds = $task->assignees()->pluck('organisation_users.id')->all();
+            $this->memberId = $task->member_id;
 
             return;
+        }
+
+        // Opened from a member's page: the task is about them.
+        $member = request()->integer('member') ?: null;
+
+        if ($member !== null && $this->memberCandidates(true)->contains('id', $member)) {
+            $this->memberId = $member;
         }
 
         $requested = request()->integer('category') ?: null;
@@ -88,6 +108,12 @@ class Form extends Component
             'description' => ['nullable', 'string', 'max:5000'],
             'startDate' => ['nullable', 'date'],
             'dueDate' => ['nullable', 'date', 'after_or_equal:startDate'],
+            'assigneeIds' => ['array'],
+            'assigneeIds.*' => [
+                'integer',
+                Rule::exists('organisation_users', 'id')->where('organisation_id', app('tenant')->id)->where('status', 'active'),
+            ],
+            'memberId' => ['nullable', Rule::exists('members', 'id')->where('organisation_id', app('tenant')->id)],
         ], [
             'dueDate.after_or_equal' => 'The due date cannot be before the start date.',
             'statusId.exists' => 'Pick a status that belongs to the chosen category.',
@@ -96,14 +122,20 @@ class Form extends Component
         $actor = $this->currentMembership();
 
         if ($this->task) {
-            $before = $this->task->only(['title', 'description', 'start_date', 'due_date', 'task_status_id']);
+            $before = [
+                ...$this->task->only(['title', 'description', 'start_date', 'due_date', 'task_status_id', 'member_id']),
+                'assignee_ids' => $this->task->assignees()->pluck('organisation_users.id')->all(),
+            ];
 
             $this->task->fill([
                 'title' => $validated['title'],
                 'description' => $validated['description'] ?: null,
                 'start_date' => $validated['startDate'] ?: null,
                 'due_date' => $validated['dueDate'] ?: null,
+                'member_id' => $validated['memberId'] !== null ? (int) $validated['memberId'] : null,
             ])->save();
+
+            $this->task->assignees()->sync(array_map('intval', $validated['assigneeIds']));
 
             if ($validated['statusId'] !== null && (int) $validated['statusId'] !== $this->task->task_status_id) {
                 /** @var TaskStatus $status */
@@ -111,7 +143,10 @@ class Form extends Component
                 $this->task->moveTo($status);
             }
 
-            AuditEvent::record($this->task, 'task.updated', $actor, $before, $this->task->only(array_keys($before)));
+            AuditEvent::record($this->task, 'task.updated', $actor, $before, [
+                ...$this->task->only(['title', 'description', 'start_date', 'due_date', 'task_status_id', 'member_id']),
+                'assignee_ids' => array_values(array_map('intval', $validated['assigneeIds'])),
+            ]);
 
             $task = $this->task;
         } else {
@@ -124,6 +159,8 @@ class Form extends Component
                 'start_date' => $validated['startDate'] ?: null,
                 'due_date' => $validated['dueDate'] ?: null,
                 'task_status_id' => $validated['statusId'] !== null ? (int) $validated['statusId'] : null,
+                'member_id' => $validated['memberId'] !== null ? (int) $validated['memberId'] : null,
+                'assignee_ids' => array_map('intval', $validated['assigneeIds']),
             ], $actor);
         }
 
@@ -140,6 +177,44 @@ class Form extends Component
         return TaskCategory::query()->where('status', 'active')->orderBy('position')->orderBy('name')->get();
     }
 
+    public function selectMember(int $memberId): void
+    {
+        if ($this->memberCandidates(true)->contains('id', $memberId)) {
+            $this->memberId = $memberId;
+            $this->memberSearch = '';
+        }
+    }
+
+    public function clearMember(): void
+    {
+        $this->memberId = null;
+    }
+
+    /**
+     * Members the acting user may tag: those in their clubs.
+     *
+     * @return Collection<int, Member>
+     */
+    private function memberCandidates(bool $ignoreSearchLength = false): Collection
+    {
+        if (! $ignoreSearchLength && mb_strlen($this->memberSearch) < 2) {
+            return new Collection;
+        }
+
+        return Member::query()
+            ->with('primaryClub:id,name')
+            ->whereIn('primary_club_id', $this->accessibleClubIds())
+            ->where('status', '!=', MemberStatus::Archived)
+            ->when($this->memberSearch !== '', fn ($query) => $query->where(
+                fn ($inner) => $inner->where('name', 'ilike', "%{$this->memberSearch}%")
+                    ->orWhere('phone', 'ilike', "%{$this->memberSearch}%")
+            ))
+            ->when($this->memberId !== null && $this->memberSearch === '', fn ($query) => $query->orWhere('id', $this->memberId))
+            ->orderBy('name')
+            ->limit(8)
+            ->get();
+    }
+
     private function category(): ?TaskCategory
     {
         return $this->categoryId ? TaskCategory::query()->with(['statuses', 'subCategories.statuses'])->find($this->categoryId) : null;
@@ -153,6 +228,10 @@ class Form extends Component
             'organisation' => $organisation,
             'categories' => $this->categories(),
             'category' => $this->category(),
+            'people' => OrganisationUser::query()->with('user:id,name')->where('status', MembershipStatus::Active)->get()
+                ->sortBy(fn (OrganisationUser $person): string => (string) $person->user?->name)->values(),
+            'selectedMember' => $this->memberId ? Member::query()->with('primaryClub:id,name')->find($this->memberId) : null,
+            'memberResults' => $this->memberId === null ? $this->memberCandidates() : new Collection,
             'today' => Carbon::today($organisation->timezone)->toDateString(),
         ])->layout('components.layouts.app', ['heading' => $this->task ? 'Edit task' : 'New task']);
     }

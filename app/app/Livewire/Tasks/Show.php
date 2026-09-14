@@ -107,6 +107,8 @@ class Show extends Component
             'items.subCategory.statuses',
             'items.status',
             'createdBy.user:id,name',
+            'assignees.user:id,name',
+            'member:id,name',
         ]);
 
         $items = $this->task->items;

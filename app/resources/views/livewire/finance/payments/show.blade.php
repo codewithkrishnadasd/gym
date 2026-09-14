@@ -87,6 +87,12 @@
                 </dl>
             </x-ui.card>
 
+            @if ($payment->isConfirmed())
+                <x-ui.card title="Share the receipt" description="Anyone with this link can view and download the receipt — no sign-in needed. The confirmation message includes it.">
+                    <x-ui.share-link :url="$payment->publicUrl()" label="Receipt link" />
+                </x-ui.card>
+            @endif
+
             @if ($payment->subscription)
                 @php
                     $subscription = $payment->subscription;

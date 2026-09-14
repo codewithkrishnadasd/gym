@@ -104,3 +104,20 @@ it('still marks members per club', function (): void {
 
     expect(Attendance::query()->where('subject_type', 'member')->value('club_id'))->toBe($this->clubA->id);
 });
+
+it('offers attendance shortcuts from the staff list and each club', function (): void {
+    $this->get('http://roster.test/staff')
+        ->assertOk()
+        ->assertSee('Take attendance')
+        ->assertSee(route('tenant.attendance.staff'), false);
+
+    $this->get('http://roster.test/clubs')
+        ->assertOk()
+        ->assertSee('/attendance/members?clubId='.$this->clubA->id, false)
+        ->assertSee('/attendance/members?clubId='.$this->clubB->id, false);
+
+    // The shortcut lands on that club's roster, not the first one.
+    Livewire::withQueryParams(['clubId' => $this->clubB->id])
+        ->test(Roster::class, ['subject' => 'members'])
+        ->assertSet('clubId', $this->clubB->id);
+});

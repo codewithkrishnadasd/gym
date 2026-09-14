@@ -97,7 +97,7 @@ class Form extends Component
                 Rule::notIn($retired),
             ],
             'amount' => ['required', 'numeric', 'gt:0'],
-            'expenseDate' => ['required', 'date', 'before_or_equal:today'],
+            'expenseDate' => ['required', 'date', 'before_or_equal:'.Carbon::today($this->organisation()->timezone)->toDateString()],
             'clubId' => ['nullable', Rule::exists('clubs', 'id')->where('organisation_id', $organisation->id)],
             'fundingAccountId' => ['nullable', Rule::exists('financial_accounts', 'id')->where('organisation_id', $organisation->id)],
             'payee' => ['nullable', 'string', 'max:255'],

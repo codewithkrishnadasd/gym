@@ -42,11 +42,70 @@
                         </div>
                     @endif
 
-                    <x-ui.textarea class="sm:col-span-2" wire:model="description" name="description" label="Description" rows="4"
-                        placeholder="Optional — context, links, what done looks like">{{ $description }}</x-ui.textarea>
+                    <x-ui.markdown-editor class="sm:col-span-2" wire:model="description" name="description" label="Description"
+                        hint="Optional. Markdown — switch to Preview to see it laid out; you can type in either view."
+                        placeholder="Context, links, what done looks like…" rows="7" />
 
                     <x-ui.input wire:model="startDate" name="startDate" label="Start date" type="date" hint="Optional." />
                     <x-ui.input wire:model="dueDate" name="dueDate" label="Due date" type="date" hint="Optional." />
+                </div>
+            </x-ui.card>
+
+            <x-ui.card title="People" :description="'Who is doing this, and which '.strtolower($organisation->term('member_singular')).' it concerns. Both optional. Assignees and the person who raised it can see the task.'">
+                <div class="grid gap-5 sm:grid-cols-2">
+                    <x-ui.field label="Assigned to" name="assigneeIds">
+                        @if ($people->isEmpty())
+                            <p class="text-sm text-ink-muted">No active {{ strtolower($organisation->term('user_plural')) }} to assign.</p>
+                        @else
+                            <div class="max-h-56 space-y-0.5 overflow-y-auto rounded-lg border border-hairline p-1.5">
+                                @foreach ($people as $person)
+                                    <x-ui.checkbox wire:model="assigneeIds" value="{{ $person->id }}"
+                                        :label="$person->user?->name"
+                                        :description="$person->isAdmin() ? 'Administrator' : $organisation->term('user_singular')" />
+                                @endforeach
+                            </div>
+                        @endif
+                    </x-ui.field>
+
+                    <x-ui.field :label="$organisation->term('member_singular')" name="memberId">
+                        @if ($selectedMember)
+                            <div class="flex items-center justify-between gap-3 rounded-lg border border-hairline bg-raised p-2.5">
+                                <div class="flex min-w-0 items-center gap-2.5">
+                                    <x-ui.avatar :name="$selectedMember->name" size="sm" tone="accent" />
+                                    <div class="min-w-0">
+                                        <p class="truncate text-sm font-medium text-ink">{{ $selectedMember->name }}</p>
+                                        <p class="truncate text-xs text-ink-muted">{{ $organisation->reference('member', $selectedMember->id) }} · {{ $selectedMember->primaryClub?->name ?? 'No club' }}</p>
+                                    </div>
+                                </div>
+                                <x-ui.button size="sm" variant="ghost" type="button" wire:click="clearMember">Change</x-ui.button>
+                            </div>
+                        @else
+                            <div class="relative">
+                                <x-heroicon-o-magnifying-glass class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-muted" />
+                                <input type="search" wire:model.live.debounce.300ms="memberSearch" placeholder="Search by name or phone…"
+                                    class="min-h-[40px] w-full rounded-lg border border-hairline-strong bg-surface py-2 pl-9 pr-3 text-sm text-ink placeholder:text-ink-muted focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25">
+                            </div>
+                            @if ($memberResults->isNotEmpty())
+                                <ul class="mt-1.5 divide-y divide-[var(--c-hairline)] overflow-hidden rounded-lg border border-hairline">
+                                    @foreach ($memberResults as $result)
+                                        <li>
+                                            <button type="button" wire:click="selectMember({{ $result->id }})" class="flex w-full items-center gap-2.5 p-2.5 text-left transition hover:bg-raised">
+                                                <x-ui.avatar :name="$result->name" size="sm" />
+                                                <span class="min-w-0">
+                                                    <span class="block truncate text-sm font-medium text-ink">{{ $result->name }}</span>
+                                                    <span class="block truncate text-xs text-ink-muted">{{ $result->phone }} · {{ $result->primaryClub?->name ?? 'No club' }}</span>
+                                                </span>
+                                            </button>
+                                        </li>
+                                    @endforeach
+                                </ul>
+                            @elseif (mb_strlen($memberSearch) >= 2)
+                                <p class="mt-1.5 text-xs text-ink-muted">No {{ strtolower($organisation->term('member_plural')) }} match “{{ $memberSearch }}”.</p>
+                            @else
+                                <p class="mt-1.5 text-xs text-ink-muted">Leave empty if this is not about one {{ strtolower($organisation->term('member_singular')) }}.</p>
+                            @endif
+                        @endif
+                    </x-ui.field>
                 </div>
             </x-ui.card>
 
