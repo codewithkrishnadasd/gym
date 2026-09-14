@@ -108,11 +108,15 @@
                         <tr class="transition hover:bg-raised">
                             <x-ui.td numeric class="whitespace-nowrap">{{ $payment->payment_date->format('d M Y') }}</x-ui.td>
                             <x-ui.td>
-                                <p class="font-medium text-ink">{{ $payment->member->name }}</p>
+                                <p class="font-medium text-ink">{{ $payment->member->name }}
+                                    <x-ui.reference :value="$organisation->reference('payment', $payment->id)" class="ml-1" /></p>
                                 <p class="text-xs text-ink-muted">
-                                    {{ $payment->transaction_reference ?: 'PMT-'.$payment->id }}
+                                    @if ($payment->transaction_reference)
+                                        ref {{ $payment->transaction_reference }}
+                                    @endif
                                     @if ($payment->invoice)
-                                        · <a href="{{ route('tenant.billing.show', $payment->invoice_id) }}" wire:navigate class="font-mono hover:text-accent">{{ $payment->invoice->number }}</a>
+                                        {{ $payment->transaction_reference ? '·' : '' }}
+                                        <a href="{{ route('tenant.billing.show', $payment->invoice_id) }}" wire:navigate class="font-mono hover:text-accent">{{ $payment->invoice->number }}</a>
                                     @endif
                                 </p>
                             </x-ui.td>
@@ -144,7 +148,8 @@
                                 class="block p-4 transition hover:bg-raised">
                                 <div class="flex items-start justify-between gap-3">
                                     <div class="min-w-0">
-                                        <p class="truncate font-medium text-ink">{{ $payment->member->name }}</p>
+                                        <p class="truncate font-medium text-ink">{{ $payment->member->name }}
+                                            <x-ui.reference :value="$organisation->reference('payment', $payment->id)" class="ml-1" /></p>
                                         <p class="numeric mt-0.5 text-xs text-ink-muted">
                                             {{ $payment->payment_date->format('d M Y') }} &middot;
                                             {{ $payment->club->name }} &middot; {{ $payment->payment_method->label() }}

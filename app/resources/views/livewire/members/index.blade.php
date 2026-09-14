@@ -76,8 +76,11 @@
                             <x-ui.td>
                                 <div class="flex items-center gap-2.5">
                                     <x-ui.avatar :name="$member->name" size="sm" />
-                                    <a href="{{ route('tenant.members.show', $member) }}" wire:navigate
-                                        class="font-medium text-ink hover:text-accent">{{ $member->name }}</a>
+                                    <div class="min-w-0">
+                                        <a href="{{ route('tenant.members.show', $member) }}" wire:navigate
+                                            class="font-medium text-ink hover:text-accent">{{ $member->name }}</a>
+                                        <x-ui.reference :value="$organisation->reference('member', $member->id)" class="ml-1.5" />
+                                    </div>
                                 </div>
                             </x-ui.td>
                             <x-ui.td numeric>{{ $member->phone ?: '—' }}</x-ui.td>
@@ -135,7 +138,10 @@
                                 class="flex items-center gap-3 p-4 transition hover:bg-raised">
                                 <x-ui.avatar :name="$member->name" />
                                 <div class="min-w-0 flex-1">
-                                    <p class="truncate font-medium text-ink">{{ $member->name }}</p>
+                                    <div class="flex items-center gap-1.5">
+                                        <p class="truncate font-medium text-ink">{{ $member->name }}</p>
+                                        <x-ui.reference :value="$organisation->reference('member', $member->id)" />
+                                    </div>
                                     <p class="numeric truncate text-xs text-ink-muted">
                                         {{ $member->phone }} · {{ $member->primaryClub?->name ?? 'Unassigned' }}
                                     </p>

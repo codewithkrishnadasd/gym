@@ -75,7 +75,8 @@
                                 <div class="flex items-center gap-2.5">
                                     <x-ui.avatar :name="$person->user?->name ?? '?'" size="sm" />
                                     <div class="min-w-0">
-                                        <p class="font-medium text-ink">{{ $person->user?->name }}</p>
+                                        <p class="font-medium text-ink">{{ $person->user?->name }}
+                                            <x-ui.reference :value="$organisation->reference('staff', $person->id)" class="ml-1" /></p>
                                         <p class="numeric truncate text-xs text-ink-muted">{{ $person->user?->phone }}</p>
                                     </div>
                                 </div>

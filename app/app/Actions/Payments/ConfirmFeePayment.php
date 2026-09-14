@@ -125,7 +125,7 @@ final class ConfirmFeePayment
                     'clubName' => $club->name,
                     'paymentDate' => $locked->payment_date->format('d M Y'),
                     'endDate' => $subscription?->end_date->format('d M Y'),
-                    'reference' => $locked->transaction_reference ?: 'PMT-'.$locked->id,
+                    'reference' => $locked->transaction_reference ?: $organisation->reference('payment', $locked->id),
                     'invoiceNumber' => $invoice?->number,
                     'balanceDue' => $invoice === null
                         ? null

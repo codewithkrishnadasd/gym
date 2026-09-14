@@ -3,7 +3,7 @@
 <html lang="en">
 <head>
     <meta charset="utf-8">
-    <title>Receipt PMT-{{ $payment->id }}</title>
+    <title>Receipt {{ $organisation->reference('payment', $payment->id) }}</title>
     <style>
         * { box-sizing: border-box; }
         body { font-family: DejaVu Sans, sans-serif; font-size: 11px; color: #1f2937; margin: 0; padding: 28px 32px; }
@@ -37,7 +37,7 @@
             </td>
             <td class="right">
                 <div style="font-size: 15px; font-weight: bold;">RECEIPT</div>
-                <div class="muted">PMT-{{ $payment->id }}</div>
+                <div class="muted">{{ $organisation->reference('payment', $payment->id) }}</div>
                 @php
                     $class = match ($payment->confirmation_status->value) {
                         'confirmed' => 'confirmed',

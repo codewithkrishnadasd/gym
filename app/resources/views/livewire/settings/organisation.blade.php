@@ -201,6 +201,41 @@
                 </x-ui.card>
             </div>
         </form>
+
+        <form wire:submit="saveIdPrefixes" class="mt-5 grid gap-5 lg:grid-cols-3">
+            <div class="lg:col-span-2">
+                <x-ui.card title="Reference prefixes"
+                    description="How records are numbered on screen, in receipts, exports, and messages — e.g. MEM-42 for a member. Letters and digits only, up to 8 characters. Numbers themselves never change; only the prefix in front of them.">
+                    <div class="grid gap-4 sm:grid-cols-2">
+                        @foreach (\App\Models\Organisation::DEFAULT_ID_PREFIXES as $entity => $default)
+                            <x-ui.input wire:model.live.debounce.400ms="idPrefixes.{{ $entity }}" name="idPrefixes.{{ $entity }}"
+                                :label="$default['label']" required maxlength="8" :placeholder="$default['prefix']"
+                                class="font-mono uppercase" :hint="'e.g. '.($idPrefixes[$entity] !== '' ? strtoupper($idPrefixes[$entity]) : $default['prefix']).($entity === 'invoice' ? '-'.now()->format('Y').'-0042' : '-42')" />
+                        @endforeach
+                    </div>
+                </x-ui.card>
+            </div>
+
+            <div class="space-y-5">
+                <x-ui.card title="Preview">
+                    <ul class="space-y-1.5 text-sm text-ink-soft">
+                        @foreach (\App\Models\Organisation::DEFAULT_ID_PREFIXES as $entity => $default)
+                            <li class="flex items-center justify-between gap-3">
+                                <span>{{ $default['label'] }}</span>
+                                <x-ui.reference :value="strtoupper($idPrefixes[$entity] ?: $default['prefix']).($entity === 'invoice' ? '-'.now()->format('Y').'-0042' : '-42')" />
+                            </li>
+                        @endforeach
+                    </ul>
+                </x-ui.card>
+
+                <x-ui.card title="Save">
+                    <x-ui.button type="submit" variant="primary" size="lg" class="w-full" wire:loading.attr="disabled" wire:target="saveIdPrefixes">
+                        <span wire:loading.remove wire:target="saveIdPrefixes">Save prefixes</span>
+                        <span wire:loading wire:target="saveIdPrefixes" class="inline-flex items-center gap-1.5"><x-ui.spinner /> Saving…</span>
+                    </x-ui.button>
+                </x-ui.card>
+            </div>
+        </form>
     @elseif ($tab === 'expenses')
         <div class="grid gap-5 lg:grid-cols-3">
             <div class="lg:col-span-2">

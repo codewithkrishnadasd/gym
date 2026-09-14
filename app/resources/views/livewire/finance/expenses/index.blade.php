@@ -88,7 +88,8 @@
                     @foreach ($expenses as $expense)
                         <tr class="transition hover:bg-raised">
                             <x-ui.td numeric class="whitespace-nowrap">{{ $expense->expense_date->format('d M Y') }}</x-ui.td>
-                            <x-ui.td class="text-ink">{{ $expense->category }}</x-ui.td>
+                            <x-ui.td class="text-ink">{{ $expense->category }}
+                                <x-ui.reference :value="$organisation->reference('expense', $expense->id)" class="ml-1" /></x-ui.td>
                             <x-ui.td>
                                 <p class="max-w-xs truncate">{{ $expense->description ?: '—' }}</p>
                                 @if ($expense->payee)
@@ -122,7 +123,8 @@
                         <li class="p-4">
                             <div class="flex items-start justify-between gap-3">
                                 <div class="min-w-0">
-                                    <p class="font-medium text-ink">{{ $expense->category }}</p>
+                                    <p class="font-medium text-ink">{{ $expense->category }}
+                                        <x-ui.reference :value="$organisation->reference('expense', $expense->id)" class="ml-1" /></p>
                                     <p class="mt-0.5 truncate text-xs text-ink-muted">
                                         {{ $expense->expense_date->format('d M Y') }} &middot;
                                         {{ $expense->club?->name ?? 'Organisation-wide' }}

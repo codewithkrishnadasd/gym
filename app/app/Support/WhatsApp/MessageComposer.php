@@ -257,7 +257,7 @@ final class MessageComposer
         $samples = [
             'memberName' => 'Aditi Sharma',
             'clubName' => 'Downtown Club',
-            'memberId' => 'MEM-42',
+            'memberId' => $organisation->reference('member', 42),
             'changedItem' => 'Contact details',
             'effectiveDate' => now($organisation->timezone)->format('d M Y'),
             'planAction' => 'renewed',
@@ -267,7 +267,7 @@ final class MessageComposer
             'amount' => $organisation->money(400000),
             'paymentDate' => now($organisation->timezone)->format('d M Y'),
             'reference' => 'REF001234',
-            'invoiceNumber' => 'INV-'.now($organisation->timezone)->format('Y').'-0042',
+            'invoiceNumber' => $organisation->idPrefix('invoice').'-'.now($organisation->timezone)->format('Y').'-0042',
             'balanceDue' => $organisation->money(150000),
             'items' => '4 × Personal training, Locker rental',
             'dueDate' => now($organisation->timezone)->addDays(7)->format('d M Y'),

@@ -54,6 +54,7 @@
                             <x-ui.td>
                                 <a href="{{ route('tenant.clubs.show', $club) }}" wire:navigate
                                     class="font-medium text-ink hover:text-accent">{{ $club->name }}</a>
+                                <x-ui.reference :value="$organisation->reference('club', $club->id)" class="ml-1.5" />
                                 @if ($club->address['line1'] ?? null)
                                     <p class="max-w-xs truncate text-xs text-ink-muted">{{ $club->address['line1'] }}</p>
                                 @endif
@@ -91,7 +92,9 @@
                                 <div class="min-w-0">
                                     <a href="{{ route('tenant.clubs.show', $club) }}" wire:navigate
                                         class="font-medium text-ink">{{ $club->name }}</a>
-                                    <p class="mt-0.5 font-mono text-xs text-ink-muted">{{ $club->code }}</p>
+                                    <p class="mt-0.5 flex items-center gap-1.5 font-mono text-xs text-ink-muted">
+                                        <x-ui.reference :value="$organisation->reference('club', $club->id)" /> {{ $club->code }}
+                                    </p>
                                 </div>
                                 <x-ui.badge :tone="$club->status->tone()">{{ $club->status->label() }}</x-ui.badge>
                             </div>

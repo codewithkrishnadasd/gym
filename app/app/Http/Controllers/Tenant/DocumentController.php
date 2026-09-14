@@ -53,7 +53,7 @@ class DocumentController extends Controller
             'payment' => $payment,
         ])->setPaper('a4');
 
-        return $pdf->download('receipt-PMT-'.$payment->id.'.pdf');
+        return $pdf->download('receipt-'.$organisation->reference('payment', $payment->id).'.pdf');
     }
 
     public function reportSummary(Request $request): Response
@@ -98,7 +98,7 @@ class DocumentController extends Controller
 
         return $disk->response(
             $expense->receipt_path,
-            'receipt-EXP-'.$expense->id.'.'.pathinfo($expense->receipt_path, PATHINFO_EXTENSION),
+            'receipt-'.$this->tenant()->reference('expense', $expense->id).'.'.pathinfo($expense->receipt_path, PATHINFO_EXTENSION),
             ['Cache-Control' => 'private, max-age=300'],
         );
     }

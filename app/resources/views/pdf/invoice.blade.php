@@ -132,7 +132,7 @@
                     <tr>
                         <td>{{ $payment->payment_date->format('d M Y') }}</td>
                         <td>{{ $payment->payment_method->label() }}</td>
-                        <td>{{ $payment->transaction_reference ?: 'PMT-'.$payment->id }}</td>
+                        <td>{{ $payment->transaction_reference ?: $organisation->reference('payment', $payment->id) }}</td>
                         <td class="right">{{ $organisation->money($payment->amount_minor) }}</td>
                     </tr>
                 @endforeach

@@ -50,7 +50,8 @@
                     @foreach ($plans as $plan)
                         <tr class="transition hover:bg-raised">
                             <x-ui.td>
-                                <p class="font-medium text-ink">{{ $plan->name }}</p>
+                                <p class="font-medium text-ink">{{ $plan->name }}
+                                    <x-ui.reference :value="$organisation->reference('plan', $plan->id)" class="ml-1" /></p>
                                 @if ($plan->description)
                                     <p class="max-w-md truncate text-xs text-ink-muted">{{ $plan->description }}</p>
                                 @endif
@@ -89,7 +90,8 @@
                         <li class="p-4">
                             <div class="flex items-start justify-between gap-3">
                                 <div class="min-w-0">
-                                    <p class="font-medium text-ink">{{ $plan->name }}</p>
+                                    <p class="font-medium text-ink">{{ $plan->name }}
+                                        <x-ui.reference :value="$organisation->reference('plan', $plan->id)" class="ml-1" /></p>
                                     <p class="numeric mt-0.5 text-sm text-ink-soft">
                                         {{ $organisation->money($plan->price_minor) }} &middot; {{ $plan->duration_days }} days
                                     </p>

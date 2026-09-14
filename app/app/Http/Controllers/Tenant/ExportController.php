@@ -92,7 +92,7 @@ class ExportController extends Controller
             $this->filename($organisation, 'members', $period),
             [$organisation->term('member_singular').' ID', 'Name', 'WhatsApp number', $organisation->term('club_singular'),
                 'Status', 'Joined', 'Date of birth', 'Gender'],
-            fn (): Generator => $this->memberRows($query),
+            fn (): Generator => $this->memberRows($query, $organisation),
             $this->preamble($organisation, $organisation->term('member_plural'), $period, $clubIds),
         );
     }
@@ -146,7 +146,7 @@ class ExportController extends Controller
             $club = $payment->club;
 
             yield [
-                'PMT-'.$payment->id,
+                $organisation->reference('payment', $payment->id),
                 $payment->payment_date->toDateString(),
                 $member->name,
                 $member->phone,
@@ -171,7 +171,7 @@ class ExportController extends Controller
     {
         foreach ($query->lazy(500) as $expense) {
             yield [
-                'EXP-'.$expense->id,
+                $organisation->reference('expense', $expense->id),
                 $expense->expense_date->toDateString(),
                 $expense->category,
                 $expense->description ?? '',
@@ -189,11 +189,11 @@ class ExportController extends Controller
      * @param  Builder<Member>  $query
      * @return Generator<int, array<int, string|int|float|null>>
      */
-    private function memberRows($query): Generator
+    private function memberRows($query, Organisation $organisation): Generator
     {
         foreach ($query->lazy(500) as $member) {
             yield [
-                'MEM-'.$member->id,
+                $organisation->reference('member', $member->id),
                 $member->name,
                 $member->phone,
                 $member->primaryClub->name ?? '',

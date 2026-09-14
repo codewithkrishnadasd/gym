@@ -66,6 +66,14 @@ class OrganisationSettings extends Component
 
     public string $clubPlural = '';
 
+    /**
+     * Reference prefixes by entity key ("member" => "MEM"), one per
+     * Organisation::DEFAULT_ID_PREFIXES entry.
+     *
+     * @var array<string, string>
+     */
+    public array $idPrefixes = [];
+
     // Notifications
     public bool $notificationsEnabled = true;
 
@@ -108,6 +116,10 @@ class OrganisationSettings extends Component
         $this->userPlural = $organisation->terminology_user_plural;
         $this->clubSingular = $organisation->terminology_club_singular;
         $this->clubPlural = $organisation->terminology_club_plural;
+
+        foreach (array_keys(Organisation::DEFAULT_ID_PREFIXES) as $entity) {
+            $this->idPrefixes[$entity] = $organisation->idPrefix($entity);
+        }
 
         $settings = $organisation->notification_settings ?? [];
         $this->notificationsEnabled = (bool) ($settings['enabled'] ?? true);
@@ -525,6 +537,47 @@ class OrganisationSettings extends Component
         );
 
         session()->flash('status', 'Notification settings saved.');
+    }
+
+    public function saveIdPrefixes(): void
+    {
+        $organisation = $this->organisation();
+        $this->authorize('manageSettings', $organisation);
+
+        // Uppercased before validation so "mem" is accepted as MEM rather
+        // than rejected for case; the regex then only has to say what a
+        // prefix may contain.
+        $this->idPrefixes = array_map(
+            static fn (string $prefix): string => strtoupper(trim($prefix)),
+            $this->idPrefixes,
+        );
+
+        $rules = [];
+        $messages = [];
+
+        foreach (Organisation::DEFAULT_ID_PREFIXES as $entity => $default) {
+            $rules['idPrefixes.'.$entity] = ['required', 'string', 'regex:/^[A-Z0-9]{1,8}$/'];
+            $messages['idPrefixes.'.$entity.'.required'] = 'The '.strtolower($default['label']).' prefix is required.';
+            $messages['idPrefixes.'.$entity.'.regex'] = 'Use 1–8 letters or digits only for '.strtolower($default['label']).', e.g. '.$default['prefix'].'.';
+        }
+
+        $this->validate($rules, $messages);
+
+        // Only entities the organisation knows about are stored, and only as
+        // plain prefixes: the number format itself is not configurable.
+        $after = [];
+
+        foreach (array_keys(Organisation::DEFAULT_ID_PREFIXES) as $entity) {
+            $after[$entity] = $this->idPrefixes[$entity];
+        }
+
+        $this->persist(
+            ['id_prefixes' => $after],
+            ['id_prefixes' => $organisation->id_prefixes],
+            'organisation.id_prefixes_updated',
+        );
+
+        session()->flash('status', 'Reference prefixes saved. New and existing records now show the new prefixes; invoice numbers already issued keep theirs.');
     }
 
     /**

@@ -17,7 +17,7 @@
     <x-ui.flash />
 
     <x-ui.page-header :title="$member->name" :back="route('tenant.members.index')" :back-label="$organisation->term('member_plural')"
-        :description="collect([$displayPhone, $member->primaryClub?->name])->filter()->join(' · ')">
+        :description="collect([$organisation->reference('member', $member->id), $displayPhone, $member->primaryClub?->name])->filter()->join(' · ')">
         <x-slot:actions>
             @if ($whatsappUrl)
                 <x-ui.button icon="chat-bubble-left-right" :href="$whatsappUrl" target="_blank" rel="noopener">WhatsApp</x-ui.button>

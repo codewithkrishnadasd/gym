@@ -16,7 +16,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 #[Fillable([
-    'name', 'slug', 'logo_path', 'favicon_path', 'accent_color', 'theme_colors', 'status', 'timezone', 'currency_code', 'locale',
+    'name', 'slug', 'logo_path', 'favicon_path', 'accent_color', 'theme_colors', 'id_prefixes', 'status', 'timezone', 'currency_code', 'locale',
     'default_country_code', 'contact_email', 'contact_phone', 'address',
     'notification_settings', 'expense_categories', 'created_by',
     'terminology_member_singular', 'terminology_member_plural',
@@ -48,6 +48,7 @@ class Organisation extends Model
             'notification_settings' => 'array',
             'expense_categories' => 'array',
             'theme_colors' => 'array',
+            'id_prefixes' => 'array',
         ];
     }
 
@@ -281,6 +282,48 @@ class Organisation extends Model
     public function currencySymbol(): string
     {
         return Money::symbol($this->currency_code, $this->locale);
+    }
+
+    /**
+     * What each kind of record is called by its number, in the order the
+     * settings screen lists them. Keys are stable; labels are for the editor.
+     *
+     * @var array<string, array{prefix: string, label: string}>
+     */
+    public const DEFAULT_ID_PREFIXES = [
+        'member' => ['prefix' => 'MEM', 'label' => 'Members'],
+        'staff' => ['prefix' => 'STF', 'label' => 'Staff'],
+        'club' => ['prefix' => 'CLB', 'label' => 'Clubs'],
+        'plan' => ['prefix' => 'PLN', 'label' => 'Plans'],
+        'payment' => ['prefix' => 'PMT', 'label' => 'Payments and receipts'],
+        'expense' => ['prefix' => 'EXP', 'label' => 'Expenses'],
+        'invoice' => ['prefix' => 'INV', 'label' => 'Invoices'],
+    ];
+
+    /**
+     * The prefix for one kind of record, e.g. "MEM". Falls back to the default
+     * for anything unset, so a partially configured organisation never shows a
+     * bare number.
+     */
+    public function idPrefix(string $entity): string
+    {
+        $configured = $this->id_prefixes[$entity] ?? null;
+
+        if (is_string($configured) && $configured !== '') {
+            return $configured;
+        }
+
+        return self::DEFAULT_ID_PREFIXES[$entity]['prefix'] ?? strtoupper(substr($entity, 0, 3));
+    }
+
+    /**
+     * A record's human reference, e.g. "MEM-42". Used everywhere a number is
+     * shown to people — lists, headings, receipts, exports, messages — so the
+     * same record reads the same in every place.
+     */
+    public function reference(string $entity, int $id): string
+    {
+        return $this->idPrefix($entity).'-'.$id;
     }
 
     /**

@@ -161,6 +161,6 @@ class Show extends Component
             'history' => $this->history(),
             'isAdmin' => $this->currentMembership()->isAdmin(),
             'canNotify' => auth()->user()?->can('sendNotifications', $this->organisation()) ?? false,
-        ])->layout('components.layouts.app', ['heading' => 'Payment PMT-'.$this->payment->id]);
+        ])->layout('components.layouts.app', ['heading' => 'Payment '.$this->organisation()->reference('payment', $this->payment->id)]);
     }
 }

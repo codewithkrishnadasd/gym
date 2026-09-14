@@ -159,7 +159,7 @@ class Form extends Component
             ]);
 
             $type = NotificationActionType::MemberCreated;
-            $context = ['memberId' => 'MEM-'.$member->id];
+            $context = ['memberId' => $this->organisation()->reference('member', $member->id)];
         }
 
         $notification = app(CreateActionNotification::class)->handle(

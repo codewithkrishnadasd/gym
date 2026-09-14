@@ -1,7 +1,7 @@
 <div class="space-y-5">
     <x-ui.flash />
 
-    <x-ui.page-header :title="'Payment PMT-'.$payment->id" :back="route('tenant.finance.payments.index')" back-label="Payments"
+    <x-ui.page-header :title="'Payment '.$organisation->reference('payment', $payment->id)" :back="route('tenant.finance.payments.index')" back-label="Payments"
         :description="$payment->member->name.' · '.$payment->club->name">
         <x-slot:actions>
             @can('notify', $payment)
@@ -164,7 +164,7 @@
         <x-ui.modal name="reverse-payment" title="Reverse this payment"
             description="The confirmation stays in history; the amount is withdrawn from the plan balance and current totals.">
             <x-ui.textarea wire:model="reversalReason" name="reversalReason" label="Reason" required rows="3"
-                placeholder="e.g. Duplicate entry — replaced by PMT-124">{{ $reversalReason }}</x-ui.textarea>
+                placeholder="e.g. Duplicate entry — replaced by {{ $organisation->idPrefix('payment') }}-124">{{ $reversalReason }}</x-ui.textarea>
 
             <x-slot:footer>
                 <x-ui.button variant="ghost" x-on:click="$dispatch('close-modal', 'reverse-payment')">Cancel</x-ui.button>

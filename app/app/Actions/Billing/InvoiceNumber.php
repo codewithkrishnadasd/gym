@@ -41,7 +41,7 @@ final class InvoiceNumber
 
         return [
             'sequence' => $sequence,
-            'number' => sprintf('INV-%s-%04d', $issueDate->format('Y'), $sequence),
+            'number' => sprintf('%s-%s-%04d', $organisation->idPrefix('invoice'), $issueDate->format('Y'), $sequence),
         ];
     }
 }
