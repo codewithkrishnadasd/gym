@@ -98,7 +98,9 @@
         </tr>
         <tr>
             <td class="label">Payment method</td>
-            <td>{{ $payment->payment_method->label() }}@if ($payment->financialAccount) — {{ $payment->financialAccount->name }} @endif</td>
+            {{-- The receiving account is internal bookkeeping; the member's copy
+                 names only how they paid. --}}
+            <td>{{ $payment->payment_method->label() }}</td>
         </tr>
         @if ($payment->transaction_reference)
             <tr><td class="label">Reference</td><td>{{ $payment->transaction_reference }}</td></tr>

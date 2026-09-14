@@ -242,3 +242,23 @@ it('says what each receipt was for — the plan, the invoice items, or the admis
     $this->get($forInvoice->publicUrl().'/pdf')->assertOk()->assertHeader('Content-Type', 'application/pdf');
     $this->get($forAdmission->publicUrl().'/pdf')->assertOk()->assertHeader('Content-Type', 'application/pdf');
 });
+
+it('keeps the receiving account off the member-facing receipt', function (): void {
+    $this->actingAs($this->admin->user);
+    $this->account->update(['name' => 'HDFC Current Account']);
+
+    $payment = FeePayment::factory()->create([
+        'organisation_id' => $this->organisation->id,
+        'member_id' => $this->member->id,
+        'club_id' => $this->club->id,
+        'collected_by' => $this->admin->id,
+        'financial_account_id' => $this->account->id,
+        'purpose' => 'other',
+        'amount_minor' => 50000,
+        'confirmation_status' => 'confirmed',
+    ]);
+
+    $html = view('pdf.receipt', ['organisation' => $this->organisation, 'payment' => $payment->load('member', 'club', 'financialAccount')])->render();
+
+    expect($html)->not->toContain('HDFC Current Account')->toContain('Payment method');
+});

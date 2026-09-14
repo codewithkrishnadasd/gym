@@ -38,7 +38,6 @@ final class PdfDocuments
             'club:id,name,phone,email,address',
             'subscription.plan:id,name',
             'invoice.lines',
-            'financialAccount:id,name,account_type',
             'collectedBy.user:id,name',
             'confirmedBy.user:id,name',
         ]);
