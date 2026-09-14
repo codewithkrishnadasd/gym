@@ -64,6 +64,39 @@ class Index extends Component
     }
 
     /**
+     * Skips every message still waiting to be sent — the whole backlog, or
+     * only what the current search and type filter match. Sent and
+     * unavailable messages are untouched: skipping is a decision about
+     * something that could still go out.
+     */
+    public function skipAll(): void
+    {
+        $this->authorize('sendNotifications', $this->organisation());
+
+        $skipped = $this->readyToSkip()->update(['status' => NotificationStatus::Skipped->value]);
+
+        $this->resetPage();
+
+        session()->flash('status', $skipped === 0
+            ? 'Nothing was waiting to send.'
+            : $skipped.' '.($skipped === 1 ? 'message' : 'messages').' skipped.');
+    }
+
+    /**
+     * @return Builder<WhatsappActionNotification>
+     */
+    private function readyToSkip(): Builder
+    {
+        return WhatsappActionNotification::query()
+            ->where('status', NotificationStatus::Ready)
+            ->when($this->search !== '', fn (Builder $query) => $query->where(
+                fn (Builder $inner) => $inner->where('recipient_name', 'ilike', "%{$this->search}%")
+                    ->orWhere('recipient_phone', 'ilike', "%{$this->search}%")
+            ))
+            ->when($this->action !== '', fn (Builder $query) => $query->where('action_type', $this->action));
+    }
+
+    /**
      * @return LengthAwarePaginator<int, WhatsappActionNotification>
      */
     protected function messages(): LengthAwarePaginator
@@ -118,6 +151,8 @@ class Index extends Component
             'statuses' => NotificationStatus::cases(),
             'actionTypes' => NotificationActionType::cases(),
             'readyCount' => $counts[NotificationStatus::Ready->value] ?? 0,
+            // What "Skip all" would touch with the current filters applied.
+            'skippableCount' => $this->readyToSkip()->count(),
             'openedCount' => $counts[NotificationStatus::Opened->value] ?? 0,
             'unavailableCount' => $counts[NotificationStatus::Unavailable->value] ?? 0,
         ])->layout('components.layouts.app', ['heading' => 'Messages']);

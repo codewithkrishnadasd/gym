@@ -66,6 +66,40 @@ class Show extends Component
     }
 
     /**
+     * Opens the plan dialog set up for the likely case: a renewal of the
+     * plan currently running, starting the day after the latest active term
+     * ends (or today, if every term has already lapsed). Everything stays
+     * editable.
+     */
+    public function prepareRenewal(): void
+    {
+        $this->authorize('createFor', [MemberSubscription::class, $this->member]);
+
+        $active = $this->member->subscriptions()
+            ->where('status', SubscriptionStatus::Active)
+            ->orderByDesc('end_date')
+            ->get();
+
+        $today = Carbon::today($this->organisation()->timezone);
+        $latest = $active->first();
+
+        $this->planId = $latest?->plan_id;
+        $this->planStartDate = $latest && $latest->end_date->toDateString() >= $today->toDateString()
+            ? $latest->end_date->copy()->addDay()->toDateString()
+            : $today->toDateString();
+
+        $this->updatedPlanId($this->planId);
+        $this->resetErrorBag();
+
+        $this->dispatch('open-modal', 'start-plan');
+    }
+
+    public function startPlanToday(): void
+    {
+        $this->planStartDate = Carbon::today($this->organisation()->timezone)->toDateString();
+    }
+
+    /**
      * Picking a plan prefills the club's standing discount on it; the
      * operator can still change or clear it before starting.
      */
@@ -118,12 +152,16 @@ class Show extends Component
             discountMinor: $discount,
         );
 
-        $this->showNotification($this->latestSubscriptionNotification($subscription->id));
-
         $this->reset(['planId', 'planDiscount']);
         $this->dispatch('close-modal', 'start-plan');
 
-        session()->flash('status', "\"{$plan->name}\" started for {$this->member->name}.");
+        // Straight on to collecting the fee for the term just created, with
+        // the member and the term already chosen. The plan-started WhatsApp
+        // message waits in Messages.
+        session()->flash('status', "\"{$plan->name}\" ".($subscription->start_date->isFuture() ? 'renewed' : 'started')." for {$this->member->name} — collect the fee below.");
+        session()->flash('notification_id', $this->latestSubscriptionNotification($subscription->id));
+
+        $this->redirect(route('tenant.finance.payments.create', ['member' => $this->member->id, 'subscription' => $subscription->id]), navigate: true);
     }
 
     public function changePlanStatus(int $subscriptionId, string $status): void

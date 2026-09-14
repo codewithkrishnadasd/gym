@@ -2,7 +2,20 @@
     <x-ui.flash />
 
     <x-ui.page-header title="Messages"
-        description="Messages the platform has composed for WhatsApp. Nothing is sent automatically — an operator has to open each one." />
+        description="Messages the platform has composed for WhatsApp. Nothing is sent automatically — an operator has to open each one.">
+        <x-slot:actions>
+            @if ($skippableCount > 0)
+                {{-- Scoped to the current search and type filter, so "skip all
+                     attendance messages" is one filter and one click. --}}
+                <x-ui.button icon="forward" wire:click="skipAll" wire:loading.attr="disabled" wire:target="skipAll"
+                    data-confirm-title="Skip {{ $skippableCount === 1 ? 'this message' : 'these messages' }}?" data-confirm-action="Skip all"
+                    data-confirm="Skip {{ $skippableCount }} {{ $skippableCount === 1 ? 'message' : 'messages' }} waiting to send{{ $search !== '' || $action !== '' ? ' that match the current filters' : '' }}? They will not be sent and move out of the pending list.">
+                    <span wire:loading.remove wire:target="skipAll">Skip all ({{ $skippableCount }})</span>
+                    <span wire:loading wire:target="skipAll" class="inline-flex items-center gap-1.5"><x-ui.spinner /> Skipping…</span>
+                </x-ui.button>
+            @endif
+        </x-slot:actions>
+    </x-ui.page-header>
 
     <div class="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-3">
         <x-ui.stat label="Waiting to send" :value="$readyCount" icon="paper-airplane"

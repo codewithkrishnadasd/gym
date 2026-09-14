@@ -94,6 +94,13 @@ class Form extends Component
         if (request()->query('for') === 'admission' && $this->memberId !== null) {
             $this->selectTarget('admission');
         }
+
+        // Arriving from a plan start or renewal: that term is the thing to pay.
+        $subscription = request()->integer('subscription') ?: null;
+
+        if ($subscription !== null && $this->memberId !== null) {
+            $this->selectTarget('plan:'.$subscription);
+        }
     }
 
     /**

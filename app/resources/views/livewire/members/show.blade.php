@@ -162,7 +162,7 @@
         <div class="space-y-5">
             @can('createFor', [\App\Models\MemberSubscription::class, $member])
                 <div class="flex justify-end">
-                    <x-ui.button variant="primary" icon="plus" x-on:click="$dispatch('open-modal', 'start-plan')">
+                    <x-ui.button variant="primary" icon="plus" wire:click="prepareRenewal">
                         {{ $currentSubscription ? 'Renew plan' : 'Start plan' }}
                     </x-ui.button>
                 </div>
@@ -383,8 +383,18 @@
                     @endforeach
                 </x-ui.select>
 
-                <x-ui.input wire:model="planStartDate" name="planStartDate" label="Start date" type="date"
-                    hint="Leave as-is to start immediately, or after the current term for a renewal." />
+                <div>
+                    <x-ui.input wire:model.live="planStartDate" name="planStartDate" label="Start date" type="date"
+                        :hint="$currentSubscription
+                            ? 'Prefilled for the day after the current term ends, so consecutive terms never overlap.'
+                            : 'The day the plan begins.'" />
+                    @if ($planStartDate !== '' && $planStartDate !== $today->toDateString())
+                        <button type="button" wire:click="startPlanToday"
+                            class="mt-1.5 inline-flex items-center gap-1 text-xs font-medium text-accent hover:underline">
+                            <x-heroicon-o-calendar class="h-3.5 w-3.5" /> Start today instead ({{ $today->format('d M Y') }})
+                        </button>
+                    @endif
+                </div>
 
                 <x-ui.input wire:model="planDiscount" name="planDiscount" label="Discount" inputmode="decimal"
                     :prefix="$organisation->currencySymbol()" placeholder="0.00"

@@ -146,3 +146,37 @@ it('is closed to staff without the messaging permission', function (): void {
 
     $this->get('http://queue.test/messages')->assertForbidden();
 });
+
+it('skips everything still waiting in one go, leaving sent and unavailable alone', function (): void {
+    $first = queueMessage(NotificationStatus::Ready, 'Alex Morgan');
+    $second = queueMessage(NotificationStatus::Ready, 'Priya Nair');
+    $sent = queueMessage(NotificationStatus::Opened, 'Sam Lee');
+    $noNumber = queueMessage(NotificationStatus::Unavailable, 'Jo King');
+
+    $this->get('http://queue.test/messages')->assertOk()->assertSee('Skip all (2)');
+
+    Livewire::test(Index::class)
+        ->call('skipAll')
+        ->assertHasNoErrors();
+
+    expect($first->fresh()?->status)->toBe(NotificationStatus::Skipped)
+        ->and($second->fresh()?->status)->toBe(NotificationStatus::Skipped)
+        ->and($sent->fresh()?->status)->toBe(NotificationStatus::Opened)
+        ->and($noNumber->fresh()?->status)->toBe(NotificationStatus::Unavailable);
+
+    // Nothing left to skip, so the button goes away.
+    $this->get('http://queue.test/messages')->assertOk()->assertDontSee('Skip all');
+});
+
+it('scopes skip all to the current search and message type', function (): void {
+    $match = queueMessage(NotificationStatus::Ready, 'Alex Morgan');
+    $other = queueMessage(NotificationStatus::Ready, 'Priya Nair');
+
+    Livewire::test(Index::class)
+        ->set('search', 'Alex')
+        ->assertSee('Skip all (1)')
+        ->call('skipAll');
+
+    expect($match->fresh()?->status)->toBe(NotificationStatus::Skipped)
+        ->and($other->fresh()?->status)->toBe(NotificationStatus::Ready);
+});
