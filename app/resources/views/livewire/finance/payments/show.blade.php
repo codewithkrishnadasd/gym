@@ -43,18 +43,22 @@
             <x-ui.card title="Payment">
                 <div class="mb-4 flex flex-wrap items-baseline justify-between gap-2 border-b border-hairline pb-4">
                     <div>
+                        {{-- Headline is everything paid towards the purpose; the breakup
+                             says how much changed hands now and how much came from
+                             earlier unlinked money. --}}
                         <p class="numeric font-[family-name:var(--font-display)] text-3xl font-semibold tracking-tight">
-                            {{ $organisation->money($payment->amount_minor) }}
+                            {{ $organisation->money($payment->settledMinor()) }}
                         </p>
                         @if ($payment->discount_minor > 0 || $payment->credit_applied_minor > 0)
                             <p class="numeric mt-0.5 text-sm text-ink-soft">
                                 @if ($payment->credit_applied_minor > 0)
-                                    plus {{ $organisation->money($payment->credit_applied_minor) }} from money paid earlier without a link
+                                    {{ $organisation->money($payment->amount_minor) }} received now
+                                    + {{ $organisation->money($payment->credit_applied_minor) }} from money paid earlier without a link
                                 @endif
                                 @if ($payment->discount_minor > 0)
-                                    {{ $payment->credit_applied_minor > 0 ? 'and' : 'plus' }} {{ $organisation->money($payment->discount_minor) }} discount
+                                    {{ $payment->credit_applied_minor > 0 ? '·' : '' }} {{ $organisation->money($payment->discount_minor) }} discount
+                                    <span class="text-ink-muted">· {{ $organisation->money($payment->settledMinor() + $payment->discount_minor) }} settled in total</span>
                                 @endif
-                                <span class="text-ink-muted">· {{ $organisation->money($payment->settledMinor() + $payment->discount_minor) }} settled in total</span>
                             </p>
                         @elseif ($payment->isUnlinked() && $payment->isConfirmed())
                             <p class="mt-0.5 text-sm text-ink-soft">Not linked to a plan, invoice or admission fee — sits as credit for this {{ strtolower($organisation->term('member_singular')) }} until applied.</p>

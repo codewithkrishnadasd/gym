@@ -103,8 +103,11 @@
                                         · by {{ $payment->collectedBy?->user?->name ?? '—' }}
                                     </p>
                                 </div>
-                                <span class="numeric shrink-0 text-sm font-medium {{ $payment->confirmation_status->value === 'confirmed' ? 'text-positive' : 'text-ink-muted' }}">
-                                    {{ $organisation->money($payment->amount_minor) }}
+                                <span class="numeric shrink-0 text-right text-sm font-medium {{ $payment->confirmation_status->value === 'confirmed' ? 'text-positive' : 'text-ink-muted' }}">
+                                    {{ $organisation->money($payment->settledMinor()) }}
+                                    @if ($payment->credit_applied_minor > 0)
+                                        <span class="block text-xs font-normal text-ink-muted">{{ $organisation->money($payment->amount_minor) }} now · {{ $organisation->money($payment->credit_applied_minor) }} earlier</span>
+                                    @endif
                                 </span>
                             </li>
                         @endforeach

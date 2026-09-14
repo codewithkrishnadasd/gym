@@ -80,22 +80,33 @@
         @endif
     </table>
 
+    {{-- The headline is everything this payment put towards its purpose. When
+         part of it was money paid earlier, the breakup below says how much was
+         handed over now and how much came from that credit. --}}
     <div class="amount">
         <table>
             <tr>
-                <td><div class="muted">Amount {{ $payment->isConfirmed() ? 'received' : 'submitted' }} · {{ $payment->purposeLabel() }}</div></td>
-                <td class="right"><span class="value">{{ $organisation->money($payment->amount_minor) }}</span></td>
+                <td><div class="muted">Amount {{ $payment->isConfirmed() ? 'paid' : 'submitted' }} · {{ $payment->purposeLabel() }}</div></td>
+                <td class="right"><span class="value">{{ $organisation->money($payment->settledMinor()) }}</span></td>
             </tr>
+            @if ($payment->credit_applied_minor > 0)
+                <tr>
+                    <td><div class="muted">&nbsp;&nbsp;of which received now</div></td>
+                    <td class="right">{{ $organisation->money($payment->amount_minor) }}</td>
+                </tr>
+                <tr>
+                    <td><div class="muted">&nbsp;&nbsp;of which applied from earlier payment</div></td>
+                    <td class="right">{{ $organisation->money($payment->credit_applied_minor) }}</td>
+                </tr>
+            @endif
             @if ($payment->discount_minor > 0)
                 <tr>
                     <td><div class="muted">Discount given</div></td>
                     <td class="right">{{ $organisation->money($payment->discount_minor) }}</td>
                 </tr>
-            @endif
-            @if ($payment->credit_applied_minor > 0)
                 <tr>
-                    <td><div class="muted">Applied from earlier payment</div></td>
-                    <td class="right">{{ $organisation->money($payment->credit_applied_minor) }}</td>
+                    <td><div class="muted">Total settled (paid + discount)</div></td>
+                    <td class="right">{{ $organisation->money($payment->settledMinor() + $payment->discount_minor) }}</td>
                 </tr>
             @endif
         </table>

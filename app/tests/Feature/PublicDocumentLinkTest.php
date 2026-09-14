@@ -7,6 +7,7 @@ use App\Actions\Payments\RecordFeePayment;
 use App\Enums\NotificationActionType;
 use App\Models\Club;
 use App\Models\Domain;
+use App\Models\FeePayment;
 use App\Models\FinancialAccount;
 use App\Models\Invoice;
 use App\Models\Member;
@@ -164,4 +165,33 @@ it('prints the organisation logo on invoices and receipts', function (): void {
     $this->organisation->update(['logo_path' => null]);
 
     expect(view('pdf.invoice', ['organisation' => $this->organisation->fresh(), 'invoice' => $invoice])->render())->not->toContain('class="logo"');
+});
+
+it('shows the full amount paid on the receipt with a breakup when earlier money was applied', function (): void {
+    $this->actingAs($this->admin->user);
+
+    $payment = FeePayment::factory()->create([
+        'organisation_id' => $this->organisation->id,
+        'member_id' => $this->member->id,
+        'club_id' => $this->club->id,
+        'collected_by' => $this->admin->id,
+        'financial_account_id' => $this->account->id,
+        'purpose' => 'plan',
+        'amount_minor' => 230000,
+        'discount_minor' => 50000,
+        'credit_applied_minor' => 70000,
+        'confirmation_status' => 'confirmed',
+    ]);
+
+    $html = view('pdf.receipt', ['organisation' => $this->organisation, 'payment' => $payment->load('member', 'club')])->render();
+
+    // Headline is the paid sum (2300 + 700), then the parts.
+    expect($html)->toContain('₹3,000.00')
+        ->toContain('of which received now')->toContain('₹2,300.00')
+        ->toContain('of which applied from earlier payment')->toContain('₹700.00')
+        ->toContain('Discount given')->toContain('₹500.00')
+        ->toContain('Total settled (paid + discount)')->toContain('₹3,500.00');
+
+    $this->get('http://links.test/finance/payments/'.$payment->id)->assertOk()->assertSee('₹3,000.00')->assertSee('₹2,300.00 received now');
+    $this->get($payment->publicUrl())->assertOk()->assertSee('₹3,000.00')->assertSee('₹2,300.00 received now');
 });

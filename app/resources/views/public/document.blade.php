@@ -1,6 +1,6 @@
 <x-layouts.guest :eyebrow="$organisation->name" :heading="$title" max-width="max-w-3xl" :padded="false" :title="$title.' · '.$organisation->name">
     @php
-        $amount = $kind === 'invoice' ? $invoice->total_minor : $payment->amount_minor;
+        $amount = $kind === 'invoice' ? $invoice->total_minor : $payment->settledMinor();
         $status = $kind === 'invoice' ? $invoice->status : $payment->confirmation_status;
     @endphp
 
@@ -19,6 +19,9 @@
                     @if ($invoice->due_date) · due {{ $invoice->due_date->format('d M Y') }} @endif
                 @else
                     · {{ $payment->payment_date->format('d M Y') }} · {{ $payment->purposeLabel() }}
+                    @if ($payment->credit_applied_minor > 0)
+                        · {{ $organisation->money($payment->amount_minor) }} received now, {{ $organisation->money($payment->credit_applied_minor) }} from an earlier payment
+                    @endif
                 @endif
             </p>
         </div>

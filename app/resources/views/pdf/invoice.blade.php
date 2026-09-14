@@ -143,8 +143,23 @@
                         <td>{{ $payment->payment_date->format('d M Y') }}</td>
                         <td>{{ $payment->payment_method->label() }}</td>
                         <td>{{ $payment->transaction_reference ?: $organisation->reference('payment', $payment->id) }}</td>
-                        <td class="right">{{ $organisation->money($payment->amount_minor) }}</td>
+                        <td class="right">{{ $organisation->money($payment->settledMinor()) }}</td>
                     </tr>
+                    @if ($payment->credit_applied_minor > 0)
+                        <tr>
+                            <td colspan="3" class="muted" style="padding-left: 18px;">
+                                {{ $organisation->money($payment->amount_minor) }} received now
+                                · {{ $organisation->money($payment->credit_applied_minor) }} applied from an earlier payment
+                            </td>
+                            <td></td>
+                        </tr>
+                    @endif
+                    @if ($payment->discount_minor > 0)
+                        <tr>
+                            <td colspan="3" class="muted" style="padding-left: 18px;">{{ $organisation->money($payment->discount_minor) }} discount given with this payment</td>
+                            <td></td>
+                        </tr>
+                    @endif
                 @endforeach
             </tbody>
         </table>
