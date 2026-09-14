@@ -35,7 +35,7 @@
                                 class="min-h-[40px] w-full cursor-not-allowed rounded-lg border border-hairline-strong bg-sunken px-3 py-2 text-sm text-ink-muted">
                         </x-ui.field>
                     @else
-                        <x-ui.select wire:model="primaryClubId" name="primaryClubId"
+                        <x-ui.select wire:model.live="primaryClubId" name="primaryClubId"
                             :label="$organisation->term('club_singular')" required>
                             <option value="">Select…</option>
                             @foreach ($availableClubs as $club)
@@ -44,7 +44,7 @@
                         </x-ui.select>
                     @endif
 
-                    <x-ui.input wire:model="joinedAt" name="joinedAt" label="Joined on" type="date" required />
+                    <x-ui.input wire:model.live="joinedAt" name="joinedAt" label="Joined on" type="date" required />
 
                     <x-ui.select wire:model="status" name="status" label="Status" required>
                         @foreach ($statuses as $case)
@@ -53,6 +53,34 @@
                     </x-ui.select>
                 </div>
             </x-ui.card>
+
+            @if ($canStartPlan)
+                <x-ui.card title="Starting plan" description="Optional. Starts the plan the moment the record is saved; you can also do this later from their page.">
+                    @if ($availablePlans->isEmpty())
+                        <p class="text-sm text-ink-muted">No active plans yet. Add one under Plans to offer it here.</p>
+                    @else
+                        <div class="grid gap-4 sm:grid-cols-2">
+                            <x-ui.select class="sm:col-span-2" wire:model.live="planId" name="planId" label="Plan">
+                                <option value="">No plan for now</option>
+                                @foreach ($availablePlans as $plan)
+                                    <option value="{{ $plan->id }}">
+                                        {{ $plan->name }} — {{ $organisation->money($plan->price_minor) }} / {{ $plan->duration_days }} days
+                                    </option>
+                                @endforeach
+                            </x-ui.select>
+
+                            @if ($planId)
+                                <x-ui.input wire:model="planStartDate" name="planStartDate" label="Plan starts on" type="date"
+                                    hint="Defaults to the joining date." />
+
+                                <x-ui.input wire:model="planDiscount" name="planDiscount" label="Discount" inputmode="decimal"
+                                    :prefix="$organisation->currencySymbol()" placeholder="0.00"
+                                    :hint="$planDiscount !== '' ? 'Prefilled from the '.strtolower($organisation->term('club_singular')).'’s standing discount on this plan. Change or clear it as needed.' : 'Optional. Taken off the plan price for this term.'" />
+                            @endif
+                        </div>
+                    @endif
+                </x-ui.card>
+            @endif
 
             <x-ui.card title="Emergency contact">
                 <div class="grid gap-4 sm:grid-cols-2">

@@ -74,6 +74,7 @@
                 : 'no active plan'"
             :tone="$planHealth->tone()" icon="rectangle-stack" />
         <x-ui.stat label="Outstanding" :value="$organisation->money($outstanding)"
+            :hint="$member->owesAdmissionFee() ? 'includes '.$organisation->money($member->admissionOutstandingMinor()).' admission fee' : null"
             :tone="$outstanding > 0 ? 'caution' : 'positive'" icon="exclamation-circle" />
         <x-ui.stat label="Attendance" :value="$attendanceRate.'%'" :hint="$presentMarks.' visits in 12 weeks'"
             :tone="$attendanceRate >= 60 ? 'positive' : 'neutral'" icon="clipboard-document-check" />
@@ -86,6 +87,36 @@
     ])->values()->all()" />
 
     @if ($tab === 'overview')
+        @if ($member->admission_fee_minor > 0)
+            {{-- Admission is a one-off owed by the member, not a term, so it
+                 gets its own line rather than hiding among plan payments. --}}
+            <div class="mb-5">
+                <x-ui.alert :tone="$member->owesAdmissionFee() ? 'caution' : 'positive'"
+                    :title="$member->owesAdmissionFee() ? 'Admission fee due' : 'Admission fee settled'">
+                    <div class="flex flex-wrap items-center justify-between gap-3">
+                        <span class="numeric">
+                            {{ $organisation->money($member->admission_fee_minor) }} fee
+                            · {{ $organisation->money($member->admission_paid_minor) }} paid
+                            @if ($member->admission_discount_minor > 0)
+                                · {{ $organisation->money($member->admission_discount_minor) }} discount
+                            @endif
+                            @if ($member->owesAdmissionFee())
+                                · <strong>{{ $organisation->money($member->admissionOutstandingMinor()) }} outstanding</strong>
+                            @endif
+                        </span>
+                        @if ($member->owesAdmissionFee())
+                            @can('create', \App\Models\FeePayment::class)
+                                <x-ui.button size="sm" variant="primary" icon="banknotes"
+                                    :href="route('tenant.finance.payments.create', ['member' => $member->id, 'for' => 'admission'])" wire:navigate>
+                                    Collect admission fee
+                                </x-ui.button>
+                            @endcan
+                        @endif
+                    </div>
+                </x-ui.alert>
+            </div>
+        @endif
+
         <div class="grid gap-5 lg:grid-cols-3">
             <x-ui.card class="lg:col-span-2" title="Details">
                 <dl class="grid gap-x-6 sm:grid-cols-2">
@@ -343,7 +374,7 @@
         <x-ui.modal name="start-plan" :title="$currentSubscription ? 'Renew plan' : 'Start a plan'"
             description="A renewal begins the day after the current term ends, so consecutive terms never overlap.">
             <div class="space-y-4">
-                <x-ui.select wire:model="planId" name="planId" label="Plan" required>
+                <x-ui.select wire:model.live="planId" name="planId" label="Plan" required>
                     <option value="">Select a plan…</option>
                     @foreach ($availablePlans as $plan)
                         <option value="{{ $plan->id }}">
@@ -355,9 +386,9 @@
                 <x-ui.input wire:model="planStartDate" name="planStartDate" label="Start date" type="date"
                     hint="Leave as-is to start immediately, or after the current term for a renewal." />
 
-                <x-ui.input wire:model="planAmount" name="planAmount" label="Amount due" inputmode="decimal"
-                    :prefix="$organisation->currencySymbol()" placeholder="Plan price"
-                    hint="Override only if you are applying a discount." />
+                <x-ui.input wire:model="planDiscount" name="planDiscount" label="Discount" inputmode="decimal"
+                    :prefix="$organisation->currencySymbol()" placeholder="0.00"
+                    :hint="$planDiscount !== '' ? 'Prefilled from the '.strtolower($organisation->term('club_singular')).'’s standing discount on this plan. Change or clear it as needed.' : 'Optional. Taken off the plan price for this term.'" />
             </div>
 
             <x-slot:footer>

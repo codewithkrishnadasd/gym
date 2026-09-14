@@ -98,6 +98,12 @@
             <td>Total</td>
             <td class="right">{{ $organisation->money($invoice->total_minor) }}</td>
         </tr>
+        @if ($invoice->discount_minor > 0)
+            <tr>
+                <td class="muted">Discount</td>
+                <td class="right">−{{ $organisation->money($invoice->discount_minor) }}</td>
+            </tr>
+        @endif
         @if ($invoice->paid_minor > 0)
             <tr>
                 <td class="muted">Paid</td>

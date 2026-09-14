@@ -42,9 +42,17 @@
         <div class="space-y-5 lg:col-span-2">
             <x-ui.card title="Payment">
                 <div class="mb-4 flex flex-wrap items-baseline justify-between gap-2 border-b border-hairline pb-4">
-                    <p class="numeric font-[family-name:var(--font-display)] text-3xl font-semibold tracking-tight">
-                        {{ $organisation->money($payment->amount_minor) }}
-                    </p>
+                    <div>
+                        <p class="numeric font-[family-name:var(--font-display)] text-3xl font-semibold tracking-tight">
+                            {{ $organisation->money($payment->amount_minor) }}
+                        </p>
+                        @if ($payment->discount_minor > 0)
+                            <p class="numeric mt-0.5 text-sm text-ink-soft">
+                                plus {{ $organisation->money($payment->discount_minor) }} discount
+                                <span class="text-ink-muted">· {{ $organisation->money($payment->amount_minor + $payment->discount_minor) }} settled in total</span>
+                            </p>
+                        @endif
+                    </div>
                     <x-ui.badge :tone="$payment->confirmation_status->tone()">{{ $payment->confirmation_status->label() }}</x-ui.badge>
                 </div>
 
@@ -57,7 +65,7 @@
                         </a>
                     </x-ui.definition>
                     <x-ui.definition label="{{ $organisation->term('club_singular') }}" :value="$payment->club->name" />
-                    <x-ui.definition label="Plan" :value="$payment->subscription?->plan?->name ?? 'Not linked to a plan'" />
+                    <x-ui.definition label="For" :value="$payment->purposeLabel()" />
                     <x-ui.definition label="Received into" :value="$payment->financialAccount?->name ?? 'Not specified'" />
                     @if ($payment->invoice)
                         <x-ui.definition label="Invoice">
@@ -82,7 +90,7 @@
             @if ($payment->subscription)
                 @php
                     $subscription = $payment->subscription;
-                    $outstanding = max(0, $subscription->amount_due_minor - $subscription->amount_paid_minor);
+                    $outstanding = $subscription->outstandingMinor();
                 @endphp
 
                 <x-ui.card title="Plan balance" :description="$subscription->plan->name">

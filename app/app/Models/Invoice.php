@@ -40,6 +40,7 @@ class Invoice extends Model
             'due_date' => 'date',
             'total_minor' => 'integer',
             'paid_minor' => 'integer',
+            'discount_minor' => 'integer',
             'sequence' => 'integer',
             'voided_at' => 'datetime',
         ];
@@ -47,7 +48,7 @@ class Invoice extends Model
 
     public function outstandingMinor(): int
     {
-        return max(0, $this->total_minor - $this->paid_minor);
+        return max(0, $this->total_minor - $this->discount_minor - $this->paid_minor);
     }
 
     public function isOpen(): bool
@@ -64,10 +65,11 @@ class Invoice extends Model
      * Credits a confirmed payment and re-derives the status. Called inside the
      * confirming transaction, on a row already locked by it.
      */
-    public function applyPayment(int $amountMinor): void
+    public function applyPayment(int $amountMinor, int $discountMinor = 0): void
     {
         $this->forceFill([
             'paid_minor' => $this->paid_minor + $amountMinor,
+            'discount_minor' => $this->discount_minor + $discountMinor,
         ])->save();
 
         $this->refreshStatus();
@@ -78,10 +80,11 @@ class Invoice extends Model
      * arithmetic: the invoice could have been voided and reissued between the
      * two events.
      */
-    public function withdrawPayment(int $amountMinor): void
+    public function withdrawPayment(int $amountMinor, int $discountMinor = 0): void
     {
         $this->forceFill([
             'paid_minor' => max(0, $this->paid_minor - $amountMinor),
+            'discount_minor' => max(0, $this->discount_minor - $discountMinor),
         ])->save();
 
         $this->refreshStatus();
@@ -97,7 +100,7 @@ class Invoice extends Model
         }
 
         $this->forceFill([
-            'status' => InvoiceStatus::forBalance($this->paid_minor, $this->total_minor),
+            'status' => InvoiceStatus::forBalance($this->paid_minor, $this->total_minor - $this->discount_minor),
         ])->save();
     }
 

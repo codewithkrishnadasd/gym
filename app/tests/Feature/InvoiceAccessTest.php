@@ -157,7 +157,7 @@ it('refuses a payment larger than what is still owed on the invoice', function (
 
     Livewire::test(PaymentForm::class)
         ->call('selectMember', $this->memberA->id)
-        ->set('invoiceId', $this->invoiceA->id)
+        ->set('target', 'invoice:'.$this->invoiceA->id)
         ->assertSet('amount', '1000')
         ->set('amount', '1500')
         ->set('financialAccountId', $this->account->id)
@@ -172,7 +172,7 @@ it('defaults the payment amount to the invoice balance and records the link', fu
 
     Livewire::test(PaymentForm::class)
         ->call('selectMember', $this->memberA->id)
-        ->set('invoiceId', $this->invoiceA->id)
+        ->set('target', 'invoice:'.$this->invoiceA->id)
         ->assertSet('amount', '600')
         ->set('financialAccountId', $this->account->id)
         ->call('save')
@@ -189,7 +189,7 @@ it('will not accept an invoice belonging to a different member', function (): vo
 
     Livewire::test(PaymentForm::class)
         ->call('selectMember', $this->memberA->id)
-        ->set('invoiceId', $this->invoiceB->id)
+        ->set('target', 'invoice:'.$this->invoiceB->id)
         // The picker ignores it, so the id never lands.
         ->assertSet('invoiceId', null);
 });

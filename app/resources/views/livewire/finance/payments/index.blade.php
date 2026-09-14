@@ -111,11 +111,15 @@
                                 <p class="font-medium text-ink">{{ $payment->member->name }}
                                     <x-ui.reference :value="$organisation->reference('payment', $payment->id)" class="ml-1" /></p>
                                 <p class="text-xs text-ink-muted">
+                                    {{ $payment->purposeLabel() }}
+                                    @if ($payment->discount_minor > 0)
+                                        · {{ $organisation->money($payment->discount_minor) }} discount
+                                    @endif
                                     @if ($payment->transaction_reference)
-                                        ref {{ $payment->transaction_reference }}
+                                        · ref {{ $payment->transaction_reference }}
                                     @endif
                                     @if ($payment->invoice)
-                                        {{ $payment->transaction_reference ? '·' : '' }}
+                                        ·
                                         <a href="{{ route('tenant.billing.show', $payment->invoice_id) }}" wire:navigate class="font-mono hover:text-accent">{{ $payment->invoice->number }}</a>
                                     @endif
                                 </p>

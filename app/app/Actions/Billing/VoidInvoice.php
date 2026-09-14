@@ -33,7 +33,7 @@ final class VoidInvoice
                 throw LifecycleViolation::invoice('This invoice is already void.');
             }
 
-            if ($locked->paid_minor > 0) {
+            if ($locked->paid_minor > 0 || $locked->discount_minor > 0) {
                 throw LifecycleViolation::invoice('Payments have been confirmed against this invoice. Reverse them before voiding it.');
             }
 

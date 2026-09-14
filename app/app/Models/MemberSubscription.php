@@ -16,7 +16,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-#[Fillable(['organisation_id', 'member_id', 'club_id', 'plan_id', 'start_date', 'end_date', 'amount_due_minor', 'amount_paid_minor', 'status'])]
+#[Fillable(['organisation_id', 'member_id', 'club_id', 'plan_id', 'start_date', 'end_date', 'amount_due_minor', 'discount_minor', 'amount_paid_minor', 'status'])]
 class MemberSubscription extends Model
 {
     /** @use HasFactory<MemberSubscriptionFactory> */
@@ -29,6 +29,7 @@ class MemberSubscription extends Model
             'start_date' => 'date',
             'end_date' => 'date',
             'amount_due_minor' => 'integer',
+            'discount_minor' => 'integer',
             'amount_paid_minor' => 'integer',
         ];
     }
@@ -111,8 +112,35 @@ class MemberSubscription extends Model
      * are responsible for wrapping this in a DB::transaction() alongside the
      * payment status change — see MEP.md 5.11.1.
      */
-    public function applyPayment(int $amountMinor): void
+    public function outstandingMinor(): int
     {
-        $this->increment('amount_paid_minor', $amountMinor);
+        return max(0, $this->amount_due_minor - $this->amount_paid_minor);
+    }
+
+    /**
+     * Credits a confirmed payment. A discount given at the counter lowers
+     * what is owed and is kept as a running total for reporting; the amount
+     * due is always the net figure after every discount so far.
+     */
+    public function applyPayment(int $amountMinor, int $discountMinor = 0): void
+    {
+        $this->forceFill([
+            'amount_paid_minor' => $this->amount_paid_minor + $amountMinor,
+            'amount_due_minor' => max(0, $this->amount_due_minor - $discountMinor),
+            'discount_minor' => $this->discount_minor + $discountMinor,
+        ])->save();
+    }
+
+    /**
+     * Undoes applyPayment() for a reversed payment. Never lets a total go
+     * below zero, even if the term was edited between the two events.
+     */
+    public function withdrawPayment(int $amountMinor, int $discountMinor = 0): void
+    {
+        $this->forceFill([
+            'amount_paid_minor' => max(0, $this->amount_paid_minor - $amountMinor),
+            'amount_due_minor' => $this->amount_due_minor + $discountMinor,
+            'discount_minor' => max(0, $this->discount_minor - $discountMinor),
+        ])->save();
     }
 }

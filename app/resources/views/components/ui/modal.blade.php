@@ -6,14 +6,26 @@
 @endphp
 
 {{--
-    Opened with `$dispatch('open-modal', 'name')` and closed with
-    `close-modal`. Alpine's `x-trap` keeps keyboard focus inside the dialog
-    while it is open, which the accessibility baseline requires (MEP 9.3).
+    Opened with `open-modal` and closed with `close-modal`. Alpine's `x-trap`
+    keeps keyboard focus inside the dialog while it is open, which the
+    accessibility baseline requires (MEP 9.3).
+
+    The event may come from Alpine (`$dispatch('open-modal', 'name')`, detail
+    is the string) or from a Livewire component (`$this->dispatch('open-modal',
+    'name')`, detail is the positional-params array `['name']`; with no
+    arguments it is `[]`). `target()` reads both shapes the same way.
 --}}
 <div
-    x-data="{ open: false }"
-    x-on:open-modal.window="if ($event.detail === '{{ $name }}') { open = true }"
-    x-on:close-modal.window="if ($event.detail === '{{ $name }}' || $event.detail === undefined) { open = false }"
+    x-data="{
+        open: false,
+        target(detail) {
+            if (Array.isArray(detail)) { return detail[0] }
+            if (detail && typeof detail === 'object') { return detail.name }
+            return detail
+        },
+    }"
+    x-on:open-modal.window="if (target($event.detail) === '{{ $name }}') { open = true }"
+    x-on:close-modal.window="if (target($event.detail) === '{{ $name }}' || target($event.detail) === undefined) { open = false }"
     x-on:keydown.escape.window="open = false"
     x-cloak
     x-show="open"

@@ -5,10 +5,12 @@ declare(strict_types=1);
 namespace App\Actions\Payments;
 
 use App\Enums\ConfirmationStatus;
+use App\Enums\PaymentPurpose;
 use App\Exceptions\LifecycleViolation;
 use App\Models\AuditEvent;
 use App\Models\FeePayment;
 use App\Models\Invoice;
+use App\Models\Member;
 use App\Models\OrganisationUser;
 use Illuminate\Support\Facades\DB;
 
@@ -47,15 +49,16 @@ final class ReverseFeePayment
 
             if ($locked->invoice_id !== null) {
                 Invoice::query()->whereKey($locked->invoice_id)->lockForUpdate()->first()
-                    ?->withdrawPayment($locked->amount_minor);
+                    ?->withdrawPayment($locked->amount_minor, $locked->discount_minor);
+            }
+
+            if ($locked->purpose === PaymentPurpose::Admission) {
+                Member::query()->whereKey($locked->member_id)->lockForUpdate()->first()
+                    ?->withdrawAdmissionPayment($locked->amount_minor, $locked->discount_minor);
             }
 
             if ($subscription) {
-                // Never let a withdrawal drive the paid total below zero, even
-                // if the subscription was edited between the two events.
-                $subscription->update([
-                    'amount_paid_minor' => max(0, $subscription->amount_paid_minor - $locked->amount_minor),
-                ]);
+                $subscription->withdrawPayment($locked->amount_minor, $locked->discount_minor);
             }
 
             AuditEvent::record(
@@ -67,6 +70,7 @@ final class ReverseFeePayment
                 [
                     'reason' => $reason,
                     'amount_minor' => $locked->amount_minor,
+                    'discount_minor' => $locked->discount_minor,
                     'subscription_id' => $locked->subscription_id,
                     'invoice_id' => $locked->invoice_id,
                 ],

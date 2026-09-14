@@ -15,7 +15,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 #[Fillable([
     'organisation_id', 'name', 'code', 'logo_path', 'status', 'phone', 'email',
-    'address', 'timezone', 'opening_hours', 'created_by',
+    'address', 'timezone', 'opening_hours', 'admission_fee_minor', 'created_by',
 ])]
 class Club extends Model
 {
@@ -28,6 +28,7 @@ class Club extends Model
             'status' => ClubStatus::class,
             'address' => 'array',
             'opening_hours' => 'array',
+            'admission_fee_minor' => 'integer',
         ];
     }
 
@@ -77,5 +78,25 @@ class Club extends Model
     public function subscriptions(): HasMany
     {
         return $this->hasMany(MemberSubscription::class);
+    }
+
+    /**
+     * @return HasMany<ClubPlanDiscount, $this>
+     */
+    public function planDiscounts(): HasMany
+    {
+        return $this->hasMany(ClubPlanDiscount::class);
+    }
+
+    /**
+     * The standing discount this club gives on a plan, in minor units; zero
+     * when none is configured. Capped at the plan price so a stale discount
+     * can never take the amount due below nothing.
+     */
+    public function discountFor(Plan $plan): int
+    {
+        $discount = (int) $this->planDiscounts()->where('plan_id', $plan->id)->value('discount_minor');
+
+        return max(0, min($discount, $plan->price_minor));
     }
 }

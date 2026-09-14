@@ -8,6 +8,7 @@ use App\Models\Member;
 use App\Models\Organisation;
 use App\Models\OrganisationUser;
 use App\Models\User;
+use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\File;
 
 /**
@@ -104,4 +105,15 @@ it('gives every confirmation a heading, so none falls back to "Are you sure?"', 
     }
 
     expect($missing)->toBe([]);
+});
+
+it('opens a modal from a Livewire dispatch as well as from Alpine', function (): void {
+    // A Livewire `$this->dispatch('open-modal', 'name')` reaches the browser
+    // with the positional params as an array, Alpine's `$dispatch` with the
+    // bare string. The modal must read both, or server-opened dialogs (Add
+    // item on the price list, Reject in the confirmation queue) do nothing.
+    $html = Blade::render('<x-ui.modal name="billable-item">Body</x-ui.modal>');
+
+    expect($html)->toContain('if (Array.isArray(detail)) { return detail[0] }')
+        ->and($html)->toContain("target(\$event.detail) === 'billable-item'");
 });

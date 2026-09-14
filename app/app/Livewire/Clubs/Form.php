@@ -7,10 +7,13 @@ namespace App\Livewire\Clubs;
 use App\Enums\ClubAssignmentStatus;
 use App\Enums\ClubStatus;
 use App\Enums\MembershipStatus;
+use App\Enums\PlanStatus;
 use App\Livewire\Concerns\ResolvesMembership;
 use App\Models\Club;
 use App\Models\ClubUserAssignment;
 use App\Models\OrganisationUser;
+use App\Models\Plan;
+use App\Support\Money;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
@@ -34,6 +37,17 @@ class Form extends Component
     public string $addressLine = '';
 
     public string $timezone = 'UTC';
+
+    /** One-off fee charged when a member joins this club, in major units. */
+    public string $admissionFee = '';
+
+    /**
+     * Standing discount per plan, in major units, keyed by plan id. Empty
+     * means none.
+     *
+     * @var array<int, string>
+     */
+    public array $planDiscounts = [];
 
     /** @var array<int, int> */
     public array $assignedUserIds = [];
@@ -73,6 +87,14 @@ class Form extends Component
             $this->email = (string) $club->email;
             $this->addressLine = (string) ($club->address['line1'] ?? '');
             $this->timezone = $club->timezone ?? 'UTC';
+            $this->admissionFee = $club->admission_fee_minor > 0
+                ? (string) Money::ofMinor($club->admission_fee_minor, $this->organisation()->currency_code)->major()
+                : '';
+
+            foreach ($club->planDiscounts()->get() as $discount) {
+                $this->planDiscounts[$discount->plan_id] = (string) Money::ofMinor($discount->discount_minor, $this->organisation()->currency_code)->major();
+            }
+
             $this->assignedUserIds = $club->userAssignments()
                 ->where('status', ClubAssignmentStatus::Active)
                 ->pluck('organisation_user_id')
@@ -101,11 +123,44 @@ class Form extends Component
             'openingHours.*.closed' => ['boolean'],
             'openingHours.*.open' => ['required', 'date_format:H:i'],
             'openingHours.*.close' => ['required', 'date_format:H:i'],
-        ]);
+            'admissionFee' => ['nullable', 'numeric', 'min:0'],
+            'planDiscounts' => ['array'],
+            'planDiscounts.*' => ['nullable', 'numeric', 'min:0'],
+        ], [], ['admissionFee' => 'admission fee', 'planDiscounts.*' => 'discount']);
 
         $membership = $this->currentMembership();
+        $currency = $this->organisation()->currency_code;
 
-        DB::transaction(function () use ($validated, $membership): void {
+        // Discounts are capped at the plan price here rather than silently
+        // later: a discount larger than the price is a typo worth catching.
+        $plans = $this->discountablePlans()->keyBy('id');
+        $discounts = [];
+
+        foreach ($this->planDiscounts as $planId => $value) {
+            $plan = $plans->get((int) $planId);
+
+            if ($plan === null || $value === '') {
+                continue;
+            }
+
+            $minor = Money::parseMajor($value, $currency)->minor ?? 0;
+
+            if ($minor > $plan->price_minor) {
+                $this->addError('planDiscounts.'.$planId, 'The discount cannot be more than the plan price of '.$this->organisation()->money($plan->price_minor).'.');
+
+                return;
+            }
+
+            if ($minor > 0) {
+                $discounts[(int) $planId] = $minor;
+            }
+        }
+
+        $admissionFeeMinor = $validated['admissionFee'] !== null && $validated['admissionFee'] !== ''
+            ? (Money::parseMajor((string) $validated['admissionFee'], $currency)->minor ?? 0)
+            : 0;
+
+        DB::transaction(function () use ($validated, $membership, $admissionFeeMinor, $discounts): void {
             $attributes = [
                 'name' => $validated['name'],
                 'code' => $validated['code'],
@@ -114,6 +169,7 @@ class Form extends Component
                 'address' => $validated['addressLine'] ? ['line1' => $validated['addressLine']] : null,
                 'timezone' => $validated['timezone'],
                 'opening_hours' => $this->openingHours,
+                'admission_fee_minor' => $admissionFeeMinor,
             ];
 
             if ($this->club) {
@@ -128,11 +184,35 @@ class Form extends Component
             }
 
             $this->syncAssignments($club);
+            $this->syncPlanDiscounts($club, $discounts);
         });
 
         session()->flash('status', "\"{$validated['name']}\" was saved.");
 
         $this->redirect(route('tenant.clubs.index'));
+    }
+
+    /**
+     * @param  array<int, int>  $discounts  plan id => discount in minor units
+     */
+    private function syncPlanDiscounts(Club $club, array $discounts): void
+    {
+        $club->planDiscounts()->whereNotIn('plan_id', array_keys($discounts))->delete();
+
+        foreach ($discounts as $planId => $minor) {
+            $club->planDiscounts()->updateOrCreate(
+                ['plan_id' => $planId],
+                ['organisation_id' => $club->organisation_id, 'discount_minor' => $minor],
+            );
+        }
+    }
+
+    /**
+     * @return Collection<int, Plan>
+     */
+    private function discountablePlans(): Collection
+    {
+        return Plan::query()->where('status', PlanStatus::Active)->orderBy('name')->get();
     }
 
     private function syncAssignments(Club $club): void
@@ -173,6 +253,7 @@ class Form extends Component
         return view('livewire.clubs.form', [
             'organisation' => $organisation,
             'availableUsers' => $availableUsers,
+            'plans' => $this->discountablePlans(),
             'days' => self::DAYS,
             'timezones' => \DateTimeZone::listIdentifiers(),
         ])->layout('components.layouts.app', [

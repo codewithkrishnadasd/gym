@@ -63,6 +63,12 @@
                         <x-ui.td class="font-medium text-ink" colspan="3">Total</x-ui.td>
                         <x-ui.td align="right" numeric class="font-[family-name:var(--font-display)] text-base font-semibold text-ink">{{ $organisation->money($invoice->total_minor) }}</x-ui.td>
                     </tr>
+                    @if ($invoice->discount_minor > 0)
+                        <tr>
+                            <x-ui.td class="text-ink-soft" colspan="3">Discount given at payment</x-ui.td>
+                            <x-ui.td align="right" numeric class="text-ink-soft">−{{ $organisation->money($invoice->discount_minor) }}</x-ui.td>
+                        </tr>
+                    @endif
                 </x-ui.table>
 
                 @if ($invoice->notes)

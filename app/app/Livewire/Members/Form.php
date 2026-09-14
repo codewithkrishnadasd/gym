@@ -5,15 +5,21 @@ declare(strict_types=1);
 namespace App\Livewire\Members;
 
 use App\Actions\Notifications\CreateActionNotification;
+use App\Actions\Subscriptions\CreateSubscription;
 use App\Enums\ChangeLabel;
 use App\Enums\MemberStatus;
 use App\Enums\NotificationActionType;
 use App\Enums\NotificationEntityType;
 use App\Enums\NotificationRecipientType;
+use App\Enums\PlanStatus;
 use App\Livewire\Concerns\ResolvesMembership;
+use App\Models\Club;
 use App\Models\Member;
 use App\Models\MemberClubHistory;
+use App\Models\Plan;
+use App\Support\Money;
 use App\Support\PhoneNumber;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
@@ -47,6 +53,14 @@ class Form extends Component
 
     public string $emergencyPhone = '';
 
+    /** Optional starting plan, offered only while creating (admins only). */
+    public ?int $planId = null;
+
+    public string $planStartDate = '';
+
+    /** Discount on the plan, prefilled from the chosen club's standing discount. */
+    public string $planDiscount = '';
+
     public ?int $transferClubId = null;
 
     public string $transferReason = '';
@@ -71,6 +85,7 @@ class Form extends Component
             $this->emergencyPhone = (string) ($member->emergency_contact['phone'] ?? '');
         } else {
             $this->joinedAt = now($this->organisation()->timezone)->toDateString();
+            $this->planStartDate = $this->joinedAt;
             $this->primaryClubId = $this->presetClubId();
         }
     }
@@ -111,6 +126,15 @@ class Form extends Component
             'notes' => ['nullable', 'string', 'max:2000'],
             'emergencyName' => ['nullable', 'string', 'max:255'],
             'emergencyPhone' => ['nullable', 'string', 'max:50'],
+            // The plan is only offered on create, and only to admins — the
+            // same rule as starting one from the member page.
+            'planId' => [
+                'nullable',
+                Rule::prohibitedIf($this->member !== null || ! $this->canStartPlan()),
+                Rule::exists('plans', 'id')->where('organisation_id', app('tenant')->id)->where('status', PlanStatus::Active->value),
+            ],
+            'planStartDate' => ['nullable', 'date'],
+            'planDiscount' => ['nullable', 'numeric', 'min:0'],
         ], [
             'primaryClubId.in' => 'You can only add '.strtolower($this->organisation()->term('member_plural')).' to a '.strtolower($this->organisation()->term('club_singular')).' you are assigned to.',
         ]);
@@ -155,6 +179,7 @@ class Form extends Component
             $member = Member::create([
                 ...$attributes,
                 'primary_club_id' => $validated['primaryClubId'],
+                'admission_fee_minor' => $this->admissionFeeFor((int) $validated['primaryClubId']),
                 'created_by' => $membership->id,
             ]);
 
@@ -176,10 +201,99 @@ class Form extends Component
             context: [...$context, 'clubName' => $member->primaryClub?->name],
         );
 
-        session()->flash('status', "\"{$validated['name']}\" was saved.");
+        $startedPlan = null;
+
+        if ($this->member === null && $validated['planId'] !== null) {
+            $startedPlan = $this->startPlanFor($member, (int) $validated['planId'], $validated['planStartDate'], $validated['planDiscount']);
+        }
+
+        session()->flash('status', $startedPlan === null
+            ? "\"{$validated['name']}\" was saved."
+            : "\"{$validated['name']}\" was saved and \"{$startedPlan->name}\" started.");
         session()->flash('notification_id', $notification?->id);
 
         $this->redirect(route('tenant.members.show', $member), navigate: true);
+    }
+
+    /**
+     * The plan follows the joining date until the operator sets it apart:
+     * a start date still equal to the old joining date moves with it.
+     */
+    public function updatingJoinedAt(string $value): void
+    {
+        if ($this->planStartDate === '' || $this->planStartDate === $this->joinedAt) {
+            $this->planStartDate = $value;
+        }
+    }
+
+    /**
+     * Only admins may start plans (MemberSubscriptionPolicy::createFor), so
+     * staff creating a member never see the option.
+     */
+    public function canStartPlan(): bool
+    {
+        return $this->member === null && $this->currentMembership()->isAdmin();
+    }
+
+    /**
+     * Starts the chosen plan on the freshly created member. Runs after the
+     * member row exists and outside its creation, so a problem here leaves a
+     * member who can be given a plan from their page rather than no member.
+     */
+    private function startPlanFor(Member $member, int $planId, ?string $startDate, mixed $discount): Plan
+    {
+        /** @var Plan $plan */
+        $plan = Plan::query()->findOrFail($planId);
+
+        $organisation = $this->organisation();
+
+        $discountMinor = $discount !== null && $discount !== ''
+            ? Money::parseMajor((string) $discount, $organisation->currency_code)?->minor
+            : null;
+
+        app(CreateSubscription::class)->handle(
+            member: $member,
+            plan: $plan,
+            actor: $this->currentMembership(),
+            startDate: $startDate ? Carbon::parse($startDate) : null,
+            discountMinor: $discountMinor,
+        );
+
+        return $plan;
+    }
+
+    /**
+     * The club's standing discount on the chosen plan, prefilled whenever
+     * either choice changes; the operator can still edit or clear it.
+     */
+    public function updatedPlanId(): void
+    {
+        $this->prefillPlanDiscount();
+    }
+
+    public function updatedPrimaryClubId(): void
+    {
+        $this->prefillPlanDiscount();
+    }
+
+    private function prefillPlanDiscount(): void
+    {
+        $plan = $this->planId ? Plan::query()->find($this->planId) : null;
+        $club = $this->primaryClubId ? Club::query()->find($this->primaryClubId) : null;
+
+        $this->planDiscount = $plan && $club && $club->discountFor($plan) > 0
+            ? (string) Money::ofMinor($club->discountFor($plan), $this->organisation()->currency_code)->major()
+            : '';
+    }
+
+    /**
+     * The admission fee this member signs up under: the club's fee at the
+     * moment of joining, frozen on the member so a later change to the club
+     * does not alter what an existing member owes.
+     */
+    private function admissionFeeFor(int $clubId): int
+    {
+        return (int) Club::query()->whereKey($clubId)->value('admission_fee_minor');
     }
 
     /**
@@ -258,6 +372,10 @@ class Form extends Component
         return view('livewire.members.form', [
             'organisation' => $organisation,
             'availableClubs' => $this->accessibleClubs(),
+            'canStartPlan' => $this->canStartPlan(),
+            'availablePlans' => $this->canStartPlan()
+                ? Plan::query()->where('status', PlanStatus::Active)->orderBy('name')->get()
+                : collect(),
             'history' => $history,
             'statuses' => MemberStatus::cases(),
         ])->layout('components.layouts.app', [

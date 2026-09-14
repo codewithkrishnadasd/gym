@@ -37,7 +37,7 @@ final class CreateSubscription
         Plan $plan,
         OrganisationUser $actor,
         ?Carbon $startDate = null,
-        ?int $amountDueMinor = null,
+        ?int $discountMinor = null,
     ): MemberSubscription {
         /** @var Organisation $organisation */
         $organisation = app('tenant');
@@ -54,7 +54,12 @@ final class CreateSubscription
                 ? $current->end_date->copy()->addDay()
                 : Carbon::today($organisation->timezone));
 
-        $subscription = DB::transaction(function () use ($member, $plan, $actor, $start, $amountDueMinor, $current, $isRenewal): MemberSubscription {
+        // The club's standing discount on this plan applies unless the caller
+        // set one explicitly (including zero to waive it). Never more than the
+        // price: a plan cannot owe the member money.
+        $discount = min($plan->price_minor, max(0, $discountMinor ?? $member->primaryClub?->discountFor($plan) ?? 0));
+
+        $subscription = DB::transaction(function () use ($member, $plan, $actor, $start, $discount, $current, $isRenewal): MemberSubscription {
             // A renewal supersedes the running term rather than leaving two
             // active subscriptions on the same member.
             if ($current && $current->end_date->isPast()) {
@@ -67,7 +72,8 @@ final class CreateSubscription
                 'plan_id' => $plan->id,
                 'start_date' => $start->toDateString(),
                 'end_date' => $start->copy()->addDays($plan->duration_days - 1)->toDateString(),
-                'amount_due_minor' => $amountDueMinor ?? $plan->price_minor,
+                'amount_due_minor' => $plan->price_minor - $discount,
+                'discount_minor' => $discount,
                 'amount_paid_minor' => 0,
                 'status' => SubscriptionStatus::Active,
             ]);
@@ -82,6 +88,7 @@ final class CreateSubscription
                     'start_date' => $subscription->start_date->toDateString(),
                     'end_date' => $subscription->end_date->toDateString(),
                     'amount_due_minor' => $subscription->amount_due_minor,
+                    'discount_minor' => $subscription->discount_minor,
                 ],
                 ['member_id' => $member->id],
             );

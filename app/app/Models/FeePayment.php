@@ -6,6 +6,7 @@ namespace App\Models;
 
 use App\Enums\ConfirmationStatus;
 use App\Enums\PaymentMethod;
+use App\Enums\PaymentPurpose;
 use App\Enums\WhatsappStatus;
 use App\Models\Concerns\BelongsToOrganisation;
 use Database\Factories\FeePaymentFactory;
@@ -22,8 +23,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * classes, never by a direct model update. See MEP.md 5.11.
  */
 #[Fillable([
-    'organisation_id', 'club_id', 'member_id', 'subscription_id', 'invoice_id', 'payer_name',
-    'amount_minor', 'currency_code', 'payment_method', 'financial_account_id',
+    'organisation_id', 'club_id', 'member_id', 'subscription_id', 'invoice_id', 'purpose', 'payer_name',
+    'amount_minor', 'discount_minor', 'currency_code', 'payment_method', 'financial_account_id',
     'transaction_reference', 'payment_date', 'collected_by', 'notes',
 ])]
 class FeePayment extends Model
@@ -38,6 +39,8 @@ class FeePayment extends Model
             'confirmation_status' => ConfirmationStatus::class,
             'whatsapp_status' => WhatsappStatus::class,
             'amount_minor' => 'integer',
+            'discount_minor' => 'integer',
+            'purpose' => PaymentPurpose::class,
             'payment_date' => 'date',
             'confirmed_at' => 'datetime',
         ];
@@ -102,5 +105,19 @@ class FeePayment extends Model
     public function isConfirmed(): bool
     {
         return $this->confirmation_status === ConfirmationStatus::Confirmed;
+    }
+
+    /**
+     * What this payment was for, as shown on receipts and in lists: the plan
+     * name, the invoice number, "Admission fee", or nothing in particular.
+     */
+    public function purposeLabel(): string
+    {
+        return match ($this->purpose) {
+            PaymentPurpose::Plan => $this->subscription->plan->name ?? 'Plan fee',
+            PaymentPurpose::Invoice => $this->invoice->number ?? 'Invoice',
+            PaymentPurpose::Admission => 'Admission fee',
+            default => 'Other',
+        };
     }
 }

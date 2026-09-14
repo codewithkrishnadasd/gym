@@ -63,37 +63,38 @@
 
             <x-ui.card title="Payment details">
                 <div class="grid gap-4 sm:grid-cols-2">
-                    @if ($openInvoices->isNotEmpty())
-                        {{-- Paying an invoice and paying a plan are two different
-                             things; picking one clears the other. --}}
-                        <x-ui.select class="sm:col-span-2" wire:model.live="invoiceId" name="invoiceId"
-                            label="Apply to invoice" hint="The amount defaults to what is still owed. A smaller amount records a part payment.">
-                            <option value="">Not linked to an invoice</option>
-                            @foreach ($openInvoices as $openInvoice)
-                                <option value="{{ $openInvoice->id }}">
-                                    {{ $openInvoice->number }} — {{ $organisation->money($openInvoice->outstandingMinor()) }} outstanding
-                                    of {{ $organisation->money($openInvoice->total_minor) }}{{ $openInvoice->due_date ? ', due '.$openInvoice->due_date->format('d M') : '' }}
-                                </option>
-                            @endforeach
-                        </x-ui.select>
-                    @endif
-
-                    @if ($subscriptions->isNotEmpty() && $invoiceId === null)
-                        <x-ui.select class="sm:col-span-2" wire:model.live="subscriptionId" name="subscriptionId"
-                            label="Apply to plan" hint="Confirmed payments are credited against the selected plan.">
-                            <option value="">Not linked to a plan</option>
-                            @foreach ($subscriptions as $subscription)
-                                <option value="{{ $subscription->id }}">
-                                    {{ $subscription->plan->name }} —
-                                    {{ $subscription->start_date->format('d M Y') }} to {{ $subscription->end_date->format('d M Y') }}
-                                    (outstanding {{ $organisation->money(max(0, $subscription->amount_due_minor - $subscription->amount_paid_minor)) }})
-                                </option>
-                            @endforeach
-                        </x-ui.select>
-                    @endif
+                    {{-- One choice for what the money settles. Admission is
+                         offered only while it is owed; each open invoice and
+                         recent plan term is listed with its balance. --}}
+                    <x-ui.select class="sm:col-span-2" wire:model.live="target" name="target" label="This payment is for"
+                        hint="The amount defaults to what is still owed. A smaller amount records a part payment; a discount writes some of it off.">
+                        @if ($admissionOutstanding > 0)
+                            <option value="admission">Admission fee — {{ $organisation->money($admissionOutstanding) }} outstanding</option>
+                        @endif
+                        @foreach ($openInvoices as $openInvoice)
+                            <option value="invoice:{{ $openInvoice->id }}">
+                                Invoice {{ $openInvoice->number }} — {{ $organisation->money($openInvoice->outstandingMinor()) }} outstanding
+                                of {{ $organisation->money($openInvoice->total_minor) }}{{ $openInvoice->due_date ? ', due '.$openInvoice->due_date->format('d M') : '' }}
+                            </option>
+                        @endforeach
+                        @foreach ($subscriptions as $subscription)
+                            <option value="plan:{{ $subscription->id }}">
+                                Plan: {{ $subscription->plan->name }} —
+                                {{ $subscription->start_date->format('d M Y') }} to {{ $subscription->end_date->format('d M Y') }}
+                                ({{ $organisation->money($subscription->outstandingMinor()) }} outstanding)
+                            </option>
+                        @endforeach
+                        <option value="other">Not linked to anything</option>
+                    </x-ui.select>
 
                     <x-ui.input wire:model="amount" name="amount" label="Amount" required inputmode="decimal"
                         :prefix="$organisation->currencySymbol()" placeholder="0.00" />
+
+                    <x-ui.input wire:model="discount" name="discount" label="Discount" inputmode="decimal"
+                        :prefix="$organisation->currencySymbol()" placeholder="0.00"
+                        :hint="$targetOutstanding !== null
+                            ? 'Optional. Written off what is owed; amount and discount together may not exceed '.$organisation->money($targetOutstanding).'.'
+                            : 'Optional. Needs a plan, invoice, or admission fee to come off.'" />
 
                     <x-ui.input wire:model="paymentDate" name="paymentDate" label="Payment date" type="date" required />
 

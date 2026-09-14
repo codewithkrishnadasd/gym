@@ -18,7 +18,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 #[Fillable([
     'organisation_id', 'primary_club_id', 'name', 'phone', 'date_of_birth',
     'gender', 'photo_path', 'address', 'emergency_contact', 'joined_at', 'status',
-    'notes', 'created_by',
+    'notes', 'admission_fee_minor', 'created_by',
 ])]
 class Member extends Model
 {
@@ -31,6 +31,9 @@ class Member extends Model
             'status' => MemberStatus::class,
             'date_of_birth' => 'date',
             'joined_at' => 'date',
+            'admission_fee_minor' => 'integer',
+            'admission_discount_minor' => 'integer',
+            'admission_paid_minor' => 'integer',
             'address' => 'array',
             'emergency_contact' => 'array',
         ];
@@ -90,5 +93,38 @@ class Member extends Model
     public function invoices(): HasMany
     {
         return $this->hasMany(Invoice::class);
+    }
+
+    /**
+     * What is still owed on the admission fee this member joined under.
+     */
+    public function admissionOutstandingMinor(): int
+    {
+        return max(0, $this->admission_fee_minor - $this->admission_discount_minor - $this->admission_paid_minor);
+    }
+
+    public function owesAdmissionFee(): bool
+    {
+        return $this->admissionOutstandingMinor() > 0;
+    }
+
+    /**
+     * Credits a confirmed admission payment: money received and any discount
+     * given at the counter, both cumulative.
+     */
+    public function applyAdmissionPayment(int $amountMinor, int $discountMinor = 0): void
+    {
+        $this->forceFill([
+            'admission_paid_minor' => $this->admission_paid_minor + $amountMinor,
+            'admission_discount_minor' => $this->admission_discount_minor + $discountMinor,
+        ])->save();
+    }
+
+    public function withdrawAdmissionPayment(int $amountMinor, int $discountMinor = 0): void
+    {
+        $this->forceFill([
+            'admission_paid_minor' => max(0, $this->admission_paid_minor - $amountMinor),
+            'admission_discount_minor' => max(0, $this->admission_discount_minor - $discountMinor),
+        ])->save();
     }
 }

@@ -79,9 +79,15 @@
     <div class="amount">
         <table>
             <tr>
-                <td><div class="muted">Amount {{ $payment->isConfirmed() ? 'received' : 'submitted' }}</div></td>
+                <td><div class="muted">Amount {{ $payment->isConfirmed() ? 'received' : 'submitted' }} · {{ $payment->purposeLabel() }}</div></td>
                 <td class="right"><span class="value">{{ $organisation->money($payment->amount_minor) }}</span></td>
             </tr>
+            @if ($payment->discount_minor > 0)
+                <tr>
+                    <td><div class="muted">Discount given</div></td>
+                    <td class="right">{{ $organisation->money($payment->discount_minor) }}</td>
+                </tr>
+            @endif
         </table>
     </div>
 
@@ -100,7 +106,7 @@
                 <td>{{ $subscription->start_date->format('d M Y') }} – {{ $subscription->end_date->format('d M Y') }}</td>
                 <td class="right">{{ $organisation->money($subscription->amount_due_minor) }}</td>
                 <td class="right">{{ $organisation->money($subscription->amount_paid_minor) }}</td>
-                <td class="right">{{ $organisation->money(max(0, $subscription->amount_due_minor - $subscription->amount_paid_minor)) }}</td>
+                <td class="right">{{ $organisation->money($subscription->outstandingMinor()) }}</td>
             </tr>
         </table>
     @endif

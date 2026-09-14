@@ -9,6 +9,7 @@ use App\Enums\FinancialAccountStatus;
 use App\Enums\InvoiceStatus;
 use App\Enums\MemberStatus;
 use App\Enums\PaymentMethod;
+use App\Enums\PaymentPurpose;
 use App\Enums\SubscriptionStatus;
 use App\Livewire\Concerns\ResolvesMembership;
 use App\Models\FeePayment;
@@ -44,7 +45,17 @@ class Form extends Component
     /** An invoice this payment settles, in full or in part. */
     public ?int $invoiceId = null;
 
+    /**
+     * What the money is for, as one choice: "admission", "invoice:{id}",
+     * "plan:{id}" or "other". One payment settles one thing, so a single
+     * control replaces separate plan and invoice pickers.
+     */
+    public string $target = 'other';
+
     public string $amount = '';
+
+    /** Taken off what is owed alongside the amount handed over. */
+    public string $discount = '';
 
     public string $paymentMethod = 'cash';
 
@@ -79,6 +90,98 @@ class Form extends Component
         if ($invoice !== null) {
             $this->selectInvoice($invoice);
         }
+
+        if (request()->query('for') === 'admission' && $this->memberId !== null) {
+            $this->selectTarget('admission');
+        }
+    }
+
+    /**
+     * Applies a choice from the "this payment is for" control: sets the
+     * matching link, and defaults the amount to what is still owed on it.
+     */
+    public function selectTarget(string $target): void
+    {
+        $this->discount = '';
+
+        if ($target === 'admission' && $this->admissionOutstanding() > 0) {
+            $this->target = 'admission';
+            $this->subscriptionId = null;
+            $this->invoiceId = null;
+            $this->amount = $this->major($this->admissionOutstanding());
+
+            return;
+        }
+
+        if (str_starts_with($target, 'invoice:')) {
+            $this->selectInvoice((int) substr($target, 8));
+
+            if ($this->invoiceId !== null) {
+                $this->target = $target;
+
+                return;
+            }
+        }
+
+        if (str_starts_with($target, 'plan:')) {
+            $subscription = $this->subscriptionsForMember()->firstWhere('id', (int) substr($target, 5));
+
+            if ($subscription) {
+                $this->target = $target;
+                $this->subscriptionId = $subscription->id;
+                $this->invoiceId = null;
+                $this->amount = $this->major($subscription->outstandingMinor());
+
+                return;
+            }
+        }
+
+        $this->target = 'other';
+        $this->subscriptionId = null;
+        $this->invoiceId = null;
+    }
+
+    public function updatedTarget(string $value): void
+    {
+        $this->selectTarget($value);
+    }
+
+    private function major(int $minor): string
+    {
+        return (string) Money::ofMinor($minor, $this->organisation()->currency_code)->major();
+    }
+
+    private function admissionOutstanding(): int
+    {
+        if ($this->memberId === null) {
+            return 0;
+        }
+
+        /** @var Member|null $member */
+        $member = Member::query()->find($this->memberId);
+
+        return $member?->admissionOutstandingMinor() ?? 0;
+    }
+
+    /**
+     * What is still owed on the chosen target, or null when there is no
+     * balance to measure against ("other").
+     */
+    private function targetOutstanding(): ?int
+    {
+        if ($this->target === 'admission') {
+            return $this->admissionOutstanding();
+        }
+
+        if ($this->invoiceId !== null) {
+            return $this->openInvoicesForMember()->firstWhere('id', $this->invoiceId)?->outstandingMinor();
+        }
+
+        if ($this->subscriptionId !== null) {
+            return $this->subscriptionsForMember()->firstWhere('id', $this->subscriptionId)?->outstandingMinor();
+        }
+
+        return null;
     }
 
     /**
@@ -100,26 +203,8 @@ class Form extends Component
 
         $this->invoiceId = $invoice->id;
         $this->subscriptionId = null;
-        $this->amount = (string) Money::ofMinor($invoice->outstandingMinor(), $this->organisation()->currency_code)->major();
-    }
-
-    public function updatedInvoiceId(mixed $value): void
-    {
-        if ($value === null || $value === '') {
-            $this->invoiceId = null;
-
-            return;
-        }
-
-        $this->selectInvoice((int) $value);
-    }
-
-    public function updatedSubscriptionId(mixed $value): void
-    {
-        // A plan and an invoice are two different things to pay for.
-        if ($value !== null && $value !== '') {
-            $this->invoiceId = null;
-        }
+        $this->target = 'invoice:'.$invoice->id;
+        $this->amount = $this->major($invoice->outstandingMinor());
     }
 
     public function selectMember(int $memberId): void
@@ -135,19 +220,22 @@ class Form extends Component
 
         $this->invoiceId = null;
 
-        $subscription = $this->subscriptionsForMember()->first();
-        $this->subscriptionId = $subscription?->id;
+        // Admission comes first while it is owed — it is the one thing a new
+        // member certainly has to pay — then the current plan.
+        if ($this->admissionOutstanding() > 0) {
+            $this->selectTarget('admission');
 
-        // Default the amount to whatever is still outstanding on the term.
-        if ($subscription) {
-            $outstanding = max(0, $subscription->amount_due_minor - $subscription->amount_paid_minor);
-            $this->amount = (string) Money::ofMinor($outstanding, $this->organisation()->currency_code)->major();
+            return;
         }
+
+        $subscription = $this->subscriptionsForMember()->first();
+
+        $this->selectTarget($subscription ? 'plan:'.$subscription->id : 'other');
     }
 
     public function clearMember(): void
     {
-        $this->reset(['memberId', 'subscriptionId', 'invoiceId', 'amount', 'memberSearch']);
+        $this->reset(['memberId', 'subscriptionId', 'invoiceId', 'target', 'amount', 'discount', 'memberSearch']);
     }
 
     public function save(): void
@@ -161,7 +249,8 @@ class Form extends Component
             'memberId' => ['required', Rule::exists('members', 'id')->where('organisation_id', $organisation->id)],
             'subscriptionId' => ['nullable', Rule::exists('member_subscriptions', 'id')->where('organisation_id', $organisation->id)],
             'invoiceId' => ['nullable', Rule::exists('invoices', 'id')->where('organisation_id', $organisation->id)],
-            'amount' => ['required', 'numeric', 'gt:0'],
+            'amount' => ['required', 'numeric', 'min:0'],
+            'discount' => ['nullable', 'numeric', 'min:0'],
             'paymentMethod' => ['required', Rule::enum(PaymentMethod::class)],
             // Every collection has to name the account the money landed in:
             // without it the account balances on the finance pages are a
@@ -198,9 +287,50 @@ class Form extends Component
         }
 
         $money = Money::parseMajor($validated['amount'], $organisation->currency_code);
+        $discount = $validated['discount'] !== null && $validated['discount'] !== ''
+            ? Money::parseMajor((string) $validated['discount'], $organisation->currency_code)
+            : null;
+        $discountMinor = $discount->minor ?? 0;
 
-        if ($money === null || $money->minor <= 0) {
-            $this->addError('amount', 'Enter a valid amount greater than zero.');
+        if ($money === null || $money->minor < 0 || $discountMinor < 0) {
+            $this->addError('amount', 'Enter a valid amount.');
+
+            return;
+        }
+
+        // Nothing handed over and nothing written off is not a payment.
+        if ($money->minor + $discountMinor <= 0) {
+            $this->addError('amount', 'Enter an amount received, a discount, or both.');
+
+            return;
+        }
+
+        $purpose = PaymentPurpose::Other;
+
+        if ($this->target === 'admission') {
+            if ($member->admissionOutstandingMinor() <= 0) {
+                $this->addError('target', 'No admission fee is owed by this '.strtolower($organisation->term('member_singular')).'.');
+
+                return;
+            }
+
+            $purpose = PaymentPurpose::Admission;
+        }
+
+        // Where a balance is known, money plus discount may not exceed it: an
+        // overpayment would leave the balance wrong in the other direction
+        // with no way to express a refund.
+        $outstanding = $this->targetOutstanding();
+
+        if ($outstanding !== null && $money->minor + $discountMinor > $outstanding) {
+            $this->addError($discountMinor > 0 ? 'discount' : 'amount', 'Only '.$organisation->money($outstanding).' is still owed here'
+                .($discountMinor > 0 ? ' — the amount and discount together exceed it.' : '.'));
+
+            return;
+        }
+
+        if ($discountMinor > 0 && $outstanding === null) {
+            $this->addError('discount', 'A discount needs something to come off — choose the plan, invoice, or admission fee it applies to.');
 
             return;
         }
@@ -216,16 +346,12 @@ class Form extends Component
             $invoice = $this->openInvoicesForMember()->firstWhere('id', $invoiceId);
 
             if ($invoice === null) {
-                $this->addError('invoiceId', 'That invoice is not open for this '.strtolower($organisation->term('member_singular')).'.');
+                $this->addError('target', 'That invoice is not open for this '.strtolower($organisation->term('member_singular')).'.');
 
                 return;
             }
 
-            if ($money->minor > $invoice->outstandingMinor()) {
-                $this->addError('amount', 'Only '.$organisation->money($invoice->outstandingMinor()).' is still owed on '.$invoice->number.'.');
-
-                return;
-            }
+            $purpose = PaymentPurpose::Invoice;
         }
 
         // A subscription may only be paid by the member it belongs to.
@@ -235,14 +361,20 @@ class Form extends Component
             $subscriptionId = null;
         }
 
+        if ($invoice === null && $subscriptionId !== null) {
+            $purpose = PaymentPurpose::Plan;
+        }
+
         $result = app(RecordFeePayment::class)->handle(
             attributes: [
                 'club_id' => $member->primary_club_id,
                 'member_id' => $member->id,
                 'subscription_id' => $invoice === null ? $subscriptionId : null,
                 'invoice_id' => $invoice?->id,
+                'purpose' => $purpose->value,
                 'payer_name' => $member->name,
                 'amount_minor' => $money->minor,
+                'discount_minor' => $discountMinor,
                 'currency_code' => $organisation->currency_code,
                 'payment_method' => $validated['paymentMethod'],
                 'financial_account_id' => $validated['financialAccountId'],
@@ -333,6 +465,8 @@ class Form extends Component
             'selectedMember' => $selectedMember,
             'subscriptions' => $this->subscriptionsForMember(),
             'openInvoices' => $this->openInvoicesForMember(),
+            'admissionOutstanding' => $selectedMember?->admissionOutstandingMinor() ?? 0,
+            'targetOutstanding' => $this->targetOutstanding(),
             'methods' => PaymentMethod::cases(),
             'accounts' => auth()->user()?->can('select', FinancialAccount::class)
                 ? FinancialAccount::query()->where('status', FinancialAccountStatus::Active)->orderBy('name')->get()

@@ -74,9 +74,12 @@
                                         &middot; collected by {{ $payment->collectedBy?->user?->name ?? '—' }}
                                         &middot; {{ $payment->created_at?->diffForHumans() }}
                                     </p>
-                                    @if ($payment->subscription)
-                                        <p class="text-xs text-ink-muted">Plan: {{ $payment->subscription->plan->name }}</p>
-                                    @endif
+                                    <p class="text-xs text-ink-muted">
+                                        For: {{ $payment->purposeLabel() }}
+                                        @if ($payment->discount_minor > 0)
+                                            · includes a {{ $organisation->money($payment->discount_minor) }} discount
+                                        @endif
+                                    </p>
                                     @if ($payment->invoice)
                                         <p class="text-xs text-ink-muted">
                                             Invoice: <span class="font-mono">{{ $payment->invoice->number }}</span>

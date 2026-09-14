@@ -53,6 +53,43 @@
                 </div>
             </x-ui.card>
 
+            <x-ui.card title="Fees and discounts"
+                :description="'What joining this '.strtolower($organisation->term('club_singular')).' costs, and the standing discount its '.strtolower($organisation->term('member_plural')).' get on each plan. Discounts are prefilled when a plan is started and can be changed for the individual.'">
+                <div class="grid gap-4 sm:grid-cols-2">
+                    <x-ui.input wire:model="admissionFee" name="admissionFee" label="Admission fee" inputmode="decimal"
+                        :prefix="$organisation->currencySymbol()" placeholder="0.00"
+                        :hint="'Charged once when a '.strtolower($organisation->term('member_singular')).' joins. Leave empty for none.'" />
+                </div>
+
+                @if ($plans->isNotEmpty())
+                    <div class="mt-4 overflow-hidden rounded-lg border border-hairline">
+                        <table class="w-full text-sm">
+                            <thead class="bg-sunken text-left text-xs font-medium uppercase tracking-wide text-ink-muted">
+                                <tr>
+                                    <th class="px-3 py-2">Plan</th>
+                                    <th class="px-3 py-2 text-right">Price</th>
+                                    <th class="px-3 py-2">Discount</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-[var(--c-hairline)]">
+                                @foreach ($plans as $plan)
+                                    <tr>
+                                        <td class="px-3 py-2 text-ink">{{ $plan->name }}</td>
+                                        <td class="numeric px-3 py-2 text-right text-ink-soft">{{ $organisation->money($plan->price_minor) }}</td>
+                                        <td class="px-3 py-1.5">
+                                            <x-ui.input wire:model="planDiscounts.{{ $plan->id }}" name="planDiscounts.{{ $plan->id }}"
+                                                inputmode="decimal" :prefix="$organisation->currencySymbol()" placeholder="0.00" class="max-w-[10rem]" />
+                                        </td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+                @else
+                    <p class="mt-3 text-sm text-ink-muted">No active plans yet — add plans to set discounts on them here.</p>
+                @endif
+            </x-ui.card>
+
             <x-ui.card :title="'Assigned '.strtolower($organisation->term('user_plural'))"
                 :description="strtolower($organisation->term('user_plural')).' can be assigned to several '.strtolower($organisation->term('club_plural')).'. Unassigning keeps the history rather than deleting it.'">
                 @if ($availableUsers->isEmpty())

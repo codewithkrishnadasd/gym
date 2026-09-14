@@ -48,7 +48,8 @@ class Show extends Component
 
     public string $planStartDate = '';
 
-    public string $planAmount = '';
+    /** Discount on the plan, prefilled from the club's standing discount. */
+    public string $planDiscount = '';
 
     public ?string $lifecycleError = null;
 
@@ -64,6 +65,20 @@ class Show extends Component
         $this->planStartDate = Carbon::today($this->organisation()->timezone)->toDateString();
     }
 
+    /**
+     * Picking a plan prefills the club's standing discount on it; the
+     * operator can still change or clear it before starting.
+     */
+    public function updatedPlanId(mixed $value): void
+    {
+        $plan = $value ? Plan::query()->find((int) $value) : null;
+        $club = $this->member->primaryClub;
+
+        $this->planDiscount = $plan && $club && $club->discountFor($plan) > 0
+            ? (string) Money::ofMinor($club->discountFor($plan), $this->organisation()->currency_code)->major()
+            : '';
+    }
+
     public function startPlan(): void
     {
         $this->authorize('createFor', [MemberSubscription::class, $this->member]);
@@ -73,8 +88,8 @@ class Show extends Component
         $validated = $this->validate([
             'planId' => ['required', Rule::exists('plans', 'id')->where('organisation_id', $organisation->id)],
             'planStartDate' => ['nullable', 'date'],
-            'planAmount' => ['nullable', 'numeric', 'min:0'],
-        ], [], ['planId' => 'plan']);
+            'planDiscount' => ['nullable', 'numeric', 'min:0'],
+        ], [], ['planId' => 'plan', 'planDiscount' => 'discount']);
 
         if ($this->member->primary_club_id === null) {
             $this->addError('planId', 'Assign a '.strtolower($organisation->term('club_singular')).' before starting a plan.');
@@ -85,22 +100,28 @@ class Show extends Component
         /** @var Plan $plan */
         $plan = Plan::query()->findOrFail($validated['planId']);
 
-        $amountDue = $validated['planAmount'] !== null && $validated['planAmount'] !== ''
-            ? Money::parseMajor((string) $validated['planAmount'], $organisation->currency_code)?->minor
+        $discount = $validated['planDiscount'] !== null && $validated['planDiscount'] !== ''
+            ? Money::parseMajor((string) $validated['planDiscount'], $organisation->currency_code)?->minor
             : null;
+
+        if ($discount !== null && $discount > $plan->price_minor) {
+            $this->addError('planDiscount', 'The discount cannot be more than the plan price of '.$organisation->money($plan->price_minor).'.');
+
+            return;
+        }
 
         $subscription = app(CreateSubscription::class)->handle(
             member: $this->member,
             plan: $plan,
             actor: $this->currentMembership(),
             startDate: $validated['planStartDate'] ? Carbon::parse($validated['planStartDate']) : null,
-            amountDueMinor: $amountDue,
+            discountMinor: $discount,
         );
 
         $this->showNotification($this->latestSubscriptionNotification($subscription->id));
 
-        $this->reset(['planId', 'planAmount']);
-        $this->dispatch('close-modal');
+        $this->reset(['planId', 'planDiscount']);
+        $this->dispatch('close-modal', 'start-plan');
 
         session()->flash('status', "\"{$plan->name}\" started for {$this->member->name}.");
     }
@@ -243,9 +264,12 @@ class Show extends Component
             'attendanceRate' => $attendance->isEmpty() ? 0 : (int) round($presentMarks / $attendance->count() * 100),
             'presentMarks' => $presentMarks,
             'totalPaid' => (int) $confirmed->sum('amount_minor'),
+            // Plan balances plus whatever is left of the admission fee: the
+            // one figure the desk needs when the member walks in.
             'outstanding' => (int) $subscriptions
                 ->whereIn('status', [SubscriptionStatus::Active, SubscriptionStatus::Expired])
-                ->sum(fn (MemberSubscription $s): int => max(0, $s->amount_due_minor - $s->amount_paid_minor)),
+                ->sum(fn (MemberSubscription $s): int => $s->outstandingMinor())
+                + $this->member->admissionOutstandingMinor(),
             'clubHistory' => $this->member->clubHistory()->with(['fromClub:id,name', 'toClub:id,name', 'changedBy.user:id,name'])
                 ->orderByDesc('changed_at')->get(),
             'availablePlans' => Plan::query()->where('status', PlanStatus::Active)->orderBy('name')->get(),

@@ -50,7 +50,7 @@ class ExportController extends Controller
         return StreamedCsv::respond(
             $this->filename($organisation, 'payments', $period),
             ['Payment ID', 'Date', $organisation->term('member_singular'), 'Phone', $organisation->term('club_singular'),
-                'Plan', 'Method', 'Account', 'Reference', 'Amount ('.$organisation->currency_code.')', 'Status', 'Collected by', 'Confirmed at'],
+                'For', 'Method', 'Account', 'Reference', 'Amount ('.$organisation->currency_code.')', 'Discount ('.$organisation->currency_code.')', 'Status', 'Collected by', 'Confirmed at'],
             fn (): Generator => $this->paymentRows($query, $organisation),
             $this->preamble($organisation, 'Payments', $period, $clubIds),
         );
@@ -151,11 +151,12 @@ class ExportController extends Controller
                 $member->name,
                 $member->phone,
                 $club->name,
-                $payment->subscription?->plan->name ?? '',
+                $payment->purposeLabel(),
                 $payment->payment_method->label(),
                 $payment->financialAccount->name ?? '',
                 $payment->transaction_reference ?? '',
                 Money::ofMinor($payment->amount_minor, $payment->currency_code)->formatPlain($organisation->locale),
+                Money::ofMinor($payment->discount_minor, $payment->currency_code)->formatPlain($organisation->locale),
                 $payment->confirmation_status->label(),
                 $payment->collectedBy->user->name ?? '',
                 $payment->confirmed_at?->toDateTimeString() ?? '',

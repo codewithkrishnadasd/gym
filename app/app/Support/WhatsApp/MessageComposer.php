@@ -73,6 +73,8 @@ final class MessageComposer
             NotificationActionType::FeePaymentConfirmed => [
                 'amount' => 'The amount received, formatted in your currency',
                 'planName' => 'The plan the payment was applied to',
+                'purpose' => 'What the payment settled: the plan, invoice number, or "Admission fee"',
+                'discount' => 'The discount given with this payment, if any',
                 'clubName' => 'The club the payment belongs to',
                 'paymentDate' => 'The date of payment',
                 'endDate' => 'The date the plan is valid until',
@@ -267,6 +269,8 @@ final class MessageComposer
             'amount' => $organisation->money(400000),
             'paymentDate' => now($organisation->timezone)->format('d M Y'),
             'reference' => 'REF001234',
+            'purpose' => 'Quarterly',
+            'discount' => $organisation->money(50000),
             'invoiceNumber' => $organisation->idPrefix('invoice').'-'.now($organisation->timezone)->format('Y').'-0042',
             'balanceDue' => $organisation->money(150000),
             'items' => '4 × Personal training, Locker rental',
