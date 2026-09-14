@@ -25,6 +25,7 @@
         .void { background: #fee2e2; color: #991b1b; }
         .payments th { text-align: left; border-bottom: 1px solid #d1d5db; padding: 5px 0; color: #6b7280; font-size: 10px; text-transform: uppercase; }
         .payments td { padding: 5px 0; border-bottom: 1px solid #f3f4f6; }
+        .logo { height: 44px; max-width: 160px; margin-bottom: 8px; display: block; }
         .footer { margin-top: 26px; padding-top: 12px; border-top: 1px solid #e5e7eb; font-size: 10px; color: #6b7280; }
         .notes { margin-top: 16px; padding: 10px 12px; background: #f9fafb; }
     </style>
@@ -33,6 +34,9 @@
     <table class="header">
         <tr>
             <td>
+                @if ($logo = $organisation->logoDataUri())
+                    <img src="{{ $logo }}" alt="" class="logo">
+                @endif
                 <h1>{{ $organisation->name }}</h1>
                 <div class="muted">
                     {{ collect([$organisation->contact_phone, $organisation->contact_email, $organisation->address['line1'] ?? null])->filter()->implode(' · ') }}

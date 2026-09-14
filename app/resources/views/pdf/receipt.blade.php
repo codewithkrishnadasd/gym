@@ -23,6 +23,7 @@
         .confirmed { background: #d1fae5; color: #065f46; }
         .pending { background: #fef3c7; color: #92400e; }
         .void { background: #fee2e2; color: #991b1b; }
+        .logo { height: 44px; max-width: 160px; margin-bottom: 8px; display: block; }
         .footer { margin-top: 26px; padding-top: 12px; border-top: 1px solid #e5e7eb; font-size: 10px; color: #6b7280; }
     </style>
 </head>
@@ -30,6 +31,9 @@
     <table class="header">
         <tr>
             <td>
+                @if ($logo = $organisation->logoDataUri())
+                    <img src="{{ $logo }}" alt="" class="logo">
+                @endif
                 <h1>{{ $organisation->name }}</h1>
                 <div class="muted">
                     {{ collect([$organisation->contact_phone, $organisation->contact_email])->filter()->implode(' · ') }}

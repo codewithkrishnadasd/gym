@@ -14,6 +14,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Facades\Storage;
 
 #[Fillable([
     'name', 'slug', 'logo_path', 'favicon_path', 'accent_color', 'theme_colors', 'id_prefixes', 'status', 'timezone', 'currency_code', 'locale',
@@ -218,6 +219,37 @@ class Organisation extends Model
     public function faviconUrl(): ?string
     {
         return $this->brandingUrl('tenant.branding.favicon', $this->favicon_path);
+    }
+
+    /**
+     * The logo inlined as a data URI, for PDFs. Dompdf renders documents
+     * without a browser session, so the logo route would answer with nothing
+     * useful; embedding the bytes keeps the document self-contained.
+     */
+    public function logoDataUri(): ?string
+    {
+        if ($this->logo_path === null) {
+            return null;
+        }
+
+        $disk = Storage::disk(config('filesystems.default'));
+
+        if (! $disk->exists($this->logo_path)) {
+            return null;
+        }
+
+        $bytes = $disk->get($this->logo_path);
+
+        if ($bytes === null || $bytes === '') {
+            return null;
+        }
+
+        $mime = match (strtolower(pathinfo($this->logo_path, PATHINFO_EXTENSION))) {
+            'jpg', 'jpeg' => 'image/jpeg',
+            default => 'image/png',
+        };
+
+        return 'data:'.$mime.';base64,'.base64_encode($bytes);
     }
 
     /**

@@ -14,6 +14,7 @@ use App\Models\Organisation;
 use App\Models\OrganisationUser;
 use App\Models\User;
 use App\Models\WhatsappActionNotification;
+use Illuminate\Support\Facades\Storage;
 
 /**
  * Shareable invoice and receipt links: open without signing in, preview the
@@ -137,4 +138,30 @@ it('shows the share panel on the invoice page and hides it once void', function 
     $invoice->forceFill(['status' => 'void'])->save();
 
     $this->get('http://links.test/billing/'.$invoice->id)->assertOk()->assertDontSee('Share with the member');
+});
+
+it('prints the organisation logo on invoices and receipts', function (): void {
+    Storage::fake(config('filesystems.default'));
+
+    // A 1×1 PNG, enough to be a real image for the PDF renderer.
+    $png = base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==', true);
+    Storage::disk(config('filesystems.default'))->put('branding/logo.png', (string) $png);
+    $this->organisation->update(['logo_path' => 'branding/logo.png']);
+
+    $invoice = issueOne();
+
+    expect($this->organisation->fresh()?->logoDataUri())->toStartWith('data:image/png;base64,');
+
+    $html = view('pdf.invoice', ['organisation' => $this->organisation->fresh(), 'invoice' => $invoice->load('lines', 'member', 'club', 'payments')])->render();
+
+    expect($html)->toContain('<img src="data:image/png;base64,')->toContain('class="logo"');
+
+    // And the rendered PDF still comes out.
+    auth()->logout();
+    $this->get($invoice->publicUrl().'/pdf')->assertOk()->assertHeader('Content-Type', 'application/pdf');
+
+    // Without a logo nothing is printed in its place.
+    $this->organisation->update(['logo_path' => null]);
+
+    expect(view('pdf.invoice', ['organisation' => $this->organisation->fresh(), 'invoice' => $invoice])->render())->not->toContain('class="logo"');
 });
