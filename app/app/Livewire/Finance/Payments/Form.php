@@ -122,6 +122,18 @@ class Form extends Component
         $this->useCredit = false;
         $this->creditAmount = '';
 
+        $this->applyTarget($target);
+
+        // Unlinked money is used first: as much of the amount as the credit
+        // can cover comes from it, and only the rest is collected now.
+        if ($this->target !== 'other' && $this->availableCredit() > 0) {
+            $this->useCredit = true;
+            $this->refillCredit();
+        }
+    }
+
+    private function applyTarget(string $target): void
+    {
         if ($target === 'admission' && $this->admissionOutstanding() > 0) {
             $this->target = 'admission';
             $this->subscriptionId = null;
@@ -176,13 +188,45 @@ class Form extends Component
             return;
         }
 
-        $organisation = $this->organisation();
-        $outstanding = $this->targetOutstanding() ?? 0;
-        $amount = Money::parseMajor($this->amount !== '' ? $this->amount : '0', $organisation->currency_code)->minor ?? 0;
-        $discount = Money::parseMajor($this->discount !== '' ? $this->discount : '0', $organisation->currency_code)->minor ?? 0;
-        $room = max(0, $outstanding - $amount - $discount);
+        $this->refillCredit();
+    }
 
-        $this->creditAmount = $this->major(min($room, $this->availableCredit()));
+    /**
+     * The credit follows the amount: whatever is being paid, the unlinked
+     * money covers as much of it as it can and the rest is collected now.
+     */
+    public function updatedAmount(): void
+    {
+        if ($this->useCredit) {
+            $this->refillCredit();
+        }
+    }
+
+    /**
+     * How much of the amount is covered by unlinked money: the whole amount
+     * when there is enough credit, otherwise everything that is available.
+     */
+    private function refillCredit(): void
+    {
+        $this->creditAmount = $this->major(min($this->amountMinor(), $this->availableCredit()));
+    }
+
+    private function amountMinor(): int
+    {
+        return Money::parseMajor($this->amount !== '' ? $this->amount : '0', $this->organisation()->currency_code)->minor ?? 0;
+    }
+
+    /**
+     * Money actually changing hands now: the amount less what unlinked credit
+     * covers. Shown on the form so the desk knows what to take.
+     */
+    public function receivedNowMinor(): int
+    {
+        $credit = $this->useCredit
+            ? (Money::parseMajor($this->creditAmount !== '' ? $this->creditAmount : '0', $this->organisation()->currency_code)->minor ?? 0)
+            : 0;
+
+        return max(0, $this->amountMinor() - $credit);
     }
 
     private function availableCredit(): int
@@ -357,10 +401,17 @@ class Form extends Component
             return;
         }
 
-        // Nothing handed over, nothing written off and nothing applied is
-        // not a payment.
-        if ($money->minor + $discountMinor + $creditMinor <= 0) {
-            $this->addError('amount', 'Enter an amount received, a discount, credit to apply, or a combination.');
+        // The amount is what is being paid in total; the credit is the part of
+        // it that unlinked money covers, so it can never be more than the amount.
+        if ($creditMinor > $money->minor) {
+            $this->addError('creditAmount', 'The unlinked money applied cannot be more than the amount being paid.');
+
+            return;
+        }
+
+        // Nothing paid and nothing written off is not a payment.
+        if ($money->minor + $discountMinor <= 0) {
+            $this->addError('amount', 'Enter an amount, a discount, or both.');
 
             return;
         }
@@ -383,6 +434,9 @@ class Form extends Component
             }
         }
 
+        // What actually changes hands now.
+        $receivedMinor = $money->minor - $creditMinor;
+
         $purpose = PaymentPurpose::Other;
 
         if ($this->target === 'admission') {
@@ -400,10 +454,9 @@ class Form extends Component
         // with no way to express a refund.
         $outstanding = $this->targetOutstanding();
 
-        if ($outstanding !== null && $money->minor + $discountMinor + $creditMinor > $outstanding) {
-            $field = $creditMinor > 0 ? 'creditAmount' : ($discountMinor > 0 ? 'discount' : 'amount');
-            $this->addError($field, 'Only '.$organisation->money($outstanding).' is still owed here'
-                .($discountMinor > 0 || $creditMinor > 0 ? ' — the amount, discount and applied credit together exceed it.' : '.'));
+        if ($outstanding !== null && $money->minor + $discountMinor > $outstanding) {
+            $this->addError($discountMinor > 0 ? 'discount' : 'amount', 'Only '.$organisation->money($outstanding).' is still owed here'
+                .($discountMinor > 0 ? ' — the amount and discount together exceed it.' : '.'));
 
             return;
         }
@@ -452,7 +505,7 @@ class Form extends Component
                 'invoice_id' => $invoice?->id,
                 'purpose' => $purpose->value,
                 'payer_name' => $member->name,
-                'amount_minor' => $money->minor,
+                'amount_minor' => $receivedMinor,
                 'discount_minor' => $discountMinor,
                 'credit_applied_minor' => $creditMinor,
                 'currency_code' => $organisation->currency_code,
@@ -548,6 +601,7 @@ class Form extends Component
             'admissionOutstanding' => $selectedMember?->admissionOutstandingMinor() ?? 0,
             'targetOutstanding' => $this->targetOutstanding(),
             'availableCredit' => $selectedMember?->unlinkedCreditMinor() ?? 0,
+            'receivedNow' => $this->receivedNowMinor(),
             'methods' => PaymentMethod::cases(),
             'accounts' => auth()->user()?->can('select', FinancialAccount::class)
                 ? FinancialAccount::query()->where('status', FinancialAccountStatus::Active)->orderBy('name')->get()

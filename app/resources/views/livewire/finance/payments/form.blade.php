@@ -87,8 +87,9 @@
                         <option value="other">Not linked to anything</option>
                     </x-ui.select>
 
-                    <x-ui.input wire:model="amount" name="amount" label="Amount" required inputmode="decimal"
-                        :prefix="$organisation->currencySymbol()" placeholder="0.00" />
+                    <x-ui.input wire:model.live.debounce.400ms="amount" name="amount" label="Amount" required inputmode="decimal"
+                        :prefix="$organisation->currencySymbol()" placeholder="0.00"
+                        :hint="$useCredit ? 'Being paid in total. Unlinked money covers part of it — see below for what to collect now.' : null" />
 
                     <x-ui.input wire:model="discount" name="discount" label="Discount" inputmode="decimal"
                         :prefix="$organisation->currencySymbol()" placeholder="0.00"
@@ -102,13 +103,20 @@
                         <div class="sm:col-span-2 rounded-lg border border-info/25 bg-info-soft p-3">
                             <x-ui.checkbox wire:model.live="useCredit"
                                 :label="'Use money already paid without a link — '.$organisation->money($availableCredit).' available'"
-                                description="Puts earlier unlinked payments towards this. It counts as paid, not as a discount, and is not counted as revenue again." />
+                                description="Covers as much of the amount as it can; only the rest is collected now. It counts as paid, not as a discount, and is not counted as revenue again." />
 
                             @if ($useCredit)
-                                <div class="mt-3 max-w-xs">
-                                    <x-ui.input wire:model="creditAmount" name="creditAmount" label="Amount to apply" inputmode="decimal"
+                                <div class="mt-3 grid gap-3 sm:grid-cols-2">
+                                    <x-ui.input wire:model.live.debounce.400ms="creditAmount" name="creditAmount" label="Amount to apply" inputmode="decimal"
                                         :prefix="$organisation->currencySymbol()" placeholder="0.00"
-                                        :hint="'Up to '.$organisation->money($availableCredit).'. Amount, discount and this together may not exceed what is owed.'" />
+                                        :hint="'Up to '.$organisation->money($availableCredit).', and never more than the amount.'" />
+
+                                    {{-- The figure the desk actually needs: what to take from the member. --}}
+                                    <div class="rounded-lg border border-hairline bg-surface px-3 py-2">
+                                        <p class="text-[13px] font-medium text-ink-soft">To collect now</p>
+                                        <p class="numeric mt-1 font-[family-name:var(--font-display)] text-xl font-semibold text-ink">{{ $organisation->money($receivedNow) }}</p>
+                                        <p class="text-xs text-ink-muted">amount − unlinked money applied</p>
+                                    </div>
                                 </div>
                             @endif
                         </div>
