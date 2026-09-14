@@ -20,11 +20,9 @@
     <div class="hidden h-5 w-px bg-hairline sm:block"></div>
 
     <div class="flex min-w-0 flex-1 items-center gap-1.5 sm:flex-none">
-        <input type="date" wire:model.live="from" aria-label="From date"
-            class="numeric min-h-[36px] min-w-0 flex-1 rounded-lg border border-hairline-strong bg-surface px-2.5 text-[13px] text-ink-soft focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25 max-lg:min-h-[44px] sm:flex-none">
+        <x-ui.date-input bare size="sm" wire:model.live="from" aria-label="From date" class="min-w-0 flex-1 sm:w-36 sm:flex-none" />
         <span class="shrink-0 text-xs text-ink-muted">to</span>
-        <input type="date" wire:model.live="to" aria-label="To date"
-            class="numeric min-h-[36px] min-w-0 flex-1 rounded-lg border border-hairline-strong bg-surface px-2.5 text-[13px] text-ink-soft focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25 max-lg:min-h-[44px] sm:flex-none">
+        <x-ui.date-input bare size="sm" wire:model.live="to" aria-label="To date" class="min-w-0 flex-1 sm:w-36 sm:flex-none" />
     </div>
 
     @if ($clubs && $clubs->count() > 1)

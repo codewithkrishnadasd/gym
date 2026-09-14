@@ -25,13 +25,11 @@
         <x-ui.filters search="search" placeholder="Search actions…">
             <label class="flex items-center gap-1.5 text-xs text-ink-muted">
                 <span class="sr-only sm:not-sr-only">From</span>
-                <input type="date" wire:model.live="from" aria-label="From date"
-                    class="numeric min-h-[40px] rounded-lg border border-hairline-strong bg-surface px-2.5 text-sm text-ink-soft focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25 max-lg:min-h-[44px]">
+                <x-ui.date-input bare wire:model.live="from" aria-label="From date" class="w-40" />
             </label>
             <label class="flex items-center gap-1.5 text-xs text-ink-muted">
                 <span class="sr-only sm:not-sr-only">To</span>
-                <input type="date" wire:model.live="to" aria-label="To date"
-                    class="numeric min-h-[40px] rounded-lg border border-hairline-strong bg-surface px-2.5 text-sm text-ink-soft focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25 max-lg:min-h-[44px]">
+                <x-ui.date-input bare wire:model.live="to" aria-label="To date" class="w-40" />
             </label>
 
             <x-ui.filter-select wire:model.live="entityType" label="Record type">

@@ -39,8 +39,7 @@
 
                         <label class="relative flex-1">
                             <span class="sr-only">Attendance date</span>
-                            <input type="date" wire:model.live="date"
-                                class="numeric min-h-[40px] w-full rounded-lg border border-hairline-strong bg-surface px-3 text-sm text-ink focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25 max-lg:min-h-[44px]">
+                            <x-ui.date-input bare wire:model.live="date" aria-label="Attendance date" class="w-full" />
                         </label>
 
                         <x-ui.button size="icon" variant="secondary" wire:click="shiftDate(1)" aria-label="Next day">

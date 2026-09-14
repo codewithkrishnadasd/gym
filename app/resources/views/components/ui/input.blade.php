@@ -17,6 +17,11 @@
      the control explicitly — otherwise plain HTML forms would submit no
      value for this field at all. --}}
 
+@if ($type === 'date')
+    {{-- Every date in the app is entered as dd/mm/yyyy, whatever the browser
+         would do with a native date input. --}}
+    <x-ui.date-input :label="$label" :name="$name" :hint="$hint" :required="$required" :id="$id" {{ $attributes }} />
+@else
 <x-ui.field :label="$label" :for="$id" :hint="$hint" :name="$name" :required="$required">
     <div class="relative">
         @if ($prefix)
@@ -39,3 +44,4 @@
             ]) }}>
     </div>
 </x-ui.field>
+@endif
