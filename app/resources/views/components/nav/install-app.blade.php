@@ -10,7 +10,9 @@
 --}}
 <div
     x-data="{
-        prompt: null,
+        // Read from the window on init: the event has usually already fired and
+        // been parked there by the head script before Alpine ever runs.
+        prompt: window.installPrompt ?? null,
         installing: false,
         get available() {
             return this.prompt !== null;
@@ -31,8 +33,8 @@
             this.installing = false;
         },
     }"
-    x-on:beforeinstallprompt.window.prevent="prompt = $event"
-    x-on:appinstalled.window="prompt = null"
+    x-on:install-available.window="prompt = window.installPrompt"
+    x-on:install-completed.window="prompt = null"
     x-show="available"
     x-cloak
     class="px-3 pb-2">

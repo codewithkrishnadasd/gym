@@ -1,12 +1,23 @@
-@php $accent = (($tenant ?? null)?->accentCss()); @endphp
+@php
+    $tenantOrg = $tenant ?? null;
+    $accent = $tenantOrg?->accentCss();
+@endphp
 <!DOCTYPE html>
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{{ $title ?? ($heading ?? config('app.name')) }}</title>
-    @if (($tenant ?? null)?->faviconUrl())
-        <link rel="icon" href="{{ $tenant->faviconUrl() }}">
+    @if ($tenantOrg)
+        {{-- Branded even before sign-in: the login page is the first thing a
+             member sees, and it is also a page Chrome can offer to install
+             from, so it carries the manifest as well as the icons. --}}
+        <link rel="icon" href="{{ $tenantOrg->tabIconUrl() }}">
+        <link rel="apple-touch-icon" href="{{ route('tenant.branding.app-icon', ['size' => 192]) }}">
+        <link rel="manifest" href="{{ route('tenant.manifest') }}">
+        <meta name="theme-color" content="{{ $tenantOrg->accent_color ?: \App\Support\Theme\AccentPalette::DEFAULT_ACCENT }}">
+        <meta name="apple-mobile-web-app-capable" content="yes">
+        <x-install-script />
     @endif
 
     <x-theme-script />
@@ -24,7 +35,7 @@
         <div class="flex flex-1 items-center justify-center px-4 py-10 sm:px-6">
             <div class="w-full max-w-sm">
                 <div class="mb-6 text-center">
-                    @if (($tenant ?? null)?->logoUrl())
+                    @if ($tenantOrg?->logoUrl())
                         <img src="{{ $tenant->logoUrl() }}" alt="{{ $tenant->name }}"
                             class="mx-auto mb-3 h-11 w-11 rounded-xl bg-sunken object-contain p-1">
                     @else

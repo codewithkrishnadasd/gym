@@ -218,6 +218,22 @@ class Organisation extends Model
         return $this->brandingUrl('tenant.branding.favicon', $this->favicon_path);
     }
 
+    /**
+     * The icon for the browser tab, which every organisation gets whether or
+     * not it has uploaded anything: the uploaded favicon when there is one, and
+     * otherwise the generated mark in the organisation's accent colour.
+     *
+     * Falling back to nothing meant a gym that had set its colours but not yet
+     * uploaded a logo still showed the browser's blank default in the tab.
+     */
+    public function tabIconUrl(): string
+    {
+        return $this->faviconUrl() ?? route('tenant.branding.app-icon', [
+            'size' => 64,
+            'v' => substr(md5((string) $this->accent_color), 0, 8),
+        ]);
+    }
+
     private function brandingUrl(string $route, ?string $path): ?string
     {
         return $path === null ? null : route($route, ['v' => substr(md5($path), 0, 8)]);

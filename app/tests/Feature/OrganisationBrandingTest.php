@@ -101,3 +101,45 @@ it('rejects a file that is not an image', function (): void {
 it('returns 404 for branding an organisation has not set', function (): void {
     $this->get('http://branding.test/branding/logo')->assertNotFound();
 });
+
+it('brands the sign-in page with the logo, favicon and accent', function (): void {
+    $this->organisation->update(['accent_color' => '#b91c1c']);
+
+    Livewire::test(OrganisationSettings::class)
+        ->set('brandImage', UploadedFile::fake()->image('logo.png', 400, 400));
+
+    auth('web')->logout();
+
+    $this->get('http://branding.test/')
+        ->assertOk()
+        ->assertSee('branding/logo', escape: false)
+        ->assertSee('rel="icon"', escape: false)
+        ->assertSee('--c-accent:#b91c1c', escape: false);
+});
+
+it('still gives a tab icon to an organisation with no logo uploaded', function (): void {
+    $this->organisation->update(['accent_color' => '#7c3aed']);
+
+    auth('web')->logout();
+
+    // Falls back to the generated mark in the accent colour, so the tab is
+    // branded from day one rather than showing the browser's blank default.
+    $this->get('http://branding.test/')
+        ->assertOk()
+        ->assertSee('branding/app-icon', escape: false);
+
+    $response = $this->get('http://branding.test/branding/app-icon?size=64')->assertOk();
+
+    expect(imagesx(imagecreatefromstring($response->getContent())))->toBe(64);
+});
+
+it('lets Chrome offer the install from the sign-in page too', function (): void {
+    auth('web')->logout();
+
+    // Installability is judged per page; without a manifest here, someone who
+    // is not signed in could never install.
+    $this->get('http://branding.test/')
+        ->assertOk()
+        ->assertSee('rel="manifest"', escape: false)
+        ->assertSee("addEventListener('beforeinstallprompt'", escape: false);
+});

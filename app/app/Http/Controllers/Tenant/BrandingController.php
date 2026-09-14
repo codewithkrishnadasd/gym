@@ -28,7 +28,10 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 class BrandingController extends Controller
 {
     /** Sizes Chrome expects for an installable app. */
-    private const ICON_SIZES = [192, 512];
+    private const MANIFEST_ICON_SIZES = [192, 512];
+
+    /** Every size the icon route will render — 64 is the browser-tab fallback. */
+    private const ICON_SIZES = [64, 192, 512];
 
     public function logo(): StreamedResponse
     {
@@ -104,11 +107,16 @@ class BrandingController extends Controller
             // The icon is drawn full-bleed with its mark inside the safe zone,
             // so it can be masked into a circle or squircle without cropping.
             'purpose' => 'any maskable',
-        ], self::ICON_SIZES);
+        ], self::MANIFEST_ICON_SIZES);
 
         return response()->json([
             'name' => $organisation->name,
-            'short_name' => Str::limit($organisation->name, 12, ''),
+            // What fits under a dock or home-screen icon. Cut at a word rather
+            // than mid-syllable: "PowerHouse Gym" becomes "PowerHouse", not
+            // "PowerHouse G".
+            'short_name' => Str::length($organisation->name) <= 12
+                ? $organisation->name
+                : Str::limit(Str::words($organisation->name, 1, ''), 12, ''),
             'description' => 'Member, attendance, and fee management for '.$organisation->name.'.',
             // Opens on the dashboard rather than the sign-in page: an installed
             // app that always lands on a login form feels broken to someone who
@@ -120,7 +128,10 @@ class BrandingController extends Controller
             'theme_color' => $accent,
             'background_color' => '#080d18',
             'icons' => $icons,
-        ], 200, ['Cache-Control' => 'public, max-age=3600']);
+        ], 200, [
+            'Content-Type' => 'application/manifest+json',
+            'Cache-Control' => 'public, max-age=3600',
+        ]);
     }
 
     /**

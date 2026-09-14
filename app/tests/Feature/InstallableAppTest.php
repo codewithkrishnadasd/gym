@@ -118,3 +118,22 @@ it('offers nothing to install on the platform console', function (): void {
         ->assertDontSee('rel="manifest"', escape: false)
         ->assertDontSee('Install as app');
 });
+
+it('parks the install event in the head, before Alpine could miss it', function (): void {
+    $html = (string) $this->actingAs($this->user)
+        ->get('http://install.test/dashboard')->assertOk()->getContent();
+
+    $headEnd = strpos($html, '</head>');
+    $capture = strpos($html, "addEventListener('beforeinstallprompt'");
+
+    // Chrome fires the event as soon as criteria are met, which is before
+    // Livewire has loaded Alpine at the end of the body. A listener registered
+    // inside an Alpine component never sees it and the button never appears.
+    expect($capture)->not->toBeFalse()
+        ->and($capture)->toBeLessThan($headEnd);
+});
+
+it('shortens the app name at a word boundary', function (): void {
+    expect($this->get('http://install.test/manifest.webmanifest')->json('short_name'))
+        ->toBe('PowerHouse');
+});

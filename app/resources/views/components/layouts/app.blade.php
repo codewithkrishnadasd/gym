@@ -18,7 +18,7 @@
     $brandName = $isPlatform ? 'Platform' : ($organisation->name ?? config('app.name'));
     $brandInitial = mb_strtoupper(mb_substr($brandName, 0, 1));
     $brandLogoUrl = $isPlatform ? null : $organisation?->logoUrl();
-    $faviconUrl = $isPlatform ? null : $organisation?->faviconUrl();
+    $faviconUrl = $isPlatform ? null : $organisation?->tabIconUrl();
     $accent = $isPlatform ? null : $organisation?->accentCss();
     $pageTitle = $heading ?? ($isPlatform ? 'Root console' : 'Dashboard');
 
@@ -45,6 +45,7 @@
         <meta name="theme-color" content="{{ $organisation?->accent_color ?: \App\Support\Theme\AccentPalette::DEFAULT_ACCENT }}">
         <meta name="apple-mobile-web-app-capable" content="yes">
         <link rel="apple-touch-icon" href="{{ route('tenant.branding.app-icon', ['size' => 192]) }}">
+        <x-install-script />
     @endunless
 
     <x-theme-script />
