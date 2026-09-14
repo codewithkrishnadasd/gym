@@ -77,6 +77,15 @@ Route::post('/login', [TenantAuthController::class, 'login'])->name('tenant.logi
 // two paths held on the organisation record are reachable.
 Route::get('/branding/logo', [BrandingController::class, 'logo'])->name('tenant.branding.logo');
 Route::get('/branding/favicon', [BrandingController::class, 'favicon'])->name('tenant.branding.favicon');
+Route::get('/branding/app-icon', [BrandingController::class, 'appIcon'])->name('tenant.branding.app-icon');
+
+// Installable-app plumbing. All unauthenticated, because a browser fetches the
+// manifest and registers the worker without sending the session along.
+Route::get('/manifest.webmanifest', [BrandingController::class, 'manifest'])->name('tenant.manifest');
+
+// Served from the root so its scope can cover the whole site; a worker at a
+// deeper path may only control that subtree.
+Route::get('/sw.js', [BrandingController::class, 'serviceWorker'])->name('tenant.service-worker');
 
 // Redeeming a password reset link. Throttled per IP: the token is 256 bits, so
 // this is about keeping a scanner from generating load, not about guessability.

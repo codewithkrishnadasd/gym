@@ -311,3 +311,20 @@ document.addEventListener(
     },
     true,
 );
+
+/**
+ * Registers the service worker, which is the last thing Chrome requires before
+ * it will offer to install the site as an app.
+ *
+ * The worker itself caches nothing — see BrandingController::serviceWorker().
+ * Registration is skipped on an insecure origin, where the API does not exist,
+ * and on the platform console, which has no manifest to install.
+ */
+if ('serviceWorker' in navigator && window.isSecureContext && document.querySelector('link[rel="manifest"]')) {
+    window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch(() => {
+            // An unavailable worker costs the install button and nothing else,
+            // so a failure here must never surface to the operator.
+        });
+    });
+}

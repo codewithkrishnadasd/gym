@@ -37,6 +37,16 @@
         <link rel="icon" href="{{ $faviconUrl }}">
     @endif
 
+    @unless ($isPlatform)
+        {{-- What makes Chrome offer to install this as a desktop app. Only on
+             tenant domains: the platform console is an operator tool, not
+             something anyone installs. --}}
+        <link rel="manifest" href="{{ route('tenant.manifest') }}">
+        <meta name="theme-color" content="{{ $organisation?->accent_color ?: \App\Support\Theme\AccentPalette::DEFAULT_ACCENT }}">
+        <meta name="apple-mobile-web-app-capable" content="yes">
+        <link rel="apple-touch-icon" href="{{ route('tenant.branding.app-icon', ['size' => 192]) }}">
+    @endunless
+
     <x-theme-script />
 
     @vite(['resources/css/app.css', 'resources/js/app.js'])
@@ -70,6 +80,10 @@
                     </div>
                 @endforeach
             </nav>
+
+            @unless ($isPlatform)
+                <x-nav.install-app />
+            @endunless
 
             <x-nav.account :account="$account" :role-label="$roleLabel" :is-platform="$isPlatform" />
         </aside>
@@ -107,6 +121,10 @@
                         </div>
                     @endforeach
                 </nav>
+
+                @unless ($isPlatform)
+                    <x-nav.install-app />
+                @endunless
 
                 <x-nav.account :account="$account" :role-label="$roleLabel" :is-platform="$isPlatform" />
             </div>
