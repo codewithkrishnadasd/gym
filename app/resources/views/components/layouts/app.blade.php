@@ -62,7 +62,7 @@
 <body class="min-h-screen bg-app font-sans text-ink antialiased" data-no-progress-bar>
     <div x-data="{ drawer: false }" @keydown.escape.window="drawer = false">
         {{-- ===== Desktop sidebar ===== --}}
-        <aside class="fixed inset-y-0 left-0 z-30 hidden w-64 flex-col border-r border-hairline bg-surface lg:flex">
+        <aside class="nav-sidebar fixed inset-y-0 left-0 z-30 hidden w-64 flex-col border-r border-hairline bg-surface lg:flex">
             <x-nav.brand :name="$brandName" :initial="$brandInitial" :is-platform="$isPlatform" :logo-url="$brandLogoUrl" />
 
             <nav class="flex-1 space-y-6 overflow-y-auto px-3 py-4" aria-label="Main">
@@ -132,16 +132,25 @@
         </div>
 
         {{-- ===== Main column ===== --}}
-        <div class="lg:pl-64">
+        <div class="nav-shell lg:pl-64">
             <header class="sticky top-0 z-20 flex h-14 items-center gap-2 border-b border-hairline bg-surface/85 px-3 backdrop-blur-md sm:px-6">
-                <button type="button" @click="drawer = true" aria-label="Open navigation"
-                    class="-ml-1 grid h-11 w-11 place-items-center rounded-lg text-ink-soft transition hover:bg-sunken hover:text-ink lg:hidden">
+                {{-- Side-menu style: the hamburger opens the drawer on phones.
+                     Launcher style: it opens the full-screen menu everywhere. --}}
+                <button type="button" @click="document.documentElement.dataset.nav === 'launcher' ? $dispatch('open-launcher') : drawer = true" aria-label="Open navigation"
+                    class="nav-hamburger -ml-1 grid h-11 w-11 place-items-center rounded-lg text-ink-soft transition hover:bg-sunken hover:text-ink lg:hidden">
                     <x-heroicon-o-bars-3 class="h-5.5 w-5.5" />
                 </button>
 
-                <span class="truncate font-[family-name:var(--font-display)] text-sm font-semibold lg:hidden">
+                <span class="nav-brand-inline truncate font-[family-name:var(--font-display)] text-sm font-semibold lg:hidden">
                     {{ $brandName }}
                 </span>
+
+                {{-- Launcher style only: the Menu button on wider screens. --}}
+                <button type="button" @click="$dispatch('open-launcher')"
+                    class="nav-launcher-button hidden items-center gap-2 rounded-lg border border-hairline bg-surface px-3 py-1.5 text-sm font-medium text-ink-soft transition hover:bg-sunken hover:text-ink">
+                    <x-heroicon-o-squares-2x2 class="h-4 w-4" />
+                    Menu
+                </button>
 
                 <div class="flex-1"></div>
 
@@ -149,6 +158,7 @@
                     {{ $toolbar }}
                 @endisset
 
+                <x-ui.nav-style-toggle />
                 <x-ui.theme-toggle />
             </header>
 
@@ -195,6 +205,8 @@
         {{-- Due task reminders, shown once per page load. --}}
         <livewire:tasks.reminders />
     @endif
+
+    <x-nav.launcher :sections="$sections" :brand-name="$brandName" :account="$account" :role-label="$roleLabel" :is-platform="$isPlatform" />
     <x-ui.confirm-dialog />
 
     @livewireScripts

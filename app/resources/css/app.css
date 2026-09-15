@@ -324,3 +324,29 @@
         width: 100%;
     }
 }
+
+/* Navigation style (components/ui/nav-style-toggle.blade.php). "launcher"
+   hides the sidebar, gives the page the full width, and shows the Menu
+   button in the header; on phones the hamburger opens the launcher too. */
+html[data-nav='launcher'] .nav-sidebar {
+    display: none !important;
+}
+
+html[data-nav='launcher'] .nav-shell {
+    padding-left: 0 !important;
+}
+
+html[data-nav='launcher'] .nav-launcher-button {
+    display: inline-flex;
+}
+
+@media (min-width: 1024px) {
+    html[data-nav='launcher'] .nav-hamburger,
+    html[data-nav='launcher'] .nav-brand-inline {
+        display: grid;
+    }
+
+    html[data-nav='launcher'] .nav-brand-inline {
+        display: inline;
+    }
+}

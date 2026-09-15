@@ -63,3 +63,21 @@ it('asks before every download', function (): void {
         ->assertSee('data-confirm="Download this report as a CSV?', false)
         ->assertSee('data-confirm="Download the PDF summary of this report?', false);
 });
+
+it('offers a side menu and a full-screen launcher, remembered per device', function (): void {
+    $user = User::factory()->create();
+    OrganisationUser::factory()->admin()->create(['organisation_id' => $this->organisation->id, 'user_id' => $user->id]);
+    $this->actingAs($user);
+
+    $this->get('http://loader.test/dashboard')
+        ->assertOk()
+        // Preference applied before first paint, alongside the theme.
+        ->assertSee("localStorage.getItem('nav')", false)
+        // Both styles present: the sidebar, the header Menu button, the toggle, and the launcher grid.
+        ->assertSee('nav-sidebar', false)
+        ->assertSee('nav-launcher-button', false)
+        ->assertSee('Use the full-screen menu', false)
+        ->assertSee('aria-label="Menu"', false)
+        ->assertSeeInOrder(['Overview', 'Organisation', 'Finance'])
+        ->assertSee('open-launcher', false);
+});

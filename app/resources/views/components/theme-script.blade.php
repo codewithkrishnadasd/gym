@@ -13,6 +13,11 @@
             const stored = localStorage.getItem('theme');
             const system = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
             document.documentElement.dataset.theme = stored ?? system;
+
+            // Navigation style is a per-device preference like the theme:
+            // "sidebar" (default) or "launcher" (a Menu button that opens a
+            // full-screen grid of every destination).
+            document.documentElement.dataset.nav = localStorage.getItem('nav') === 'launcher' ? 'launcher' : 'sidebar';
         };
 
         apply();
