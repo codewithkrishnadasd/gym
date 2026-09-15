@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Livewire\Tasks;
 
 use App\Livewire\Concerns\ResolvesMembership;
+use App\Models\Member;
 use App\Models\Task;
 use App\Models\TaskCategory;
 use App\Models\TaskItem;
@@ -38,6 +39,10 @@ class Index extends Component
     /** 'open' (default), 'done', or 'all'. */
     #[Url]
     public string $show = 'open';
+
+    /** Tasks about one member. */
+    #[Url]
+    public string $member = '';
 
     /** '' (everything visible), 'mine' (assigned to me), 'reported' (raised by me), 'mentioned' (named in a comment). */
     #[Url]
@@ -98,7 +103,8 @@ class Index extends Component
                 }
             }))
             ->when($this->category !== '', fn (Builder $query) => $query->where('task_category_id', $this->category))
-            ->when($this->status !== '', fn (Builder $query) => $query->where('task_status_id', $this->status));
+            ->when($this->status !== '', fn (Builder $query) => $query->where('task_status_id', $this->status))
+            ->when($this->member !== '', fn (Builder $query) => $query->where('member_id', $this->member));
     }
 
     /**
@@ -107,7 +113,7 @@ class Index extends Component
     protected function tasks(): LengthAwarePaginator
     {
         return $this->scope()
-            ->with(['category:id,name', 'status', 'items.status', 'items.subCategory:id,name', 'member:id,name', 'assignees.user:id,name'])
+            ->with(['category:id,name', 'status', 'items.status', 'items.subCategory:id,name', 'items.assignee.user:id,name', 'member:id,name', 'assignees.user:id,name'])
             // Dated work first, soonest due at the top; undated after.
             ->orderByRaw('due_date ASC NULLS LAST')
             ->orderByDesc('id')
@@ -150,6 +156,11 @@ class Index extends Component
             'today' => $today,
             'tasks' => $this->tasks(),
             'categories' => TaskCategory::query()->where('status', 'active')->orderBy('position')->orderBy('name')->get(),
+            // Only members who have a task the viewer can see, so the list stays short.
+            'members' => Member::query()
+                ->whereIn('id', $this->scopeWithoutShow()->whereNotNull('member_id')->select('member_id'))
+                ->orderBy('name')
+                ->get(['id', 'name']),
             'statuses' => $this->statusesForFilter(),
             'totalCount' => $totalCount,
             'doneCount' => $doneCount,

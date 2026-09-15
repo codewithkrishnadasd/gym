@@ -4,7 +4,7 @@
     <x-ui.page-header title="Tasks" description="Work for the team, by category. Open every task to move its parts along.">
         <x-slot:actions>
             @if ($canManageCategories)
-                <x-ui.button icon="cog-6-tooth" :href="route('tenant.settings.organisation', ['tab' => 'tasks'])" wire:navigate>Categories</x-ui.button>
+                <x-ui.button icon="cog-6-tooth" :href="route('tenant.settings.organisation', ['tab' => 'tasks'])" wire:navigate>Settings</x-ui.button>
             @endif
             @can('create', \App\Models\Task::class)
                 <x-ui.button variant="primary" icon="plus" :href="route('tenant.tasks.create')" wire:navigate>New task</x-ui.button>
@@ -37,6 +37,15 @@
                     <option value="">Any status</option>
                     @foreach ($statuses as $statusOption)
                         <option value="{{ $statusOption->id }}">{{ $statusOption->name }}</option>
+                    @endforeach
+                </x-ui.filter-select>
+            @endif
+
+            @if ($members->isNotEmpty())
+                <x-ui.filter-select wire:model.live="member" :label="$organisation->term('member_singular')">
+                    <option value="">Any {{ strtolower($organisation->term('member_singular')) }}</option>
+                    @foreach ($members as $memberOption)
+                        <option value="{{ $memberOption->id }}">{{ $memberOption->name }}</option>
                     @endforeach
                 </x-ui.filter-select>
             @endif
@@ -94,8 +103,17 @@
                                     @if ($task->member)
                                         <span>· for {{ $task->member->name }}</span>
                                     @endif
-                                    @if ($task->assignees->isNotEmpty())
-                                        <span>· {{ $task->assignees->map(fn ($person) => $person->user?->name)->filter()->join(', ') }}</span>
+                                    {{-- Everyone on it: task assignees and whoever holds a part. --}}
+                                    @php $everyone = $task->people(); @endphp
+                                    @if ($everyone->isNotEmpty())
+                                        <span class="inline-flex items-center gap-1">
+                                            · <span class="inline-flex -space-x-1.5">
+                                                @foreach ($everyone->take(4) as $person)
+                                                    <x-ui.avatar :name="$person->user?->name ?? '?'" size="xs" class="ring-2 ring-surface" />
+                                                @endforeach
+                                            </span>
+                                            {{ $everyone->map(fn ($person) => $person->user?->name)->filter()->join(', ') }}
+                                        </span>
                                     @endif
                                     @if ($task->due_date)
                                         <span @class(['font-medium text-critical' => $overdue])>

@@ -471,27 +471,53 @@ class OrganisationSettings extends Component
         session()->flash('status', 'Organisation profile saved.');
     }
 
+    /**
+     * Saves the labels and the reference prefixes together: one screen, one
+     * button. Both are validated before either is written.
+     */
     public function saveTerminology(): void
     {
         $organisation = $this->organisation();
         $this->authorize('manageSettings', $organisation);
 
-        $rules = ['required', 'string', 'max:40'];
+        $this->idPrefixes = array_map(
+            static fn (string $prefix): string => strtoupper(trim($prefix)),
+            $this->idPrefixes,
+        );
 
-        $validated = $this->validate([
+        $rules = ['required', 'string', 'max:40'];
+        $validation = [
             'memberSingular' => $rules,
             'memberPlural' => $rules,
             'userSingular' => $rules,
             'userPlural' => $rules,
             'clubSingular' => $rules,
             'clubPlural' => $rules,
-        ]);
+        ];
+        $messages = [];
 
-        $before = $organisation->only([
-            'terminology_member_singular', 'terminology_member_plural',
-            'terminology_user_singular', 'terminology_user_plural',
-            'terminology_club_singular', 'terminology_club_plural',
-        ]);
+        foreach (Organisation::DEFAULT_ID_PREFIXES as $entity => $default) {
+            $validation['idPrefixes.'.$entity] = ['required', 'string', 'regex:/^[A-Z0-9]{1,8}$/'];
+            $messages['idPrefixes.'.$entity.'.required'] = 'The '.strtolower($default['label']).' prefix is required.';
+            $messages['idPrefixes.'.$entity.'.regex'] = 'Use 1–8 letters or digits only for '.strtolower($default['label']).', e.g. '.$default['prefix'].'.';
+        }
+
+        $validated = $this->validate($validation, $messages);
+
+        $prefixes = [];
+
+        foreach (array_keys(Organisation::DEFAULT_ID_PREFIXES) as $entity) {
+            $prefixes[$entity] = $this->idPrefixes[$entity];
+        }
+
+        $before = [
+            ...$organisation->only([
+                'terminology_member_singular', 'terminology_member_plural',
+                'terminology_user_singular', 'terminology_user_plural',
+                'terminology_club_singular', 'terminology_club_plural',
+            ]),
+            'id_prefixes' => $organisation->id_prefixes,
+        ];
 
         $after = [
             'terminology_member_singular' => $validated['memberSingular'],
@@ -500,84 +526,18 @@ class OrganisationSettings extends Component
             'terminology_user_plural' => $validated['userPlural'],
             'terminology_club_singular' => $validated['clubSingular'],
             'terminology_club_plural' => $validated['clubPlural'],
+            'id_prefixes' => $prefixes,
         ];
 
         $this->persist($after, $before, 'organisation.terminology_updated');
 
-        session()->flash('status', 'Terminology saved. Labels are updated everywhere.');
+        session()->flash('status', 'Terminology and reference prefixes saved. Labels are updated everywhere; invoice numbers already issued keep theirs.');
 
         // The navigation and page chrome live in the layout, which a Livewire
         // component update does not re-render — so a full navigation is needed
         // for the new labels to appear immediately rather than on the user's
         // next page load.
         $this->redirect(route('tenant.settings.organisation', ['tab' => 'terminology']));
-    }
-
-    public function saveNotifications(): void
-    {
-        $organisation = $this->organisation();
-        $this->authorize('manageSettings', $organisation);
-
-        $actions = collect(NotificationActionType::cases())
-            ->mapWithKeys(fn (NotificationActionType $type): array => [
-                $type->value => in_array($type->value, $this->enabledActions, true),
-            ])
-            ->all();
-
-        $settings = [
-            'enabled' => $this->notificationsEnabled,
-            'require_preview' => $this->requirePreview,
-            'actions' => $actions,
-        ];
-
-        $this->persist(
-            ['notification_settings' => $settings],
-            ['notification_settings' => $organisation->notification_settings],
-            'organisation.notification_settings_updated',
-        );
-
-        session()->flash('status', 'Notification settings saved.');
-    }
-
-    public function saveIdPrefixes(): void
-    {
-        $organisation = $this->organisation();
-        $this->authorize('manageSettings', $organisation);
-
-        // Uppercased before validation so "mem" is accepted as MEM rather
-        // than rejected for case; the regex then only has to say what a
-        // prefix may contain.
-        $this->idPrefixes = array_map(
-            static fn (string $prefix): string => strtoupper(trim($prefix)),
-            $this->idPrefixes,
-        );
-
-        $rules = [];
-        $messages = [];
-
-        foreach (Organisation::DEFAULT_ID_PREFIXES as $entity => $default) {
-            $rules['idPrefixes.'.$entity] = ['required', 'string', 'regex:/^[A-Z0-9]{1,8}$/'];
-            $messages['idPrefixes.'.$entity.'.required'] = 'The '.strtolower($default['label']).' prefix is required.';
-            $messages['idPrefixes.'.$entity.'.regex'] = 'Use 1–8 letters or digits only for '.strtolower($default['label']).', e.g. '.$default['prefix'].'.';
-        }
-
-        $this->validate($rules, $messages);
-
-        // Only entities the organisation knows about are stored, and only as
-        // plain prefixes: the number format itself is not configurable.
-        $after = [];
-
-        foreach (array_keys(Organisation::DEFAULT_ID_PREFIXES) as $entity) {
-            $after[$entity] = $this->idPrefixes[$entity];
-        }
-
-        $this->persist(
-            ['id_prefixes' => $after],
-            ['id_prefixes' => $organisation->id_prefixes],
-            'organisation.id_prefixes_updated',
-        );
-
-        session()->flash('status', 'Reference prefixes saved. New and existing records now show the new prefixes; invoice numbers already issued keep theirs.');
     }
 
     /**

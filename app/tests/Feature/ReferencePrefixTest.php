@@ -67,7 +67,7 @@ it('lets the organisation choose its own prefixes, normalising case', function (
     Livewire::test(OrganisationSettings::class, ['tab' => 'terminology'])
         ->set('idPrefixes.member', 'ath')
         ->set('idPrefixes.payment', 'RCPT')
-        ->call('saveIdPrefixes')
+        ->call('saveTerminology')
         ->assertHasNoErrors();
 
     $organisation = $this->organisation->fresh();
@@ -82,12 +82,12 @@ it('lets the organisation choose its own prefixes, normalising case', function (
 it('rejects prefixes that are not short alphanumerics', function (): void {
     Livewire::test(OrganisationSettings::class, ['tab' => 'terminology'])
         ->set('idPrefixes.member', 'MEM-')
-        ->call('saveIdPrefixes')
+        ->call('saveTerminology')
         ->assertHasErrors(['idPrefixes.member']);
 
     Livewire::test(OrganisationSettings::class, ['tab' => 'terminology'])
         ->set('idPrefixes.expense', 'TOOLONGPREFIX')
-        ->call('saveIdPrefixes')
+        ->call('saveTerminology')
         ->assertHasErrors(['idPrefixes.expense']);
 
     expect($this->organisation->fresh()?->id_prefixes)->toBeNull();
@@ -121,4 +121,22 @@ it('carries a changed prefix through the screens, the export, the receipt and ne
     ]], $this->admin)->invoice;
 
     expect($invoice->number)->toStartWith('BILL-')->and($invoice->number)->toEndWith('-0001');
+});
+
+it('saves terminology and prefixes together with one button', function (): void {
+    $this->get('http://refs.test/settings/organisation?tab=terminology')
+        ->assertOk()
+        ->assertSee('Save terminology and prefixes')
+        ->assertDontSee('Save prefixes');
+
+    Livewire::test(OrganisationSettings::class, ['tab' => 'terminology'])
+        ->set('memberSingular', 'Athlete')
+        ->set('idPrefixes.member', 'ATH')
+        ->call('saveTerminology')
+        ->assertHasNoErrors();
+
+    $organisation = $this->organisation->fresh();
+
+    expect($organisation?->term('member_singular'))->toBe('Athlete')
+        ->and($organisation?->idPrefix('member'))->toBe('ATH');
 });

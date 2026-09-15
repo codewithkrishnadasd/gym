@@ -430,3 +430,100 @@ it('draws one coloured segment per part in the list, and keeps commenting outsid
     expect(strpos($html, 'Write a comment'))->toBeGreaterThan((int) strpos($html, 'comments and every change'))
         ->and($html)->toContain('Type @ to mention a colleague');
 });
+
+it('filters the list by member', function (): void {
+    $admin = signIn($this->organisation, admin: true);
+    $club = Club::factory()->create(['organisation_id' => $this->organisation->id]);
+    $alex = Member::factory()->create(['organisation_id' => $this->organisation->id, 'primary_club_id' => $club->id, 'name' => 'Alex Morgan']);
+    $priya = Member::factory()->create(['organisation_id' => $this->organisation->id, 'primary_club_id' => $club->id, 'name' => 'Priya Nair']);
+
+    app(CreateTask::class)->handle($this->category, ['title' => 'Call Alex back', 'member_id' => $alex->id], $admin);
+    app(CreateTask::class)->handle($this->category, ['title' => 'Renew Priya', 'member_id' => $priya->id], $admin);
+    app(CreateTask::class)->handle($this->category, ['title' => 'Nobody in particular'], $admin);
+
+    $this->get('http://tasks.test/tasks')->assertOk()->assertSee('Any member')->assertSee('Priya Nair');
+    $this->get('http://tasks.test/tasks?member='.$alex->id)->assertOk()->assertSee('Call Alex back')->assertDontSee('Renew Priya')->assertDontSee('Nobody in particular');
+});
+
+it('keeps reminders on the task and shows the due ones on opening the app until the task is done', function (): void {
+    $this->travelTo('2026-09-15 10:00');
+    $admin = signIn($this->organisation, admin: true);
+    $task = app(CreateTask::class)->handle($this->category, ['title' => 'Order belts'], $admin);
+
+    Livewire::test(TaskShow::class, ['task' => $task])
+        ->set('reminderLabel', 'Chase the supplier')
+        ->set('reminderDate', '2026-09-14')
+        ->call('addReminder')
+        ->assertHasNoErrors()
+        ->set('reminderLabel', 'Check delivery')
+        ->set('reminderDate', '2026-09-30')
+        ->call('addReminder')
+        ->assertHasNoErrors()
+        ->assertSee('Chase the supplier')
+        ->assertSee('Check delivery')
+        ->assertSee('1 due now');
+
+    expect($task->reminders()->count())->toBe(2);
+
+    // Opening any page lists the reminder whose day has come, linking to the task.
+    $this->get('http://tasks.test/dashboard')
+        ->assertOk()
+        ->assertSee('1 reminder')
+        ->assertSee('Chase the supplier')
+        ->assertSee('/tasks/'.$task->id, false)
+        ->assertDontSee('Check delivery')
+        ->assertSee('__taskRemindersShown', false);
+
+    // Done tasks stop reminding.
+    $task->moveTo($this->done);
+    $this->get('http://tasks.test/dashboard')->assertOk()->assertDontSee('Chase the supplier');
+
+    // Removing works and is recorded.
+    $task->moveTo($this->todo);
+    $first = $task->reminders()->first();
+    Livewire::test(TaskShow::class, ['task' => $task])->call('removeReminder', $first->id)->assertDontSee('wire:key="reminder-'.$first->id.'"', false);
+    expect($task->reminders()->count())->toBe(1);
+    $this->get('http://tasks.test/tasks/'.$task->id)->assertOk()->assertSee('removed the reminder');
+});
+
+it('shows staff only reminders on tasks they are involved in', function (): void {
+    $this->travelTo('2026-09-15 10:00');
+    $admin = OrganisationUser::factory()->admin()->create(['organisation_id' => $this->organisation->id]);
+    $me = signIn($this->organisation, admin: false);
+
+    $mine = app(CreateTask::class)->handle($this->category, ['title' => 'Mine', 'assignee_ids' => [$me->id]], $admin);
+    $other = app(CreateTask::class)->handle($this->category, ['title' => 'Theirs'], $admin);
+    $mine->reminders()->create(['label' => 'Mine reminder', 'remind_on' => '2026-09-15', 'created_by' => $admin->id]);
+    $other->reminders()->create(['label' => 'Their reminder', 'remind_on' => '2026-09-15', 'created_by' => $admin->id]);
+
+    $this->get('http://tasks.test/dashboard')->assertOk()->assertSee('Mine reminder')->assertDontSee('Their reminder');
+});
+
+it('lets one person hold each part, shows everyone on the ticket, and makes the task visible to them', function (): void {
+    $admin = signIn($this->organisation, admin: true);
+    $hari = OrganisationUser::factory()->create(['organisation_id' => $this->organisation->id, 'user_id' => User::factory()->create(['name' => 'Helper Hari'])->id]);
+    $anu = OrganisationUser::factory()->create(['organisation_id' => $this->organisation->id, 'user_id' => User::factory()->create(['name' => 'Anu Assignee'])->id]);
+
+    $task = app(CreateTask::class)->handle($this->category, ['title' => 'Split work', 'assignee_ids' => [$anu->id]], $admin);
+    $item = $task->items()->firstOrFail();
+
+    Livewire::test(TaskShow::class, ['task' => $task])
+        ->call('setItemAssignee', $item->id, $hari->id)
+        ->assertSee('Helper Hari')
+        ->assertSee('gave Treadmill belt to Helper Hari');
+
+    expect($item->fresh()?->assignee_id)->toBe($hari->id)
+        ->and($task->fresh()?->people()->pluck('id')->sort()->values()->all())->toBe(collect([$anu->id, $hari->id])->sort()->values()->all());
+
+    // The list names both the task's assignee and the part's holder.
+    $this->get('http://tasks.test/tasks')->assertOk()->assertSee('Anu Assignee, Helper Hari');
+
+    // Holding a part is enough to see the task.
+    $this->actingAs($hari->user);
+    $this->get('http://tasks.test/tasks')->assertOk()->assertSee('Split work');
+    $this->get('http://tasks.test/tasks/'.$task->id)->assertOk()->assertSee('Whole task')->assertSee('Treadmill belt');
+
+    // And it can be handed back.
+    Livewire::test(TaskShow::class, ['task' => $task])->call('setItemAssignee', $item->id, null);
+    expect($item->fresh()?->assignee_id)->toBeNull();
+});

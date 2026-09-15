@@ -14,6 +14,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 
 /**
@@ -88,6 +89,14 @@ class Task extends Model
     }
 
     /**
+     * @return HasMany<TaskReminder, $this>
+     */
+    public function reminders(): HasMany
+    {
+        return $this->hasMany(TaskReminder::class)->orderBy('remind_on')->orderBy('id');
+    }
+
+    /**
      * @return HasMany<TaskMention, $this>
      */
     public function mentions(): HasMany
@@ -117,17 +126,34 @@ class Task extends Model
         return $query->where(fn (Builder $inner) => $inner
             ->where('created_by', $membership->id)
             ->orWhereHas('assignees', fn (Builder $assignees) => $assignees->where('organisation_users.id', $membership->id))
-            ->orWhereHas('mentions', fn (Builder $mentions) => $mentions->where('organisation_user_id', $membership->id)));
+            ->orWhereHas('mentions', fn (Builder $mentions) => $mentions->where('organisation_user_id', $membership->id))
+            ->orWhereHas('items', fn (Builder $items) => $items->where('assignee_id', $membership->id)));
     }
 
     /**
-     * Reported it, was handed it, or was named in a comment on it.
+     * Reported it, was handed it or one of its parts, or was named in a
+     * comment on it.
      */
     public function involves(OrganisationUser $membership): bool
     {
         return $this->created_by === $membership->id
             || $this->assignees()->where('organisation_users.id', $membership->id)->exists()
-            || $this->mentions()->where('organisation_user_id', $membership->id)->exists();
+            || $this->mentions()->where('organisation_user_id', $membership->id)->exists()
+            || $this->items()->where('assignee_id', $membership->id)->exists();
+    }
+
+    /**
+     * Everyone working this task: its assignees plus whoever holds a part,
+     * each once, in a stable order.
+     *
+     * @return Collection<int, OrganisationUser>
+     */
+    public function people(): Collection
+    {
+        return $this->assignees
+            ->concat($this->items->map(fn (TaskItem $item): ?OrganisationUser => $item->assignee)->filter())
+            ->unique('id')
+            ->values();
     }
 
     /**

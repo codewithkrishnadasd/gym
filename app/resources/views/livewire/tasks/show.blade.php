@@ -89,6 +89,30 @@
                                     <div class="min-w-0">
                                         <p @class(['text-sm font-medium', 'text-ink' => ! $item->isDone(), 'text-ink-soft' => $item->isDone()])>{{ $item->subCategory?->name }}</p>
                                         <p class="text-xs text-ink-muted">{{ $item->status?->name ?? 'No status' }}</p>
+                                        {{-- One person per part; the select shows an avatar chip
+                                             for whoever holds it and saves as soon as it changes. --}}
+                                        @can('update', $task)
+                                            <label class="mt-1 inline-flex items-center gap-1.5 text-xs">
+                                                @if ($item->assignee)
+                                                    <x-ui.avatar :name="$item->assignee->user?->name ?? '?'" size="xs" tone="accent" />
+                                                @else
+                                                    <x-heroicon-o-user-plus class="h-3.5 w-3.5 text-ink-muted" />
+                                                @endif
+                                                <span class="sr-only">Assigned to</span>
+                                                <select wire:change="setItemAssignee({{ $item->id }}, $event.target.value || null)"
+                                                    class="max-w-[11rem] cursor-pointer appearance-none rounded-md border border-transparent bg-transparent py-0.5 pl-1 pr-5 text-xs font-medium text-ink-soft transition hover:border-hairline-strong hover:bg-surface focus:border-accent focus:outline-none"
+                                                    style="background-image: none;">
+                                                    <option value="" @selected($item->assignee_id === null)>Unassigned</option>
+                                                    @foreach ($people as $person)
+                                                        <option value="{{ $person->id }}" @selected($item->assignee_id === $person->id)>{{ $person->user?->name }}</option>
+                                                    @endforeach
+                                                </select>
+                                            </label>
+                                        @elseif ($item->assignee)
+                                            <p class="mt-1 inline-flex items-center gap-1.5 text-xs text-ink-soft">
+                                                <x-ui.avatar :name="$item->assignee->user?->name ?? '?'" size="xs" tone="accent" /> {{ $item->assignee->user?->name }}
+                                            </p>
+                                        @endcan
                                     </div>
                                 </div>
 
@@ -202,17 +226,73 @@
         </div>
 
         <div class="space-y-5">
+            @php
+                $dueReminders = $task->reminders->filter(fn ($reminder) => $reminder->isDue($today));
+                $nextReminder = $task->reminders->first(fn ($reminder) => ! $reminder->isDue($today));
+            @endphp
+            <x-ui.card title="Reminders"
+                :description="$task->reminders->isEmpty() ? 'None set' : ($dueReminders->isNotEmpty() ? $dueReminders->count().' due now' : 'Next: '.$nextReminder?->remind_on->format('d M Y'))"
+                collapsible :open="$dueReminders->isNotEmpty()">
+                @if ($task->reminders->isNotEmpty())
+                    <ul class="mb-4 divide-y divide-[var(--c-hairline)]">
+                        @foreach ($task->reminders as $reminder)
+                            @php $due = $reminder->isDue($today); @endphp
+                            <li class="flex items-start justify-between gap-3 py-2" wire:key="reminder-{{ $reminder->id }}">
+                                <div class="flex min-w-0 items-start gap-2.5">
+                                    <span @class(['mt-0.5 grid h-6 w-6 shrink-0 place-items-center rounded-full', 'bg-caution-soft text-caution' => $due && ! $task->isDone(), 'bg-sunken text-ink-muted' => ! $due || $task->isDone()])>
+                                        <x-heroicon-o-bell-alert class="h-3.5 w-3.5" />
+                                    </span>
+                                    <div class="min-w-0">
+                                        <p class="text-sm font-medium text-ink">{{ $reminder->label }}</p>
+                                        <p class="numeric text-xs text-ink-muted">
+                                            {{ $reminder->remind_on->format('d M Y') }}
+                                            @if ($due && ! $task->isDone())
+                                                · <span class="font-medium text-caution">{{ $reminder->remind_on->isToday() ? 'today' : 'since '.$reminder->remind_on->diffForHumans() }}</span>
+                                            @endif
+                                            · by {{ $reminder->createdBy?->user?->name ?? '—' }}
+                                        </p>
+                                    </div>
+                                </div>
+                                @can('update', $task)
+                                    <button type="button" wire:click="removeReminder({{ $reminder->id }})" class="shrink-0 rounded p-1 text-ink-muted hover:bg-critical-soft hover:text-critical" aria-label="Remove reminder">
+                                        <x-heroicon-o-x-mark class="h-4 w-4" />
+                                    </button>
+                                @endcan
+                            </li>
+                        @endforeach
+                    </ul>
+                @endif
+
+                @can('update', $task)
+                    <form wire:submit="addReminder" class="space-y-2">
+                        <x-ui.input wire:model="reminderLabel" name="reminderLabel" label="Remind about" placeholder="e.g. Chase the supplier" />
+                        <div class="flex items-end gap-2">
+                            <x-ui.input class="flex-1" wire:model="reminderDate" name="reminderDate" label="On" type="date" />
+                            <x-ui.button type="submit" variant="primary" size="md" icon="plus" wire:loading.attr="disabled" wire:target="addReminder">Add</x-ui.button>
+                        </div>
+                        <p class="text-xs text-ink-muted">From that day until the task is done, everyone involved sees it when they open the app.</p>
+                    </form>
+                @endcan
+            </x-ui.card>
+
             <x-ui.card title="People" collapsible :open="false">
                 <dl class="grid gap-x-6">
-                    <x-ui.definition label="Assigned to">
-                        @if ($task->assignees->isEmpty())
+                    <x-ui.definition label="Working on this">
+                        @php $everyone = $task->people(); @endphp
+                        @if ($everyone->isEmpty())
                             <span class="text-ink-muted">Nobody yet</span>
                         @else
                             <ul class="space-y-1.5">
-                                @foreach ($task->assignees as $person)
-                                    <li class="flex items-center gap-2">
+                                @foreach ($everyone as $person)
+                                    @php $parts = $task->items->where('assignee_id', $person->id)->map(fn ($item) => $item->subCategory?->name)->filter(); @endphp
+                                    <li class="flex items-start gap-2">
                                         <x-ui.avatar :name="$person->user?->name ?? '?'" size="sm" />
-                                        <span class="text-sm text-ink">{{ $person->user?->name }}</span>
+                                        <span class="min-w-0">
+                                            <span class="block text-sm text-ink">{{ $person->user?->name }}</span>
+                                            <span class="block text-xs text-ink-muted">
+                                                {{ $task->assignees->contains('id', $person->id) ? 'Whole task' : '' }}{{ $task->assignees->contains('id', $person->id) && $parts->isNotEmpty() ? ' · ' : '' }}{{ $parts->join(', ') }}
+                                            </span>
+                                        </span>
                                     </li>
                                 @endforeach
                             </ul>

@@ -191,6 +191,10 @@
         @endif
     </div>
 
+    @if (! $isPlatform && $membership)
+        {{-- Due task reminders, shown once per page load. --}}
+        <livewire:tasks.reminders />
+    @endif
     <x-ui.confirm-dialog />
 
     @livewireScripts

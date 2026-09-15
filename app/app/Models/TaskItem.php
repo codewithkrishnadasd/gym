@@ -14,7 +14,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * One sub-category on one task, with its own status. Not tenant-scoped
  * itself: only ever reached through its task, which is.
  */
-#[Fillable(['task_id', 'task_sub_category_id', 'task_status_id', 'position'])]
+#[Fillable(['task_id', 'task_sub_category_id', 'task_status_id', 'assignee_id', 'position'])]
 class TaskItem extends Model
 {
     /** @use HasFactory<TaskItemFactory> */
@@ -42,6 +42,14 @@ class TaskItem extends Model
     public function status(): BelongsTo
     {
         return $this->belongsTo(TaskStatus::class, 'task_status_id');
+    }
+
+    /**
+     * @return BelongsTo<OrganisationUser, $this>
+     */
+    public function assignee(): BelongsTo
+    {
+        return $this->belongsTo(OrganisationUser::class, 'assignee_id');
     }
 
     public function isDone(): bool

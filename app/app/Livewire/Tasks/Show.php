@@ -12,6 +12,7 @@ use App\Models\OrganisationUser;
 use App\Models\Task;
 use App\Models\TaskComment;
 use App\Models\TaskItem;
+use App\Models\TaskReminder;
 use App\Models\TaskStatus;
 use App\Models\TaskSubCategory;
 use App\Support\Tasks\Mentions;
@@ -31,6 +32,10 @@ class Show extends Component
     public Task $task;
 
     public string $comment = '';
+
+    public string $reminderLabel = '';
+
+    public string $reminderDate = '';
 
     public function mount(Task $task): void
     {
@@ -131,6 +136,49 @@ class Show extends Component
         $this->task->refresh();
     }
 
+    public function addReminder(): void
+    {
+        $this->authorize('update', $this->task);
+
+        $validated = $this->validate([
+            'reminderLabel' => ['required', 'string', 'max:200'],
+            'reminderDate' => ['required', 'date'],
+        ], ['reminderLabel.required' => 'Say what to be reminded of.', 'reminderDate.required' => 'Pick the day to be reminded on.'],
+            ['reminderLabel' => 'reminder', 'reminderDate' => 'date']);
+
+        $reminder = $this->task->reminders()->create([
+            'label' => trim($validated['reminderLabel']),
+            'remind_on' => $validated['reminderDate'],
+            'created_by' => $this->currentMembership()->id,
+        ]);
+
+        AuditEvent::record($this->task, 'task.reminder_added', $this->currentMembership(), null, [
+            'task_reminder_id' => $reminder->id,
+            'label' => $reminder->label,
+            'remind_on' => $reminder->remind_on->toDateString(),
+        ]);
+
+        $this->reset(['reminderLabel', 'reminderDate']);
+        $this->task->refresh();
+    }
+
+    public function removeReminder(int $reminderId): void
+    {
+        $this->authorize('update', $this->task);
+
+        /** @var TaskReminder $reminder */
+        $reminder = $this->task->reminders()->findOrFail($reminderId);
+
+        AuditEvent::record($this->task, 'task.reminder_removed', $this->currentMembership(), [
+            'task_reminder_id' => $reminder->id,
+            'label' => $reminder->label,
+            'remind_on' => $reminder->remind_on->toDateString(),
+        ], null);
+
+        $reminder->delete();
+        $this->task->refresh();
+    }
+
     public function deleteComment(int $commentId): void
     {
         /** @var TaskComment $comment */
@@ -186,8 +234,13 @@ class Show extends Component
                 'task.created' => 'created the task',
                 'task.status_changed' => 'moved the task to '.($statuses[$after['task_status_id'] ?? 0] ?? 'another status'),
                 'task.item_status_changed' => 'set '.($subCategories[$meta['task_sub_category_id'] ?? 0] ?? 'a part').' to '.($statuses[$after['task_status_id'] ?? 0] ?? 'another status'),
+                'task.item_assigned' => empty($after['assignee_id'])
+                    ? 'unassigned '.($subCategories[$meta['task_sub_category_id'] ?? 0] ?? 'a part')
+                    : 'gave '.($subCategories[$meta['task_sub_category_id'] ?? 0] ?? 'a part').' to '.($names[$after['assignee_id']] ?? 'someone'),
                 'task.updated' => $this->describeEdit($before, $after, $names, $statuses, $organisation),
                 'task.comment_deleted' => 'removed a comment',
+                'task.reminder_added' => 'set a reminder for '.Carbon::parse((string) ($after['remind_on'] ?? 'today'))->format('d M Y').': “'.($after['label'] ?? '').'”',
+                'task.reminder_removed' => 'removed the reminder “'.($before['label'] ?? '').'”',
                 'task.commented' => null,
                 default => null,
             };
@@ -275,6 +328,37 @@ class Show extends Component
         return $changes === [] ? 'saved the task' : implode('; ', $changes);
     }
 
+    /**
+     * Hands one part of the task to a colleague (or nobody).
+     */
+    public function setItemAssignee(int $itemId, ?int $assigneeId): void
+    {
+        $this->authorize('update', $this->task);
+
+        /** @var TaskItem $item */
+        $item = $this->task->items()->findOrFail($itemId);
+
+        $assignee = $assigneeId ? $this->people()->firstWhere('id', $assigneeId) : null;
+
+        if ($assigneeId && $assignee === null) {
+            return;
+        }
+
+        $before = ['assignee_id' => $item->assignee_id];
+        $item->update(['assignee_id' => $assignee?->id]);
+
+        AuditEvent::record(
+            $this->task,
+            'task.item_assigned',
+            $this->currentMembership(),
+            $before,
+            ['assignee_id' => $assignee?->id],
+            ['task_item_id' => $item->id, 'task_sub_category_id' => $item->task_sub_category_id],
+        );
+
+        $this->task->refresh();
+    }
+
     public function delete(): void
     {
         $this->authorize('delete', $this->task);
@@ -299,12 +383,13 @@ class Show extends Component
             'status',
             'items.subCategory.statuses',
             'items.status',
+            'items.assignee.user:id,name',
             'createdBy.user:id,name',
             'assignees.user:id,name',
             'member:id,name',
         ]);
 
-        $this->task->load(['comments.author.user:id,name']);
+        $this->task->load(['comments.author.user:id,name', 'reminders.createdBy.user:id,name']);
 
         $items = $this->task->items;
         $people = $this->people();
@@ -316,6 +401,7 @@ class Show extends Component
             'doneCount' => $items->filter(fn (TaskItem $item): bool => $item->isDone())->count(),
             'activity' => $this->activity($people),
             // For the "@" picker: names the comment box can complete.
+            'people' => $people->sortBy(fn (OrganisationUser $person): string => (string) $person->user?->name)->values(),
             'mentionable' => $people->map(fn (OrganisationUser $person): array => ['id' => $person->id, 'name' => (string) $person->user?->name])
                 ->filter(fn (array $person): bool => $person['name'] !== '')->sortBy('name')->values()->all(),
             'me' => $this->currentMembership(),
