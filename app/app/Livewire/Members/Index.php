@@ -10,6 +10,7 @@ use App\Enums\SubscriptionHealth;
 use App\Enums\SubscriptionStatus;
 use App\Livewire\Concerns\ResolvesMembership;
 use App\Models\Member;
+use App\Models\Plan;
 use App\Support\Search;
 use Carbon\CarbonInterface;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
@@ -54,9 +55,13 @@ class Index extends Component
     #[Url]
     public string $endingBy = '';
 
+    /** Members whose current plan is this one; reached from a plan's count. */
+    #[Url]
+    public string $planId = '';
+
     public function clearNarrowing(): void
     {
-        $this->reset(['joinedFrom', 'joinedTo', 'balance', 'endingBy']);
+        $this->reset(['joinedFrom', 'joinedTo', 'balance', 'endingBy', 'planId']);
         $this->resetPage();
     }
 
@@ -79,6 +84,11 @@ class Index extends Component
 
         if ($this->endingBy !== '') {
             $parts[] = 'plan ending by '.Carbon::parse($this->endingBy)->format('d M Y');
+        }
+
+        if ($this->planId !== '') {
+            $plan = Plan::query()->find($this->planId);
+            $parts[] = 'on the '.($plan->name ?? 'chosen').' plan';
         }
 
         return $parts === [] ? null : ucfirst(implode(' · ', $parts));
@@ -154,6 +164,10 @@ class Index extends Component
             ->when($this->endingBy !== '', fn ($query) => $query->whereHas('subscriptions', fn ($subscriptions) => $subscriptions
                 ->where('status', SubscriptionStatus::Active)
                 ->whereBetween('end_date', [$this->today()->toDateString(), $this->endingBy])))
+            // Mirrors Plans\Index's "Active" count: a live term on that plan.
+            ->when($this->planId !== '', fn ($query) => $query->whereHas('subscriptions', fn ($subscriptions) => $subscriptions
+                ->where('status', SubscriptionStatus::Active)
+                ->where('plan_id', $this->planId)))
             ->orderBy('name');
 
         return $query->paginate(15);

@@ -59,7 +59,7 @@
                             <x-ui.td align="right" numeric class="font-medium text-ink">{{ $organisation->money($plan->price_minor) }}</x-ui.td>
                             <x-ui.td align="right" numeric>{{ $plan->duration_days }} days</x-ui.td>
                             <x-ui.td align="right" numeric>{{ $plan->session_limit ?? 'Unlimited' }}</x-ui.td>
-                            <x-ui.td align="right" numeric>{{ $plan->active_subscriptions_count }}</x-ui.td>
+                            <x-ui.td align="right"><x-ui.count-link :value="$plan->active_subscriptions_count" :href="route('tenant.members.index', ['planId' => $plan->id])" :title="strtolower($organisation->term('member_plural')).' currently on '.$plan->name" /></x-ui.td>
                             <x-ui.td>
                                 <x-ui.badge :tone="$plan->status->tone()">
                                     {{ $plan->status->label() }}
@@ -94,6 +94,7 @@
                                         <x-ui.reference :value="$organisation->reference('plan', $plan->id)" class="ml-1" /></p>
                                     <p class="numeric mt-0.5 text-sm text-ink-soft">
                                         {{ $organisation->money($plan->price_minor) }} &middot; {{ $plan->duration_days }} days
+                                        &middot; <x-ui.count-link :value="$plan->active_subscriptions_count" :href="route('tenant.members.index', ['planId' => $plan->id])" /> active
                                     </p>
                                 </div>
                                 <x-ui.badge :tone="$plan->status->tone()">

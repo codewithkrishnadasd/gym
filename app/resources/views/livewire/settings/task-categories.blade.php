@@ -44,6 +44,11 @@
                 <x-ui.card :title="$selected->name" description="Statuses a task of this kind moves through. The first is where new tasks start; a status marked as completing finishes the task.">
                     <x-slot:actions>
                         <div class="flex items-center gap-1">
+                            @if ($selected->tasks()->count() > 0)
+                                <x-ui.button size="sm" variant="ghost" icon="arrow-up-right" :href="route('tenant.tasks.index', ['category' => $selected->id, 'show' => 'all'])" wire:navigate>
+                                    {{ $selected->tasks()->count() }} {{ $selected->tasks()->count() === 1 ? 'task' : 'tasks' }}
+                                </x-ui.button>
+                            @endif
                             <x-ui.button size="sm" variant="ghost" icon="pencil-square" wire:click="startEditCategory({{ $selected->id }})">Rename</x-ui.button>
                             @if ($selected->isActive())
                                 <x-ui.button size="sm" variant="ghost" icon="trash" wire:click="removeCategory({{ $selected->id }})"

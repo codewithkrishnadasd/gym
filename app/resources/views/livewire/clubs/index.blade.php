@@ -60,10 +60,12 @@
                                 @endif
                             </x-ui.td>
                             <x-ui.td><span class="rounded bg-sunken px-1.5 py-0.5 font-mono text-xs">{{ $club->code }}</span></x-ui.td>
-                            <x-ui.td align="right" numeric>{{ number_format($club->members_count) }}</x-ui.td>
-                            <x-ui.td align="right" numeric>{{ number_format($club->active_staff_count) }}</x-ui.td>
-                            <x-ui.td align="right" numeric class="font-medium text-ink">{{ $organisation->money((int) ($club->revenue_minor ?? 0)) }}</x-ui.td>
-                            <x-ui.td align="right" numeric>{{ number_format($club->attendance_count) }}</x-ui.td>
+                            <x-ui.td align="right"><x-ui.count-link :value="$club->members_count" :href="route('tenant.members.index', ['club' => $club->id, 'status' => 'active'])" :title="'Active '.strtolower($organisation->term('member_plural')).' at '.$club->name" /></x-ui.td>
+                            <x-ui.td align="right"><x-ui.count-link :value="$club->active_staff_count" :href="route('tenant.staff.index', ['club' => $club->id])" :title="$organisation->term('user_plural').' assigned to '.$club->name" /></x-ui.td>
+                            <x-ui.td align="right" numeric class="font-medium text-ink">
+                                <a href="{{ route('tenant.finance.payments.index', ['club' => $club->id, 'status' => 'confirmed']) }}" wire:navigate class="hover:text-accent hover:underline" title="Confirmed payments at {{ $club->name }}">{{ $organisation->money((int) ($club->revenue_minor ?? 0)) }}</a>
+                            </x-ui.td>
+                            <x-ui.td align="right"><x-ui.count-link :value="$club->attendance_count" :href="route('tenant.attendance.members', ['clubId' => $club->id])" :title="'Attendance at '.$club->name" /></x-ui.td>
                             <x-ui.td><x-ui.badge :tone="$club->status->tone()">{{ $club->status->label() }}</x-ui.badge></x-ui.td>
                             <x-ui.td align="right">
                                 <div class="flex items-center justify-end gap-1">
@@ -108,11 +110,11 @@
                             <dl class="numeric mt-3 grid grid-cols-3 gap-2 text-center">
                                 <div class="rounded-lg bg-raised py-1.5">
                                     <dt class="text-[10px] uppercase text-ink-muted">{{ $organisation->term('member_plural') }}</dt>
-                                    <dd class="text-sm font-semibold">{{ number_format($club->members_count) }}</dd>
+                                    <dd class="text-sm font-semibold"><x-ui.count-link :value="$club->members_count" :href="route('tenant.members.index', ['club' => $club->id, 'status' => 'active'])" /></dd>
                                 </div>
                                 <div class="rounded-lg bg-raised py-1.5">
                                     <dt class="text-[10px] uppercase text-ink-muted">{{ $organisation->term('user_plural') }}</dt>
-                                    <dd class="text-sm font-semibold">{{ number_format($club->active_staff_count) }}</dd>
+                                    <dd class="text-sm font-semibold"><x-ui.count-link :value="$club->active_staff_count" :href="route('tenant.staff.index', ['club' => $club->id])" /></dd>
                                 </div>
                                 <div class="rounded-lg bg-raised py-1.5">
                                     <dt class="text-[10px] uppercase text-ink-muted">Revenue</dt>

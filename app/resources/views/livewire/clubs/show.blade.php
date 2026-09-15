@@ -22,14 +22,15 @@
     </x-ui.page-header>
 
     <div class="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
+        @php $periodQuery = ['club' => $club->id, 'from' => $from, 'to' => $to]; @endphp
         <x-ui.stat :label="'Active '.strtolower($organisation->term('member_plural'))" :value="number_format($memberCount)"
-            icon="user-group" tone="accent" />
+            icon="user-group" tone="accent" :href="route('tenant.members.index', ['club' => $club->id, 'status' => 'active'])" wire:navigate />
         <x-ui.stat label="Revenue" :value="$organisation->moneyCompact($revenue)" icon="banknotes" tone="positive"
-            hint="this period" />
+            hint="this period" :href="route('tenant.finance.payments.index', ['status' => 'confirmed', ...$periodQuery])" wire:navigate />
         <x-ui.stat label="Expenses" :value="$organisation->moneyCompact($expenses)" icon="receipt-percent" tone="critical"
-            hint="this period" />
+            hint="this period" :href="route('tenant.finance.expenses.index', ['status' => 'completed', ...$periodQuery])" wire:navigate />
         <x-ui.stat label="Attendance rate" :value="$attendanceRate.'%'" icon="chart-bar"
-            :tone="$attendanceRate >= 60 ? 'positive' : 'caution'" hint="this period" />
+            :tone="$attendanceRate >= 60 ? 'positive' : 'caution'" hint="this period" :href="route('tenant.reports.index', ['tab' => 'attendance', 'range' => $range, ...$periodQuery])" wire:navigate />
     </div>
 
     <x-ui.tabs :items="collect($tabs)->map(fn ($label, $key) => [
