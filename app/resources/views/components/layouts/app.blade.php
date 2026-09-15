@@ -145,13 +145,6 @@
                     {{ $brandName }}
                 </span>
 
-                {{-- Launcher style only: the Menu button on wider screens. --}}
-                <button type="button" @click="$dispatch('open-launcher')"
-                    class="nav-launcher-button hidden items-center gap-2 rounded-lg border border-hairline bg-surface px-3 py-1.5 text-sm font-medium text-ink-soft transition hover:bg-sunken hover:text-ink">
-                    <x-heroicon-o-squares-2x2 class="h-4 w-4" />
-                    Menu
-                </button>
-
                 <div class="flex-1"></div>
 
                 @isset($toolbar)
@@ -159,6 +152,13 @@
                 @endisset
 
                 <x-ui.theme-toggle />
+
+                {{-- Launcher style only: the Menu button, last in the bar. --}}
+                <button type="button" @click="$dispatch('open-launcher')"
+                    class="nav-launcher-button ml-1 hidden items-center gap-2 rounded-lg border border-hairline bg-surface px-3 py-1.5 text-sm font-medium text-ink-soft transition hover:bg-sunken hover:text-ink">
+                    <x-heroicon-o-squares-2x2 class="h-4 w-4" />
+                    Menu
+                </button>
             </header>
 
             {{-- Screen readers get every flash message announced (MEP 9.3). --}}
