@@ -4,7 +4,7 @@
 
     <form wire:submit="save" class="grid gap-5 lg:grid-cols-3">
         <div class="space-y-5 lg:col-span-2">
-            <x-ui.card :title="$walkIn ? 'Paid by' : $organisation->term('member_singular')">
+            <x-ui.card :title="$walkIn ? 'Paid by' : $organisation->term('member_singular')" :description="$organisation->hasFeature('members') ? null : 'Enter who is paying.'">
                 <x-finance.payer-picker :organisation="$organisation" :selected-member="$selectedMember" :results="$results"
                     :member-search="$memberSearch" :walk-in="$walkIn" :payer-name="$payerName" :payer-phone="$payerPhone" verb="paying" />
             </x-ui.card>

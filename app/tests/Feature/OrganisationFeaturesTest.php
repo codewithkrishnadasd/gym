@@ -58,9 +58,9 @@ it('treats an organisation with no stored list as having every module', function
 });
 
 it('closes the list over what each module needs', function (): void {
-    expect(Feature::expand(['payments']))->toBe(['members', 'payments', 'accounts'])
+    expect(Feature::expand(['payments']))->toBe(['payments', 'accounts'])
         ->and(Feature::expand(['expenses']))->toBe(['expenses', 'accounts'])
-        ->and(Feature::expand(['billing', 'bogus']))->toBe(['members', 'billing'])
+        ->and(Feature::expand(['billing', 'bogus']))->toBe(['billing'])
         ->and(Feature::expand([]))->toBe([]);
 
     enableOnly([Feature::Plans]);
@@ -89,7 +89,7 @@ it('lets the platform admin choose the modules and stores the closed set', funct
 
     $response->assertRedirect();
 
-    expect($this->organisation->fresh()->features)->toBe(['members', 'payments', 'accounts', 'tasks']);
+    expect($this->organisation->fresh()->features)->toBe(['payments', 'accounts', 'tasks']);
 
     // The edit page lists every module with a checkbox.
     $this->actingAs(PlatformAdmin::factory()->create(), 'platform')
@@ -99,7 +99,8 @@ it('lets the platform admin choose the modules and stores the closed set', funct
         ->assertSee('name="features[]" value="expenses"', false)
         ->assertDontSee('type="checkbox" name="features[]"', false)
         ->assertSee('Fee collection')
-        ->assertSee('Needs Members and Accounts');
+        ->assertSee('Needs Accounts')
+        ->assertSee('Needs Members');
 });
 
 it('rejects an unknown module key', function (): void {

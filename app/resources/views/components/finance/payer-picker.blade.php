@@ -36,12 +36,14 @@
 
     @error('memberId')<p class="mt-2 text-xs text-critical">{{ $message }}</p>@enderror
 @elseif ($walkIn)
-    <div class="mb-3 flex items-center justify-between gap-3 rounded-lg border border-hairline bg-raised px-3 py-2">
-        <p class="text-sm text-ink-soft">
-            <span class="font-medium text-ink">Not a {{ $memberLabel }}</span> — the {{ $verb === 'billing' ? 'invoice' : 'receipt' }} is made out to the name below.
-        </p>
-        <x-ui.button size="sm" variant="ghost" wire:click="clearMember" type="button">Choose a {{ $memberLabel }} instead</x-ui.button>
-    </div>
+    @if ($organisation->hasFeature('members'))
+        <div class="mb-3 flex items-center justify-between gap-3 rounded-lg border border-hairline bg-raised px-3 py-2">
+            <p class="text-sm text-ink-soft">
+                <span class="font-medium text-ink">Not a {{ $memberLabel }}</span> — the {{ $verb === 'billing' ? 'invoice' : 'receipt' }} is made out to the name below.
+            </p>
+            <x-ui.button size="sm" variant="ghost" wire:click="clearMember" type="button">Choose a {{ $memberLabel }} instead</x-ui.button>
+        </div>
+    @endif
 
     <div class="grid gap-4 sm:grid-cols-2">
         <x-ui.input wire:model.live.debounce.400ms="payerName" name="payerName" label="Name" required placeholder="Full name" autofocus />

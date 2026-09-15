@@ -182,8 +182,10 @@ it('issues an invoice with only Invoices on', function (): void {
 
     $item = BillableItem::factory()->create(['organisation_id' => $this->organisation->id, 'unit_price_minor' => 25000]);
 
+    // No Members module: the invoice is made out by name.
     Livewire::test(InvoiceForm::class)
-        ->call('selectMember', $this->member->id)
+        ->assertSet('walkIn', true)
+        ->set('payerName', 'Cash Customer')
         ->set('pickedItemId', $item->id)
         ->call('issue')
         ->assertHasNoErrors();

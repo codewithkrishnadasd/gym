@@ -176,3 +176,35 @@ it('keeps member payments exactly as before', function (): void {
         ->and($payment->payer_name)->toBe('Regular Ria')
         ->and($payment->payer_phone)->toBeNull();
 });
+
+it('makes every payment and invoice out by name when the Members module is off', function (): void {
+    $this->organisation->update(['features' => ['payments', 'billing', 'accounts']]);
+    $this->organisation->refresh();
+    app()->instance('tenant', $this->organisation);
+
+    $item = BillableItem::factory()->create(['organisation_id' => $this->organisation->id, 'unit_price_minor' => 50000]);
+
+    // Both forms open straight on the name fields, with no member search
+    // and no way back to one.
+    $this->get('http://walkin.test/finance/payments/create')->assertOk()->assertSee('Enter who is paying')->assertDontSee('Choose a member instead')->assertDontSee('Search member');
+    $this->get('http://walkin.test/billing/create')->assertOk()->assertSee('Enter who this invoice is for')->assertDontSee('Search member');
+
+    Livewire::test(InvoiceForm::class)
+        ->assertSet('walkIn', true)
+        ->set('payerName', 'Company Co')
+        ->set('pickedItemId', $item->id)
+        ->call('issue')
+        ->assertHasNoErrors();
+
+    Livewire::test(PaymentForm::class)
+        ->assertSet('walkIn', true)
+        ->set('payerName', 'Drop-in Dan')
+        ->set('amount', '150')
+        ->set('financialAccountId', $this->account->id)
+        ->set('confirmImmediately', true)
+        ->call('save')
+        ->assertHasNoErrors();
+
+    expect(Invoice::query()->whereNull('member_id')->where('payer_name', 'Company Co')->exists())->toBeTrue()
+        ->and(FeePayment::query()->whereNull('member_id')->where('payer_name', 'Drop-in Dan')->exists())->toBeTrue();
+});

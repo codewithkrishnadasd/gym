@@ -6,6 +6,7 @@ namespace App\Livewire\Billing;
 
 use App\Actions\Billing\IssueInvoice;
 use App\Enums\BillableItemStatus;
+use App\Enums\Feature;
 use App\Enums\MemberStatus;
 use App\Livewire\Concerns\ResolvesMembership;
 use App\Models\BillableItem;
@@ -64,13 +65,20 @@ class Form extends Component
 
         $this->dueDate = Carbon::today($this->organisation()->timezone)->addDays(7)->toDateString();
 
-        if ($member !== null) {
+        // Without the Members module every invoice is made out by name.
+        if (! $this->organisation()->hasFeature(Feature::Members)) {
+            $this->walkIn = true;
+        } elseif ($member !== null) {
             $this->selectMember($member);
         }
     }
 
     public function selectMember(int $memberId): void
     {
+        if (! $this->organisation()->hasFeature(Feature::Members)) {
+            return;
+        }
+
         $member = $this->searchableMembers(true)->firstWhere('id', $memberId);
 
         if (! $member) {
@@ -84,6 +92,10 @@ class Form extends Component
     public function clearMember(): void
     {
         $this->reset(['memberId', 'memberSearch', 'walkIn', 'payerName', 'payerPhone']);
+
+        if (! $this->organisation()->hasFeature(Feature::Members)) {
+            $this->walkIn = true;
+        }
     }
 
     /**

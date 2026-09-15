@@ -107,11 +107,11 @@ enum Feature: string
     public function requires(): array
     {
         return match ($this) {
-            // A plan is sold to a member; an invoice is raised against one.
-            self::Plans, self::Billing => [self::Members],
-            // Every collection names the member paying and the account the
-            // money landed in.
-            self::Payments => [self::Members, self::Accounts],
+            // A plan is sold to a member. Fees and invoices, by contrast, can
+            // be made out to anyone by name, so they stand without Members.
+            self::Plans => [self::Members],
+            // Every collection names the account the money landed in.
+            self::Payments => [self::Accounts],
             // Every expense is paid from an account.
             self::Expenses => [self::Accounts],
             default => [],

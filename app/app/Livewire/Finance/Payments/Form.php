@@ -103,7 +103,10 @@ class Form extends Component
         $this->paymentDate = Carbon::today($this->organisation()->timezone)->toDateString();
         $this->confirmImmediately = $this->currentMembership()->isAdmin();
 
-        if ($member !== null) {
+        // Without the Members module every payer is named directly.
+        if (! $this->organisation()->hasFeature(Feature::Members)) {
+            $this->startWalkIn('');
+        } elseif ($member !== null) {
             $this->selectMember($member);
         }
 
@@ -323,6 +326,10 @@ class Form extends Component
 
     public function selectMember(int $memberId): void
     {
+        if (! $this->organisation()->hasFeature(Feature::Members)) {
+            return;
+        }
+
         $member = $this->searchableMembers(true)->firstWhere('id', $memberId);
 
         if (! $member) {
@@ -350,6 +357,10 @@ class Form extends Component
     public function clearMember(): void
     {
         $this->reset(['memberId', 'walkIn', 'payerName', 'payerPhone', 'subscriptionId', 'invoiceId', 'target', 'amount', 'discount', 'memberSearch']);
+
+        if (! $this->organisation()->hasFeature(Feature::Members)) {
+            $this->walkIn = true;
+        }
     }
 
     /**
