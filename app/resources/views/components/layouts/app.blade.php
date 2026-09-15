@@ -59,7 +59,7 @@
     @endif
     @livewireStyles
 </head>
-<body class="min-h-screen bg-app font-sans text-ink antialiased">
+<body class="min-h-screen bg-app font-sans text-ink antialiased" data-no-progress-bar>
     <div x-data="{ drawer: false }" @keydown.escape.window="drawer = false">
         {{-- ===== Desktop sidebar ===== --}}
         <aside class="fixed inset-y-0 left-0 z-30 hidden w-64 flex-col border-r border-hairline bg-surface lg:flex">
@@ -166,12 +166,18 @@
                 aria-label="Primary">
                 @foreach ($mobileItems as $item)
                     @php $active = request()->routeIs($item['active']); @endphp
-                    <a href="{{ route($item['route']) }}" @class([
+                    <a href="{{ route($item['route']) }}" wire:navigate.hover
+                        x-data="{ busy: false }" x-on:click="busy = true"
+                        x-on:livewire:navigated.window="busy = false" x-on:livewire:navigate-failed.window="busy = false"
+                        @class([
                         'flex min-h-[56px] flex-col items-center justify-center gap-1 text-[11px] font-medium transition',
                         'text-accent' => $active,
                         'text-ink-muted' => ! $active,
                     ]) @if ($active) aria-current="page" @endif>
-                        <x-dynamic-component :component="'heroicon-o-'.$item['icon']" class="h-5 w-5" />
+                        <span class="relative h-5 w-5">
+                            <x-dynamic-component :component="'heroicon-o-'.$item['icon']" x-show="! busy" class="h-5 w-5" />
+                            <span x-show="busy" x-cloak class="absolute inset-0 grid place-items-center text-accent"><x-ui.spinner size="xs" /></span>
+                        </span>
                         <span class="max-w-full truncate px-1">{{ $item['label'] }}</span>
                     </a>
                 @endforeach
@@ -185,7 +191,6 @@
         @endif
     </div>
 
-    <x-ui.page-loader />
     <x-ui.confirm-dialog />
 
     @livewireScripts

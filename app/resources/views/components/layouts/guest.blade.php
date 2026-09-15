@@ -30,7 +30,7 @@
         <style>{!! $accent !!}</style>
     @endif
 </head>
-<body class="min-h-screen bg-app font-sans text-ink antialiased">
+<body class="min-h-screen bg-app font-sans text-ink antialiased" data-no-progress-bar>
     <div class="flex min-h-screen flex-col">
         <div class="flex flex-1 items-center justify-center px-4 py-10 sm:px-6">
             <div class="w-full {{ $maxWidth ?? 'max-w-sm' }}">
@@ -60,7 +60,6 @@
             </div>
         </div>
     </div>
-    <x-ui.page-loader />
     <x-ui.confirm-dialog />
 </body>
 </html>

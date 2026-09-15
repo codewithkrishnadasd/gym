@@ -194,97 +194,6 @@
     display: none !important;
 }
 
-/* Global loading veil — see components/ui/page-loader.blade.php. Shown and
-   hidden from JS; CSS owns the blur, the fade and the spinning arc so a burst
-   of quick requests reads as one calm state rather than a flicker. */
-.page-loader {
-    position: fixed;
-    inset: 0;
-    z-index: 100;
-    display: grid;
-    place-content: center;
-    justify-items: center;
-    gap: 0.75rem;
-    background: color-mix(in srgb, var(--c-app) 55%, transparent);
-    -webkit-backdrop-filter: blur(6px);
-    backdrop-filter: blur(6px);
-    opacity: 0;
-    visibility: hidden;
-    pointer-events: none;
-    transition: opacity 200ms ease, visibility 0s linear 200ms;
-}
-
-.page-loader[data-active] {
-    opacity: 1;
-    visibility: visible;
-    pointer-events: auto;
-    cursor: progress;
-    transition-delay: 0s;
-}
-
-.page-loader__ring {
-    width: 52px;
-    height: 52px;
-    filter: drop-shadow(0 4px 14px color-mix(in srgb, var(--c-accent) 35%, transparent));
-}
-
-.page-loader__ring svg {
-    width: 100%;
-    height: 100%;
-    animation: page-loader-spin 1s linear infinite;
-}
-
-.page-loader__track {
-    stroke: color-mix(in srgb, var(--c-accent) 18%, transparent);
-}
-
-.page-loader__arc {
-    stroke: var(--c-accent);
-    stroke-dasharray: 90 126;
-    animation: page-loader-arc 1.4s ease-in-out infinite;
-}
-
-.page-loader__label {
-    font-size: 0.8125rem;
-    font-weight: 500;
-    color: var(--c-ink-soft);
-    letter-spacing: 0.01em;
-}
-
-@keyframes page-loader-spin {
-    to {
-        transform: rotate(360deg);
-    }
-}
-
-@keyframes page-loader-arc {
-    0% {
-        stroke-dasharray: 20 126;
-    }
-
-    50% {
-        stroke-dasharray: 90 126;
-    }
-
-    100% {
-        stroke-dasharray: 20 126;
-    }
-}
-
-@media (prefers-reduced-motion: reduce) {
-    .page-loader {
-        transition-duration: 0ms;
-    }
-
-    .page-loader__ring svg {
-        animation-duration: 2s;
-    }
-
-    .page-loader__arc {
-        animation: none;
-    }
-}
-
 /* Rendered task descriptions — the preview pane and the task page. Kept as
    plain rules rather than a plugin: the set of elements Markdown produces is
    small and fixed. */
@@ -392,4 +301,26 @@
 .prose-task:empty::before {
     content: 'Nothing here yet — start typing.';
     color: var(--c-ink-muted);
+}
+
+/* Sweep for the list loader (components/ui/list-loader.blade.php). */
+@keyframes list-loader-sweep {
+    from {
+        transform: translateX(-100%);
+    }
+
+    to {
+        transform: translateX(300%);
+    }
+}
+
+.list-loader__sweep {
+    animation: list-loader-sweep 1.1s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .list-loader__sweep {
+        animation: none;
+        width: 100%;
+    }
 }

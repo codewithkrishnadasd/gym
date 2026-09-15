@@ -103,71 +103,69 @@
                 </x-slot:actions>
             @endif
 
-            <div wire:loading.delay class="w-full"><x-ui.skeleton :rows="5" /></div>
+            <x-ui.list-loader />
 
-            <div wire:loading.remove>
-                @if ($roster->isEmpty())
-                    <x-ui.empty icon="user-group" :title="'Nobody on this roster'"
-                        :description="$search !== '' ? 'No one matches “'.$search.'”.' : ($isStaffRoster ? 'No active '.strtolower($organisation->term('user_plural')).' yet.' : 'Nobody is assigned to this '.strtolower($organisation->term('club_singular')).' yet.')" />
-                @else
-                    <ul class="divide-y divide-[var(--c-hairline)]">
-                        @foreach ($roster as $person)
-                            @php $record = $attendance->get($person->id); @endphp
+            @if ($roster->isEmpty())
+                <x-ui.empty icon="user-group" :title="'Nobody on this roster'"
+                    :description="$search !== '' ? 'No one matches “'.$search.'”.' : ($isStaffRoster ? 'No active '.strtolower($organisation->term('user_plural')).' yet.' : 'Nobody is assigned to this '.strtolower($organisation->term('club_singular')).' yet.')" />
+            @else
+                <ul class="divide-y divide-[var(--c-hairline)]">
+                    @foreach ($roster as $person)
+                        @php $record = $attendance->get($person->id); @endphp
 
-                            <li class="flex flex-col gap-3 p-3 sm:flex-row sm:items-center sm:justify-between sm:px-4">
-                                <div class="flex min-w-0 items-center gap-3">
-                                    <x-ui.avatar :name="$person->name" size="sm" />
-                                    <div class="min-w-0">
-                                        <p class="truncate text-sm font-medium text-ink">{{ $person->name }}</p>
-                                        <p class="truncate text-xs text-ink-muted">
-                                            {{ $person->detail }}
-                                            @if ($record)
-                                                &middot; marked by {{ $record->markedBy?->user?->name ?? 'system' }}
-                                                {{ $record->updated_at?->diffForHumans() }}
-                                            @endif
-                                        </p>
-                                    </div>
+                        <li class="flex flex-col gap-3 p-3 sm:flex-row sm:items-center sm:justify-between sm:px-4">
+                            <div class="flex min-w-0 items-center gap-3">
+                                <x-ui.avatar :name="$person->name" size="sm" />
+                                <div class="min-w-0">
+                                    <p class="truncate text-sm font-medium text-ink">{{ $person->name }}</p>
+                                    <p class="truncate text-xs text-ink-muted">
+                                        {{ $person->detail }}
+                                        @if ($record)
+                                            &middot; marked by {{ $record->markedBy?->user?->name ?? 'system' }}
+                                            {{ $record->updated_at?->diffForHumans() }}
+                                        @endif
+                                    </p>
                                 </div>
+                            </div>
 
-                                {{-- Large, always-visible tap targets: never hover-only (MEP 9.3). --}}
-                                <div class="grid shrink-0 grid-cols-4 gap-1.5 sm:flex" role="group"
-                                    aria-label="Attendance for {{ $person->name }}">
-                                    @foreach ($actions as $action)
-                                        @php
-                                            $selected = $record?->action === $action;
-                                            [$tone, $icon] = $tones[$action->value];
-                                            $activeClasses = [
-                                                'positive' => 'bg-positive text-white border-positive',
-                                                'caution' => 'bg-caution text-white border-caution',
-                                                'info' => 'bg-info text-white border-info',
-                                                'critical' => 'bg-critical text-white border-critical',
-                                            ][$tone];
-                                        @endphp
+                            {{-- Large, always-visible tap targets: never hover-only (MEP 9.3). --}}
+                            <div class="grid shrink-0 grid-cols-4 gap-1.5 sm:flex" role="group"
+                                aria-label="Attendance for {{ $person->name }}">
+                                @foreach ($actions as $action)
+                                    @php
+                                        $selected = $record?->action === $action;
+                                        [$tone, $icon] = $tones[$action->value];
+                                        $activeClasses = [
+                                            'positive' => 'bg-positive text-white border-positive',
+                                            'caution' => 'bg-caution text-white border-caution',
+                                            'info' => 'bg-info text-white border-info',
+                                            'critical' => 'bg-critical text-white border-critical',
+                                        ][$tone];
+                                    @endphp
 
-                                        <button type="button"
-                                            @disabled(! $canMark)
-                                            wire:click="mark({{ $person->id }}, '{{ $action->value }}')"
-                                            wire:loading.attr="disabled"
-                                            wire:target="mark({{ $person->id }}, '{{ $action->value }}')"
-                                            aria-pressed="{{ $selected ? 'true' : 'false' }}"
-                                            @class([
-                                                // Icon over label on a phone: four side-by-side labels need ~267px of
-                                                // a 262px row at 320px, so the last one was clipped.
-                                                'flex min-h-[52px] flex-col items-center justify-center gap-0.5 rounded-lg border px-1 text-[11px] font-medium leading-tight transition sm:min-h-[44px] sm:flex-row sm:gap-1.5 sm:px-2.5 sm:text-xs sm:min-w-[86px]',
-                                                $activeClasses => $selected,
-                                                'border-hairline-strong text-ink-soft hover:bg-sunken' => ! $selected,
-                                                'cursor-not-allowed opacity-50' => ! $canMark,
-                                            ])>
-                                            <x-dynamic-component :component="'heroicon-o-'.$icon" class="h-4 w-4 shrink-0" />
-                                            <span class="capitalize">{{ $action->value }}</span>
-                                        </button>
-                                    @endforeach
-                                </div>
-                            </li>
-                        @endforeach
-                    </ul>
-                @endif
-            </div>
+                                    <button type="button"
+                                        @disabled(! $canMark)
+                                        wire:click="mark({{ $person->id }}, '{{ $action->value }}')"
+                                        wire:loading.attr="disabled"
+                                        wire:target="mark({{ $person->id }}, '{{ $action->value }}')"
+                                        aria-pressed="{{ $selected ? 'true' : 'false' }}"
+                                        @class([
+                                            // Icon over label on a phone: four side-by-side labels need ~267px of
+                                            // a 262px row at 320px, so the last one was clipped.
+                                            'flex min-h-[52px] flex-col items-center justify-center gap-0.5 rounded-lg border px-1 text-[11px] font-medium leading-tight transition sm:min-h-[44px] sm:flex-row sm:gap-1.5 sm:px-2.5 sm:text-xs sm:min-w-[86px]',
+                                            $activeClasses => $selected,
+                                            'border-hairline-strong text-ink-soft hover:bg-sunken' => ! $selected,
+                                            'cursor-not-allowed opacity-50' => ! $canMark,
+                                        ])>
+                                        <x-dynamic-component :component="'heroicon-o-'.$icon" class="h-4 w-4 shrink-0" />
+                                        <span class="capitalize">{{ $action->value }}</span>
+                                    </button>
+                                @endforeach
+                            </div>
+                        </li>
+                    @endforeach
+                </ul>
+            @endif
         </x-ui.card>
 
         @unless ($canMark)

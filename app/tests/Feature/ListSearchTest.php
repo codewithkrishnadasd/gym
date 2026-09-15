@@ -103,13 +103,8 @@ it('applies the same rules to payments, staff and tasks', function (): void {
     $this->get('http://search.test/tasks?search=TSK-'.$task->id)->assertOk()->assertSee('Fix the rowers')->assertDontSee('Order towels');
 });
 
-it('keeps filter and search requests off the full-screen loader', function (): void {
-    $js = (string) file_get_contents(resource_path('js/loader.js'));
-
-    expect($js)->toContain('\'$set\'')->toContain('\'gotoPage\'')->toContain('isQuiet(payload)');
-
-    // Every list shows its own loader instead.
+it('gives every list its own loading indicator', function (): void {
     foreach (['members', 'finance/payments', 'finance/expenses', 'finance/accounts', 'clubs', 'staff', 'plans', 'billing', 'tasks', 'messages', 'reports', 'audit-log'] as $path) {
-        expect(str_contains((string) $this->get('http://search.test/'.$path)->assertOk()->getContent(), 'wire:loading.delay'))->toBeTrue("No internal loader on /{$path}");
+        expect(str_contains((string) $this->get('http://search.test/'.$path)->assertOk()->getContent(), 'aria-label="Updating"'))->toBeTrue("No list loader on /{$path}");
     }
 });

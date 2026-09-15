@@ -2,7 +2,7 @@
 
 {{-- `collapsible` turns the header into a toggle for the body; `open` sets the
      starting state. The header actions stay clickable without toggling. --}}
-<section {{ $attributes->class('overflow-hidden rounded-xl border border-hairline bg-surface elevate') }}
+<section {{ $attributes->class('relative overflow-hidden rounded-xl border border-hairline bg-surface elevate') }}
     @if ($collapsible) x-data="{ open: @js((bool) $open) }" @endif>
     @if ($title || $actions)
         <header @class(['flex flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-5', 'border-b border-hairline' => ! $collapsible])

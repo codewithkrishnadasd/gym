@@ -8,8 +8,8 @@ use App\Models\OrganisationUser;
 use App\Models\User;
 
 /**
- * The global loading bar is on every page, signed in or not, and Livewire's
- * own navigate bar is switched off so the two never appear together.
+ * Loading feedback lives where the work happens — on the list that is
+ * updating, on the menu item that was clicked — never as a full-screen veil.
  */
 beforeEach(function (): void {
     $this->organisation = Organisation::factory()->create();
@@ -24,21 +24,27 @@ beforeEach(function (): void {
     app()->instance('tenant', $this->organisation);
 });
 
-it('renders the loader on the sign-in page', function (): void {
+it('has no full-screen loader; lists carry their own and navigation is in-place', function (): void {
     $this->get('http://loader.test/')
         ->assertOk()
-        ->assertSee('data-page-loader', false)
+        ->assertDontSee('data-page-loader', false)
+        // Livewire's own navigate bar stays off as well.
         ->assertSee('data-no-progress-bar', false);
-});
 
-it('renders the loader inside the app and tags downloads so they do not trigger it', function (): void {
     $user = User::factory()->create();
     OrganisationUser::factory()->admin()->create(['organisation_id' => $this->organisation->id, 'user_id' => $user->id]);
     $this->actingAs($user);
 
     $this->get('http://loader.test/members')
         ->assertOk()
-        ->assertSee('data-page-loader', false)
+        ->assertDontSee('data-page-loader', false)
+        // The list dims and shows its own updating indicator.
+        ->assertSee('aria-label="Updating"', false)
+        ->assertSee('Updating…')
+        // Menu items swap the page in place and prefetch on hover, with a
+        // spinner on the item that was clicked.
+        ->assertSee('wire:navigate.hover', false)
+        ->assertSee('busy = true', false)
         ->assertSee('data-download', false);
 });
 

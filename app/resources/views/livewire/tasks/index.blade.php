@@ -55,80 +55,78 @@
             </x-ui.filter-select>
         </x-ui.filters>
 
-        <div wire:loading.delay class="w-full"><x-ui.skeleton :rows="6" /></div>
+        <x-ui.list-loader />
 
-        <div wire:loading.remove>
-            @if ($tasks->isEmpty())
-                <x-ui.empty icon="check-circle" :title="$show === 'done' ? 'Nothing finished yet' : 'No tasks here'"
-                    :description="$categories->isEmpty() && $canManageCategories
-                        ? 'Start by adding a task category with its statuses and sub-categories under Settings → Tasks.'
-                        : ($search !== '' || $category !== '' || $status !== '' ? 'Try a different search or clear the filters.' : 'Add the first task for the team.')">
-                    <x-slot:actions>
-                        @if ($categories->isEmpty() && $canManageCategories)
-                            <x-ui.button variant="primary" size="sm" :href="route('tenant.settings.organisation', ['tab' => 'tasks'])" wire:navigate>Set up categories</x-ui.button>
-                        @else
-                            @can('create', \App\Models\Task::class)
-                                <x-ui.button variant="primary" size="sm" :href="route('tenant.tasks.create')" wire:navigate>New task</x-ui.button>
-                            @endcan
-                        @endif
-                    </x-slot:actions>
-                </x-ui.empty>
-            @else
-                <ul class="divide-y divide-[var(--c-hairline)]">
-                    @foreach ($tasks as $task)
-                        @php
-                            $total = $task->items->count();
-                            $done = $task->items->filter(fn ($item) => $item->isDone())->count();
-                            $overdue = $task->isOverdue($today);
-                        @endphp
-                        <li>
-                            <a href="{{ route('tenant.tasks.show', $task) }}" wire:navigate
-                                class="flex flex-col gap-2 p-4 transition hover:bg-raised sm:flex-row sm:items-center sm:justify-between">
-                                <div class="min-w-0 flex-1">
-                                    <div class="flex flex-wrap items-center gap-2">
-                                        <x-ui.reference :value="$organisation->reference('task', $task->id)" />
-                                        <p @class(['truncate font-medium', 'text-ink' => ! $task->isDone(), 'text-ink-muted line-through' => $task->isDone()])>{{ $task->title }}</p>
-                                        <x-tasks.status-chip :status="$task->status" />
-                                    </div>
-                                    <p class="mt-0.5 flex flex-wrap items-center gap-x-2 text-xs text-ink-muted">
-                                        <span>{{ $task->category?->name }}</span>
-                                        @if ($task->member)
-                                            <span>· for {{ $task->member->name }}</span>
-                                        @endif
-                                        @if ($task->assignees->isNotEmpty())
-                                            <span>· {{ $task->assignees->map(fn ($person) => $person->user?->name)->filter()->join(', ') }}</span>
-                                        @endif
-                                        @if ($task->due_date)
-                                            <span @class(['font-medium text-critical' => $overdue])>
-                                                · {{ $overdue ? 'Overdue' : 'Due' }} {{ $task->due_date->format('d M') }}
-                                            </span>
-                                        @endif
-                                        @if ($task->start_date)
-                                            <span>· from {{ $task->start_date->format('d M') }}</span>
-                                        @endif
-                                    </p>
+        @if ($tasks->isEmpty())
+            <x-ui.empty icon="check-circle" :title="$show === 'done' ? 'Nothing finished yet' : 'No tasks here'"
+                :description="$categories->isEmpty() && $canManageCategories
+                    ? 'Start by adding a task category with its statuses and sub-categories under Settings → Tasks.'
+                    : ($search !== '' || $category !== '' || $status !== '' ? 'Try a different search or clear the filters.' : 'Add the first task for the team.')">
+                <x-slot:actions>
+                    @if ($categories->isEmpty() && $canManageCategories)
+                        <x-ui.button variant="primary" size="sm" :href="route('tenant.settings.organisation', ['tab' => 'tasks'])" wire:navigate>Set up categories</x-ui.button>
+                    @else
+                        @can('create', \App\Models\Task::class)
+                            <x-ui.button variant="primary" size="sm" :href="route('tenant.tasks.create')" wire:navigate>New task</x-ui.button>
+                        @endcan
+                    @endif
+                </x-slot:actions>
+            </x-ui.empty>
+        @else
+            <ul class="divide-y divide-[var(--c-hairline)]">
+                @foreach ($tasks as $task)
+                    @php
+                        $total = $task->items->count();
+                        $done = $task->items->filter(fn ($item) => $item->isDone())->count();
+                        $overdue = $task->isOverdue($today);
+                    @endphp
+                    <li>
+                        <a href="{{ route('tenant.tasks.show', $task) }}" wire:navigate
+                            class="flex flex-col gap-2 p-4 transition hover:bg-raised sm:flex-row sm:items-center sm:justify-between">
+                            <div class="min-w-0 flex-1">
+                                <div class="flex flex-wrap items-center gap-2">
+                                    <x-ui.reference :value="$organisation->reference('task', $task->id)" />
+                                    <p @class(['truncate font-medium', 'text-ink' => ! $task->isDone(), 'text-ink-muted line-through' => $task->isDone()])>{{ $task->title }}</p>
+                                    <x-tasks.status-chip :status="$task->status" />
                                 </div>
+                                <p class="mt-0.5 flex flex-wrap items-center gap-x-2 text-xs text-ink-muted">
+                                    <span>{{ $task->category?->name }}</span>
+                                    @if ($task->member)
+                                        <span>· for {{ $task->member->name }}</span>
+                                    @endif
+                                    @if ($task->assignees->isNotEmpty())
+                                        <span>· {{ $task->assignees->map(fn ($person) => $person->user?->name)->filter()->join(', ') }}</span>
+                                    @endif
+                                    @if ($task->due_date)
+                                        <span @class(['font-medium text-critical' => $overdue])>
+                                            · {{ $overdue ? 'Overdue' : 'Due' }} {{ $task->due_date->format('d M') }}
+                                        </span>
+                                    @endif
+                                    @if ($task->start_date)
+                                        <span>· from {{ $task->start_date->format('d M') }}</span>
+                                    @endif
+                                </p>
+                            </div>
 
-                                @if ($total > 0)
-                                    {{-- Progress of the task's parts, so a list scan shows how
-                                         far along each piece of work is without opening it. --}}
-                                    @php $percent = (int) round($done / $total * 100); @endphp
-                                    <div class="flex shrink-0 items-center gap-2 sm:w-52">
-                                        <div class="h-1.5 flex-1 overflow-hidden rounded-full bg-sunken">
-                                            <div class="h-full rounded-full bg-positive transition-all" style="width: {{ $percent }}%"></div>
-                                        </div>
-                                        <span class="numeric w-20 text-right text-xs text-ink-muted"><span class="font-semibold text-ink">{{ $percent }}%</span> · {{ $done }}/{{ $total }}</span>
+                            @if ($total > 0)
+                                {{-- Progress of the task's parts, so a list scan shows how
+                                     far along each piece of work is without opening it. --}}
+                                @php $percent = (int) round($done / $total * 100); @endphp
+                                <div class="flex shrink-0 items-center gap-2 sm:w-52">
+                                    <div class="h-1.5 flex-1 overflow-hidden rounded-full bg-sunken">
+                                        <div class="h-full rounded-full bg-positive transition-all" style="width: {{ $percent }}%"></div>
                                     </div>
-                                @elseif ($task->isDone())
-                                    <span class="numeric shrink-0 text-xs font-semibold text-positive">100%</span>
-                                @endif
-                            </a>
-                        </li>
-                    @endforeach
-                </ul>
+                                    <span class="numeric w-20 text-right text-xs text-ink-muted"><span class="font-semibold text-ink">{{ $percent }}%</span> · {{ $done }}/{{ $total }}</span>
+                                </div>
+                            @elseif ($task->isDone())
+                                <span class="numeric shrink-0 text-xs font-semibold text-positive">100%</span>
+                            @endif
+                        </a>
+                    </li>
+                @endforeach
+            </ul>
 
-                <div class="border-t border-hairline p-3">{{ $tasks->links() }}</div>
-            @endif
-        </div>
+            <div class="border-t border-hairline p-3">{{ $tasks->links() }}</div>
+        @endif
     </x-ui.card>
 </div>

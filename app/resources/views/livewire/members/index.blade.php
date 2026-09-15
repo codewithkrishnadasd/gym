@@ -51,131 +51,129 @@
             </div>
         @endif
 
-        <div wire:loading.delay class="w-full"><x-ui.skeleton :rows="6" /></div>
+        <x-ui.list-loader />
 
-        <div wire:loading.remove>
-            @if ($members->isEmpty())
-                <x-ui.empty icon="user-group"
-                    :title="$search !== '' || $status !== '' || $club !== '' || $plan !== '' ? 'Nothing matches those filters' : 'No '.strtolower($organisation->term('member_plural')).' yet'"
-                    :description="$search !== '' || $status !== '' || $club !== '' || $plan !== '' ? 'Try a different search or clear the filters.' : 'Add your first '.strtolower($organisation->term('member_singular')).' to start tracking plans, attendance, and fees.'">
-                    <x-slot:actions>
-                        @can('create', \App\Models\Member::class)
-                            <x-ui.button variant="primary" icon="plus" :href="route('tenant.members.create', array_filter(['club' => $club]))" wire:navigate>
-                                Add {{ $organisation->term('member_singular') }}
-                            </x-ui.button>
-                        @endcan
-                    </x-slot:actions>
-                </x-ui.empty>
-            @else
-                <x-ui.table class="hidden lg:block">
-                    <x-slot:head>
-                        <x-ui.th>Name</x-ui.th>
-                        <x-ui.th>Contact</x-ui.th>
-                        <x-ui.th>{{ $organisation->term('club_singular') }}</x-ui.th>
-                        <x-ui.th>Plan</x-ui.th>
-                        <x-ui.th align="right">Outstanding</x-ui.th>
-                        <x-ui.th>Status</x-ui.th>
-                        <x-ui.th align="right"></x-ui.th>
-                    </x-slot:head>
+        @if ($members->isEmpty())
+            <x-ui.empty icon="user-group"
+                :title="$search !== '' || $status !== '' || $club !== '' || $plan !== '' ? 'Nothing matches those filters' : 'No '.strtolower($organisation->term('member_plural')).' yet'"
+                :description="$search !== '' || $status !== '' || $club !== '' || $plan !== '' ? 'Try a different search or clear the filters.' : 'Add your first '.strtolower($organisation->term('member_singular')).' to start tracking plans, attendance, and fees.'">
+                <x-slot:actions>
+                    @can('create', \App\Models\Member::class)
+                        <x-ui.button variant="primary" icon="plus" :href="route('tenant.members.create', array_filter(['club' => $club]))" wire:navigate>
+                            Add {{ $organisation->term('member_singular') }}
+                        </x-ui.button>
+                    @endcan
+                </x-slot:actions>
+            </x-ui.empty>
+        @else
+            <x-ui.table class="hidden lg:block">
+                <x-slot:head>
+                    <x-ui.th>Name</x-ui.th>
+                    <x-ui.th>Contact</x-ui.th>
+                    <x-ui.th>{{ $organisation->term('club_singular') }}</x-ui.th>
+                    <x-ui.th>Plan</x-ui.th>
+                    <x-ui.th align="right">Outstanding</x-ui.th>
+                    <x-ui.th>Status</x-ui.th>
+                    <x-ui.th align="right"></x-ui.th>
+                </x-slot:head>
 
-                    @foreach ($members as $member)
-                        @php
-                            $subscription = $member->subscriptions->first();
-                            $due = $subscription ? max(0, $subscription->amount_due_minor - $subscription->amount_paid_minor) : 0;
-                        @endphp
+                @foreach ($members as $member)
+                    @php
+                        $subscription = $member->subscriptions->first();
+                        $due = $subscription ? max(0, $subscription->amount_due_minor - $subscription->amount_paid_minor) : 0;
+                    @endphp
 
-                        <tr class="transition hover:bg-raised">
-                            <x-ui.td>
-                                <div class="flex items-center gap-2.5">
-                                    <x-ui.avatar :name="$member->name" size="sm" />
-                                    <div class="min-w-0">
-                                        <a href="{{ route('tenant.members.show', $member) }}" wire:navigate
-                                            class="font-medium text-ink hover:text-accent">{{ $member->name }}</a>
-                                        <x-ui.reference :value="$organisation->reference('member', $member->id)" class="ml-1.5" />
-                                    </div>
+                    <tr class="transition hover:bg-raised">
+                        <x-ui.td>
+                            <div class="flex items-center gap-2.5">
+                                <x-ui.avatar :name="$member->name" size="sm" />
+                                <div class="min-w-0">
+                                    <a href="{{ route('tenant.members.show', $member) }}" wire:navigate
+                                        class="font-medium text-ink hover:text-accent">{{ $member->name }}</a>
+                                    <x-ui.reference :value="$organisation->reference('member', $member->id)" class="ml-1.5" />
                                 </div>
-                            </x-ui.td>
-                            <x-ui.td numeric>{{ $member->phone ?: '—' }}</x-ui.td>
-                            <x-ui.td>{{ $member->primaryClub?->name ?? 'Unassigned' }}</x-ui.td>
-                            <x-ui.td>
-                                @if ($subscription)
-                                    @php $health = $subscription->health($today); @endphp
+                            </div>
+                        </x-ui.td>
+                        <x-ui.td numeric>{{ $member->phone ?: '—' }}</x-ui.td>
+                        <x-ui.td>{{ $member->primaryClub?->name ?? 'Unassigned' }}</x-ui.td>
+                        <x-ui.td>
+                            @if ($subscription)
+                                @php $health = $subscription->health($today); @endphp
 
-                                    <p class="text-ink">{{ $subscription->plan->name }}</p>
-                                    <div class="mt-0.5 flex flex-wrap items-center gap-1.5">
-                                        <span class="numeric text-xs text-ink-muted">to {{ $subscription->end_date->format('d M Y') }}</span>
-                                        {{-- Only drawn when it needs acting on; a badge on every
-                                             healthy row is noise that trains people to ignore it. --}}
-                                        @if ($health->needsAttention())
-                                            <x-ui.badge :tone="$health->tone()">{{ $health->detailedLabel($subscription, $today) }}</x-ui.badge>
-                                        @endif
-                                    </div>
-                                @else
-                                    <span class="text-ink-muted">No active plan</span>
-                                @endif
-                            </x-ui.td>
-                            <x-ui.td align="right" numeric class="{{ $due > 0 ? 'font-medium text-caution' : 'text-ink-muted' }}">
-                                {{ $due > 0 ? $organisation->money($due) : '—' }}
-                            </x-ui.td>
-                            <x-ui.td><x-ui.badge :tone="$member->status->tone()">{{ $member->status->label() }}</x-ui.badge></x-ui.td>
-                            <x-ui.td align="right">
-                                <div class="flex items-center justify-end gap-1">
-                                    <x-ui.button size="sm" variant="ghost" :href="route('tenant.members.show', $member)" wire:navigate>View</x-ui.button>
-                                    @can('update', $member)
-                                        <x-ui.button size="sm" variant="ghost" :href="route('tenant.members.edit', $member)" wire:navigate>Edit</x-ui.button>
-                                    @endcan
-                                    @can('archive', $member)
-                                        @if ($member->status->value === 'archived')
-                                            <x-ui.button size="sm" variant="ghost" icon="arrow-uturn-left" wire:click="restore({{ $member->id }})">Restore</x-ui.button>
-                                        @else
-                                            <x-ui.button size="sm" variant="ghost" icon="trash" wire:click="archive({{ $member->id }})"
-                                                data-confirm-title="Remove this member?" data-confirm-action="Remove" data-confirm-tone="danger" data-confirm="Remove {{ $member->name }}? They stay in historical reports and can be restored.">Remove</x-ui.button>
-                                        @endif
-                                    @endcan
+                                <p class="text-ink">{{ $subscription->plan->name }}</p>
+                                <div class="mt-0.5 flex flex-wrap items-center gap-1.5">
+                                    <span class="numeric text-xs text-ink-muted">to {{ $subscription->end_date->format('d M Y') }}</span>
+                                    {{-- Only drawn when it needs acting on; a badge on every
+                                         healthy row is noise that trains people to ignore it. --}}
+                                    @if ($health->needsAttention())
+                                        <x-ui.badge :tone="$health->tone()">{{ $health->detailedLabel($subscription, $today) }}</x-ui.badge>
+                                    @endif
                                 </div>
-                            </x-ui.td>
-                        </tr>
-                    @endforeach
-                </x-ui.table>
+                            @else
+                                <span class="text-ink-muted">No active plan</span>
+                            @endif
+                        </x-ui.td>
+                        <x-ui.td align="right" numeric class="{{ $due > 0 ? 'font-medium text-caution' : 'text-ink-muted' }}">
+                            {{ $due > 0 ? $organisation->money($due) : '—' }}
+                        </x-ui.td>
+                        <x-ui.td><x-ui.badge :tone="$member->status->tone()">{{ $member->status->label() }}</x-ui.badge></x-ui.td>
+                        <x-ui.td align="right">
+                            <div class="flex items-center justify-end gap-1">
+                                <x-ui.button size="sm" variant="ghost" :href="route('tenant.members.show', $member)" wire:navigate>View</x-ui.button>
+                                @can('update', $member)
+                                    <x-ui.button size="sm" variant="ghost" :href="route('tenant.members.edit', $member)" wire:navigate>Edit</x-ui.button>
+                                @endcan
+                                @can('archive', $member)
+                                    @if ($member->status->value === 'archived')
+                                        <x-ui.button size="sm" variant="ghost" icon="arrow-uturn-left" wire:click="restore({{ $member->id }})">Restore</x-ui.button>
+                                    @else
+                                        <x-ui.button size="sm" variant="ghost" icon="trash" wire:click="archive({{ $member->id }})"
+                                            data-confirm-title="Remove this member?" data-confirm-action="Remove" data-confirm-tone="danger" data-confirm="Remove {{ $member->name }}? They stay in historical reports and can be restored.">Remove</x-ui.button>
+                                    @endif
+                                @endcan
+                            </div>
+                        </x-ui.td>
+                    </tr>
+                @endforeach
+            </x-ui.table>
 
-                <ul class="divide-y divide-[var(--c-hairline)] lg:hidden">
-                    @foreach ($members as $member)
-                        @php
-                            $subscription = $member->subscriptions->first();
-                            $due = $subscription ? max(0, $subscription->amount_due_minor - $subscription->amount_paid_minor) : 0;
-                        @endphp
+            <ul class="divide-y divide-[var(--c-hairline)] lg:hidden">
+                @foreach ($members as $member)
+                    @php
+                        $subscription = $member->subscriptions->first();
+                        $due = $subscription ? max(0, $subscription->amount_due_minor - $subscription->amount_paid_minor) : 0;
+                    @endphp
 
-                        <li>
-                            <a href="{{ route('tenant.members.show', $member) }}" wire:navigate
-                                class="flex items-center gap-3 p-4 transition hover:bg-raised">
-                                <x-ui.avatar :name="$member->name" />
-                                <div class="min-w-0 flex-1">
-                                    <div class="flex min-w-0 items-center gap-1.5">
-                                        <p class="min-w-0 truncate font-medium text-ink">{{ $member->name }}</p>
-                                        <x-ui.reference :value="$organisation->reference('member', $member->id)" class="shrink-0" />
-                                    </div>
-                                    <p class="numeric truncate text-xs text-ink-muted">
-                                        {{ $member->phone }} · {{ $member->primaryClub?->name ?? 'Unassigned' }}
-                                    </p>
-                                    <div class="mt-1.5 flex flex-wrap items-center gap-1.5">
-                                        <x-ui.badge :tone="$member->status->tone()">{{ $member->status->label() }}</x-ui.badge>
-                                        @php $health = $subscription?->health($today); @endphp
-                                        @if ($health?->needsAttention())
-                                            <x-ui.badge :tone="$health->tone()">{{ $health->detailedLabel($subscription, $today) }}</x-ui.badge>
-                                        @endif
-                                        @if ($due > 0)
-                                            <x-ui.badge tone="caution">{{ $organisation->money($due) }} due</x-ui.badge>
-                                        @endif
-                                    </div>
+                    <li>
+                        <a href="{{ route('tenant.members.show', $member) }}" wire:navigate
+                            class="flex items-center gap-3 p-4 transition hover:bg-raised">
+                            <x-ui.avatar :name="$member->name" />
+                            <div class="min-w-0 flex-1">
+                                <div class="flex min-w-0 items-center gap-1.5">
+                                    <p class="min-w-0 truncate font-medium text-ink">{{ $member->name }}</p>
+                                    <x-ui.reference :value="$organisation->reference('member', $member->id)" class="shrink-0" />
                                 </div>
-                                <x-heroicon-o-chevron-right class="h-4 w-4 shrink-0 text-ink-muted" />
-                            </a>
-                        </li>
-                    @endforeach
-                </ul>
+                                <p class="numeric truncate text-xs text-ink-muted">
+                                    {{ $member->phone }} · {{ $member->primaryClub?->name ?? 'Unassigned' }}
+                                </p>
+                                <div class="mt-1.5 flex flex-wrap items-center gap-1.5">
+                                    <x-ui.badge :tone="$member->status->tone()">{{ $member->status->label() }}</x-ui.badge>
+                                    @php $health = $subscription?->health($today); @endphp
+                                    @if ($health?->needsAttention())
+                                        <x-ui.badge :tone="$health->tone()">{{ $health->detailedLabel($subscription, $today) }}</x-ui.badge>
+                                    @endif
+                                    @if ($due > 0)
+                                        <x-ui.badge tone="caution">{{ $organisation->money($due) }} due</x-ui.badge>
+                                    @endif
+                                </div>
+                            </div>
+                            <x-heroicon-o-chevron-right class="h-4 w-4 shrink-0 text-ink-muted" />
+                        </a>
+                    </li>
+                @endforeach
+            </ul>
 
-                {{ $members->links() }}
-            @endif
-        </div>
+            {{ $members->links() }}
+        @endif
     </x-ui.card>
 </div>

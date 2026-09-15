@@ -42,91 +42,89 @@
             </x-ui.filter-select>
         </x-ui.filters>
 
-        <div wire:loading.delay class="w-full"><x-ui.skeleton :rows="4" /></div>
+        <x-ui.list-loader />
 
-        <div wire:loading.remove>
-            @if ($payments->isEmpty())
-                <x-ui.empty icon="check-badge" title="Nothing waiting"
-                    description="Every submitted payment has been reviewed.">
-                    <x-slot:actions>
-                        <x-ui.button size="sm" :href="route('tenant.finance.payments.index')" wire:navigate>Open the ledger</x-ui.button>
-                    </x-slot:actions>
-                </x-ui.empty>
-            @else
-                <ul class="divide-y divide-[var(--c-hairline)]">
-                    @foreach ($payments as $payment)
-                        @php $ageDays = $payment->created_at?->diffInDays(now()) ?? 0; @endphp
+        @if ($payments->isEmpty())
+            <x-ui.empty icon="check-badge" title="Nothing waiting"
+                description="Every submitted payment has been reviewed.">
+                <x-slot:actions>
+                    <x-ui.button size="sm" :href="route('tenant.finance.payments.index')" wire:navigate>Open the ledger</x-ui.button>
+                </x-slot:actions>
+            </x-ui.empty>
+        @else
+            <ul class="divide-y divide-[var(--c-hairline)]">
+                @foreach ($payments as $payment)
+                    @php $ageDays = $payment->created_at?->diffInDays(now()) ?? 0; @endphp
 
-                        <li class="flex flex-col gap-3 p-4 lg:flex-row lg:items-center lg:justify-between">
-                            <div class="flex min-w-0 items-start gap-3">
-                                <x-ui.avatar :name="$payment->member->name" tone="accent" />
-                                <div class="min-w-0">
-                                    <div class="flex flex-wrap items-center gap-2">
-                                        <a href="{{ route('tenant.finance.payments.show', $payment) }}" wire:navigate
-                                            class="truncate font-medium text-ink hover:text-accent">{{ $payment->member->name }}</a>
-                                        @if ($ageDays >= 2)
-                                            <x-ui.badge tone="critical">{{ (int) $ageDays }}d waiting</x-ui.badge>
-                                        @endif
-                                    </div>
-                                    <p class="mt-0.5 text-xs text-ink-muted">
-                                        {{ $payment->club->name }}
-                                        &middot; {{ $payment->payment_method->label() }}
-                                        &middot; collected by {{ $payment->collectedBy?->user?->name ?? '—' }}
-                                        &middot; {{ $payment->created_at?->diffForHumans() }}
-                                    </p>
-                                    <p class="text-xs text-ink-muted">
-                                        For: {{ $payment->purposeLabel() }}
-                                        @if ($payment->discount_minor > 0)
-                                            · includes a {{ $organisation->money($payment->discount_minor) }} discount
-                                        @endif
-                                        @if ($payment->credit_applied_minor > 0)
-                                            · applies {{ $organisation->money($payment->credit_applied_minor) }} of earlier unlinked money
-                                        @endif
-                                    </p>
-                                    @if ($payment->invoice)
-                                        <p class="text-xs text-ink-muted">
-                                            Invoice: <span class="font-mono">{{ $payment->invoice->number }}</span>
-                                            · {{ $organisation->money($payment->invoice->outstandingMinor()) }} outstanding before this
-                                        </p>
+                    <li class="flex flex-col gap-3 p-4 lg:flex-row lg:items-center lg:justify-between">
+                        <div class="flex min-w-0 items-start gap-3">
+                            <x-ui.avatar :name="$payment->member->name" tone="accent" />
+                            <div class="min-w-0">
+                                <div class="flex flex-wrap items-center gap-2">
+                                    <a href="{{ route('tenant.finance.payments.show', $payment) }}" wire:navigate
+                                        class="truncate font-medium text-ink hover:text-accent">{{ $payment->member->name }}</a>
+                                    @if ($ageDays >= 2)
+                                        <x-ui.badge tone="critical">{{ (int) $ageDays }}d waiting</x-ui.badge>
                                     @endif
-
-                                    {{-- Confirming credits this account, so it is stated on the
-                                         row rather than hidden behind the payment page. --}}
-                                    <p class="mt-1 inline-flex items-center gap-1.5 rounded-md bg-sunken px-2 py-1 text-xs text-ink-soft">
-                                        <x-heroicon-o-arrow-right-circle class="h-3.5 w-3.5 shrink-0 text-ink-muted" />
-                                        Credits
-                                        <span class="font-medium text-ink">{{ $payment->financialAccount?->name ?? 'no account named' }}</span>
-                                        @if ($payment->transaction_reference)
-                                            <span class="numeric text-ink-muted">· ref {{ $payment->transaction_reference }}</span>
-                                        @endif
-                                    </p>
                                 </div>
-                            </div>
-
-                            <div class="flex shrink-0 items-center justify-between gap-3 lg:justify-end">
-                                <p class="numeric font-[family-name:var(--font-display)] text-lg font-semibold">
-                                    {{ $organisation->money($payment->amount_minor) }}
+                                <p class="mt-0.5 text-xs text-ink-muted">
+                                    {{ $payment->club->name }}
+                                    &middot; {{ $payment->payment_method->label() }}
+                                    &middot; collected by {{ $payment->collectedBy?->user?->name ?? '—' }}
+                                    &middot; {{ $payment->created_at?->diffForHumans() }}
                                 </p>
+                                <p class="text-xs text-ink-muted">
+                                    For: {{ $payment->purposeLabel() }}
+                                    @if ($payment->discount_minor > 0)
+                                        · includes a {{ $organisation->money($payment->discount_minor) }} discount
+                                    @endif
+                                    @if ($payment->credit_applied_minor > 0)
+                                        · applies {{ $organisation->money($payment->credit_applied_minor) }} of earlier unlinked money
+                                    @endif
+                                </p>
+                                @if ($payment->invoice)
+                                    <p class="text-xs text-ink-muted">
+                                        Invoice: <span class="font-mono">{{ $payment->invoice->number }}</span>
+                                        · {{ $organisation->money($payment->invoice->outstandingMinor()) }} outstanding before this
+                                    </p>
+                                @endif
 
-                                <div class="flex items-center gap-2">
-                                    <x-ui.button size="sm" variant="danger" wire:click="startReject({{ $payment->id }})">Reject</x-ui.button>
-
-                                    <x-ui.button size="sm" variant="primary" icon="check"
-                                        wire:click="confirm({{ $payment->id }})"
-                                        data-confirm-title="Confirm this payment?" data-confirm-action="Confirm payment" data-confirm-tone="accent" data-confirm="Confirm {{ $organisation->money($payment->amount_minor) }} from {{ $payment->member->name }} as credited to {{ $payment->financialAccount?->name ?? 'no named account' }}?"
-                                        wire:loading.attr="disabled" wire:target="confirm({{ $payment->id }})">
-                                        <span wire:loading.remove wire:target="confirm({{ $payment->id }})">Confirm</span>
-                                        <span wire:loading wire:target="confirm({{ $payment->id }})"><x-ui.spinner size="xs" /></span>
-                                    </x-ui.button>
-                                </div>
+                                {{-- Confirming credits this account, so it is stated on the
+                                     row rather than hidden behind the payment page. --}}
+                                <p class="mt-1 inline-flex items-center gap-1.5 rounded-md bg-sunken px-2 py-1 text-xs text-ink-soft">
+                                    <x-heroicon-o-arrow-right-circle class="h-3.5 w-3.5 shrink-0 text-ink-muted" />
+                                    Credits
+                                    <span class="font-medium text-ink">{{ $payment->financialAccount?->name ?? 'no account named' }}</span>
+                                    @if ($payment->transaction_reference)
+                                        <span class="numeric text-ink-muted">· ref {{ $payment->transaction_reference }}</span>
+                                    @endif
+                                </p>
                             </div>
-                        </li>
-                    @endforeach
-                </ul>
+                        </div>
 
-                {{ $payments->links() }}
-            @endif
-        </div>
+                        <div class="flex shrink-0 items-center justify-between gap-3 lg:justify-end">
+                            <p class="numeric font-[family-name:var(--font-display)] text-lg font-semibold">
+                                {{ $organisation->money($payment->amount_minor) }}
+                            </p>
+
+                            <div class="flex items-center gap-2">
+                                <x-ui.button size="sm" variant="danger" wire:click="startReject({{ $payment->id }})">Reject</x-ui.button>
+
+                                <x-ui.button size="sm" variant="primary" icon="check"
+                                    wire:click="confirm({{ $payment->id }})"
+                                    data-confirm-title="Confirm this payment?" data-confirm-action="Confirm payment" data-confirm-tone="accent" data-confirm="Confirm {{ $organisation->money($payment->amount_minor) }} from {{ $payment->member->name }} as credited to {{ $payment->financialAccount?->name ?? 'no named account' }}?"
+                                    wire:loading.attr="disabled" wire:target="confirm({{ $payment->id }})">
+                                    <span wire:loading.remove wire:target="confirm({{ $payment->id }})">Confirm</span>
+                                    <span wire:loading wire:target="confirm({{ $payment->id }})"><x-ui.spinner size="xs" /></span>
+                                </x-ui.button>
+                            </div>
+                        </div>
+                    </li>
+                @endforeach
+            </ul>
+
+            {{ $payments->links() }}
+        @endif
     </x-ui.card>
 
     <x-ui.modal name="reject-queued-payment" title="Reject this payment"

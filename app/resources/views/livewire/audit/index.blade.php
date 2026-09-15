@@ -47,54 +47,52 @@
             </x-ui.filter-select>
         </x-ui.filters>
 
-        <div wire:loading.delay class="w-full"><x-ui.skeleton :rows="6" /></div>
+        <x-ui.list-loader />
 
-        <div wire:loading.remove>
-            @if ($events->isEmpty())
-                <x-ui.empty icon="shield-check" title="No audit entries"
-                    description="Actions such as payment confirmations and expense reversals will be recorded here." />
-            @else
-                <ol class="divide-y divide-[var(--c-hairline)]">
-                    @foreach ($events as $event)
-                        <li class="flex items-start gap-3 px-4 py-3">
-                            <span @class([
-                                'mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-lg',
-                                'bg-positive-soft text-positive' => $toneFor($event->action) === 'positive',
-                                'bg-critical-soft text-critical' => $toneFor($event->action) === 'critical',
-                                'bg-info-soft text-info' => $toneFor($event->action) === 'info',
-                                'bg-sunken text-ink-muted' => $toneFor($event->action) === 'neutral',
-                            ])>
-                                <x-dynamic-component :component="'heroicon-o-'.$iconFor($event->action)" class="h-4 w-4" />
-                            </span>
+        @if ($events->isEmpty())
+            <x-ui.empty icon="shield-check" title="No audit entries"
+                description="Actions such as payment confirmations and expense reversals will be recorded here." />
+        @else
+            <ol class="divide-y divide-[var(--c-hairline)]">
+                @foreach ($events as $event)
+                    <li class="flex items-start gap-3 px-4 py-3">
+                        <span @class([
+                            'mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-lg',
+                            'bg-positive-soft text-positive' => $toneFor($event->action) === 'positive',
+                            'bg-critical-soft text-critical' => $toneFor($event->action) === 'critical',
+                            'bg-info-soft text-info' => $toneFor($event->action) === 'info',
+                            'bg-sunken text-ink-muted' => $toneFor($event->action) === 'neutral',
+                        ])>
+                            <x-dynamic-component :component="'heroicon-o-'.$iconFor($event->action)" class="h-4 w-4" />
+                        </span>
 
-                            <div class="min-w-0 flex-1">
-                                <div class="flex flex-wrap items-baseline gap-x-2">
-                                    <p class="text-sm font-medium text-ink">
-                                        {{ \Illuminate\Support\Str::of($event->action)->replace(['.', '_'], ' ')->ucfirst() }}
-                                    </p>
-                                    <p class="text-xs text-ink-muted">
-                                        {{ \Illuminate\Support\Str::of($event->entity_type)->replace('_', ' ') }} #{{ $event->entity_id }}
-                                    </p>
-                                </div>
-
-                                <p class="numeric mt-0.5 text-xs text-ink-muted">
-                                    {{ $event->actor?->user?->name ?? 'system' }}
-                                    <span class="opacity-60">({{ $event->actor_role }})</span>
-                                    &middot; {{ $event->created_at?->timezone($organisation->timezone)->format('d M Y H:i') }}
+                        <div class="min-w-0 flex-1">
+                            <div class="flex flex-wrap items-baseline gap-x-2">
+                                <p class="text-sm font-medium text-ink">
+                                    {{ \Illuminate\Support\Str::of($event->action)->replace(['.', '_'], ' ')->ucfirst() }}
                                 </p>
-
-                                @if (! empty($event->metadata['reason']))
-                                    <p class="mt-1 rounded-md bg-raised px-2 py-1 text-xs text-ink-soft">
-                                        Reason: {{ $event->metadata['reason'] }}
-                                    </p>
-                                @endif
+                                <p class="text-xs text-ink-muted">
+                                    {{ \Illuminate\Support\Str::of($event->entity_type)->replace('_', ' ') }} #{{ $event->entity_id }}
+                                </p>
                             </div>
-                        </li>
-                    @endforeach
-                </ol>
 
-                {{ $events->links() }}
-            @endif
-        </div>
+                            <p class="numeric mt-0.5 text-xs text-ink-muted">
+                                {{ $event->actor?->user?->name ?? 'system' }}
+                                <span class="opacity-60">({{ $event->actor_role }})</span>
+                                &middot; {{ $event->created_at?->timezone($organisation->timezone)->format('d M Y H:i') }}
+                            </p>
+
+                            @if (! empty($event->metadata['reason']))
+                                <p class="mt-1 rounded-md bg-raised px-2 py-1 text-xs text-ink-soft">
+                                    Reason: {{ $event->metadata['reason'] }}
+                                </p>
+                            @endif
+                        </div>
+                    </li>
+                @endforeach
+            </ol>
+
+            {{ $events->links() }}
+        @endif
     </x-ui.card>
 </div>

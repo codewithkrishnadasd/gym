@@ -42,27 +42,25 @@
             </x-ui.filter-select>
         </x-ui.filters>
 
-        <div wire:loading.delay class="w-full"><x-ui.skeleton :rows="6" /></div>
+        <x-ui.list-loader />
 
-        <div wire:loading.remove>
-            @if ($messages->isEmpty())
-                <x-ui.empty icon="chat-bubble-left-right"
-                    :title="$search !== '' || $status !== '' || $action !== '' ? 'Nothing matches those filters' : 'No messages yet'"
-                    :description="$search !== '' || $status !== '' || $action !== '' ? 'Try a different search or clear the filters.' : 'Messages appear here as you add members, confirm payments, and update staff.'" />
-            @else
-                {{-- The same block shown after an action, one per message. An
-                     operator working through the backlog does exactly what they
-                     do after an event, so the controls are the same controls
-                     rather than a second, list-only design to learn. --}}
-                <div class="space-y-3 p-4">
-                    @foreach ($messages as $message)
-                        <livewire:notifications.action-panel :notification-id="$message->id"
-                            context="queue" :key="'queue-'.$message->id" />
-                    @endforeach
+        @if ($messages->isEmpty())
+            <x-ui.empty icon="chat-bubble-left-right"
+                :title="$search !== '' || $status !== '' || $action !== '' ? 'Nothing matches those filters' : 'No messages yet'"
+                :description="$search !== '' || $status !== '' || $action !== '' ? 'Try a different search or clear the filters.' : 'Messages appear here as you add members, confirm payments, and update staff.'" />
+        @else
+            {{-- The same block shown after an action, one per message. An
+                 operator working through the backlog does exactly what they
+                 do after an event, so the controls are the same controls
+                 rather than a second, list-only design to learn. --}}
+            <div class="space-y-3 p-4">
+                @foreach ($messages as $message)
+                    <livewire:notifications.action-panel :notification-id="$message->id"
+                        context="queue" :key="'queue-'.$message->id" />
+                @endforeach
 
-                    {{ $messages->links() }}
-                </div>
-            @endif
-        </div>
+                {{ $messages->links() }}
+            </div>
+        @endif
     </x-ui.card>
 </div>

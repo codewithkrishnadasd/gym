@@ -79,96 +79,94 @@
             <x-ui.button size="sm" variant="ghost" wire:click="clearFilters">Clear</x-ui.button>
         </x-ui.filters>
 
-        <div wire:loading.delay class="w-full"><x-ui.skeleton :rows="6" /></div>
+        <x-ui.list-loader />
 
-        <div wire:loading.remove>
-            @if ($payments->isEmpty())
-                <x-ui.empty icon="banknotes" title="No payments found"
-                    description="Try widening the date range or clearing the filters.">
-                    <x-slot:actions>
-                        <x-ui.button size="sm" wire:click="clearFilters">Clear filters</x-ui.button>
-                    </x-slot:actions>
-                </x-ui.empty>
-            @else
-                <x-ui.table class="hidden lg:block">
-                    <x-slot:head>
-                        <x-ui.th>Date</x-ui.th>
-                        <x-ui.th>{{ $organisation->term('member_singular') }}</x-ui.th>
-                        <x-ui.th>{{ $organisation->term('club_singular') }}</x-ui.th>
-                        <x-ui.th>Method</x-ui.th>
-                        <x-ui.th>Collected by</x-ui.th>
-                        <x-ui.th align="right">Amount</x-ui.th>
-                        <x-ui.th>Status</x-ui.th>
-                        <x-ui.th align="right"></x-ui.th>
-                    </x-slot:head>
+        @if ($payments->isEmpty())
+            <x-ui.empty icon="banknotes" title="No payments found"
+                description="Try widening the date range or clearing the filters.">
+                <x-slot:actions>
+                    <x-ui.button size="sm" wire:click="clearFilters">Clear filters</x-ui.button>
+                </x-slot:actions>
+            </x-ui.empty>
+        @else
+            <x-ui.table class="hidden lg:block">
+                <x-slot:head>
+                    <x-ui.th>Date</x-ui.th>
+                    <x-ui.th>{{ $organisation->term('member_singular') }}</x-ui.th>
+                    <x-ui.th>{{ $organisation->term('club_singular') }}</x-ui.th>
+                    <x-ui.th>Method</x-ui.th>
+                    <x-ui.th>Collected by</x-ui.th>
+                    <x-ui.th align="right">Amount</x-ui.th>
+                    <x-ui.th>Status</x-ui.th>
+                    <x-ui.th align="right"></x-ui.th>
+                </x-slot:head>
 
-                    @foreach ($payments as $payment)
-                        <tr class="transition hover:bg-raised">
-                            <x-ui.td numeric class="whitespace-nowrap">{{ $payment->payment_date->format('d M Y') }}</x-ui.td>
-                            <x-ui.td>
-                                <p class="font-medium text-ink">{{ $payment->member->name }}
-                                    <x-ui.reference :value="$organisation->reference('payment', $payment->id)" class="ml-1" /></p>
-                                <p class="text-xs text-ink-muted">
-                                    {{ $payment->purposeLabel() }}
-                                    @if ($payment->discount_minor > 0)
-                                        · {{ $organisation->money($payment->discount_minor) }} discount
-                                    @endif
-                                    @if ($payment->transaction_reference)
-                                        · ref {{ $payment->transaction_reference }}
-                                    @endif
-                                    @if ($payment->invoice)
-                                        ·
-                                        <a href="{{ route('tenant.billing.show', $payment->invoice_id) }}" wire:navigate class="font-mono hover:text-accent">{{ $payment->invoice->number }}</a>
-                                    @endif
-                                </p>
-                            </x-ui.td>
-                            <x-ui.td>{{ $payment->club->name }}</x-ui.td>
-                            <x-ui.td>
-                                {{ $payment->payment_method->label() }}
-                                @if ($payment->financialAccount)
-                                    <span class="block text-xs text-ink-muted">{{ $payment->financialAccount->name }}</span>
+                @foreach ($payments as $payment)
+                    <tr class="transition hover:bg-raised">
+                        <x-ui.td numeric class="whitespace-nowrap">{{ $payment->payment_date->format('d M Y') }}</x-ui.td>
+                        <x-ui.td>
+                            <p class="font-medium text-ink">{{ $payment->member->name }}
+                                <x-ui.reference :value="$organisation->reference('payment', $payment->id)" class="ml-1" /></p>
+                            <p class="text-xs text-ink-muted">
+                                {{ $payment->purposeLabel() }}
+                                @if ($payment->discount_minor > 0)
+                                    · {{ $organisation->money($payment->discount_minor) }} discount
                                 @endif
-                            </x-ui.td>
-                            <x-ui.td>{{ $payment->collectedBy?->user?->name ?? '—' }}</x-ui.td>
-                            <x-ui.td align="right" numeric class="font-medium text-ink">{{ $organisation->money($payment->amount_minor) }}</x-ui.td>
-                            <x-ui.td>
+                                @if ($payment->transaction_reference)
+                                    · ref {{ $payment->transaction_reference }}
+                                @endif
+                                @if ($payment->invoice)
+                                    ·
+                                    <a href="{{ route('tenant.billing.show', $payment->invoice_id) }}" wire:navigate class="font-mono hover:text-accent">{{ $payment->invoice->number }}</a>
+                                @endif
+                            </p>
+                        </x-ui.td>
+                        <x-ui.td>{{ $payment->club->name }}</x-ui.td>
+                        <x-ui.td>
+                            {{ $payment->payment_method->label() }}
+                            @if ($payment->financialAccount)
+                                <span class="block text-xs text-ink-muted">{{ $payment->financialAccount->name }}</span>
+                            @endif
+                        </x-ui.td>
+                        <x-ui.td>{{ $payment->collectedBy?->user?->name ?? '—' }}</x-ui.td>
+                        <x-ui.td align="right" numeric class="font-medium text-ink">{{ $organisation->money($payment->amount_minor) }}</x-ui.td>
+                        <x-ui.td>
+                            <x-ui.badge :tone="$payment->confirmation_status->tone()">{{ $payment->confirmation_status->label() }}</x-ui.badge>
+                        </x-ui.td>
+                        <x-ui.td align="right">
+                            <x-ui.button size="sm" variant="ghost" :href="route('tenant.finance.payments.show', $payment)" wire:navigate>
+                                View
+                            </x-ui.button>
+                        </x-ui.td>
+                    </tr>
+                @endforeach
+            </x-ui.table>
+
+            <ul class="divide-y divide-[var(--c-hairline)] lg:hidden">
+                @foreach ($payments as $payment)
+                    <li>
+                        <a href="{{ route('tenant.finance.payments.show', $payment) }}" wire:navigate
+                            class="block p-4 transition hover:bg-raised">
+                            <div class="flex items-start justify-between gap-3">
+                                <div class="min-w-0">
+                                    <p class="truncate font-medium text-ink">{{ $payment->member->name }}
+                                        <x-ui.reference :value="$organisation->reference('payment', $payment->id)" class="ml-1" /></p>
+                                    <p class="numeric mt-0.5 text-xs text-ink-muted">
+                                        {{ $payment->payment_date->format('d M Y') }} &middot;
+                                        {{ $payment->club->name }} &middot; {{ $payment->payment_method->label() }}
+                                    </p>
+                                </div>
+                                <p class="numeric shrink-0 font-medium text-ink">{{ $organisation->money($payment->amount_minor) }}</p>
+                            </div>
+                            <div class="mt-2">
                                 <x-ui.badge :tone="$payment->confirmation_status->tone()">{{ $payment->confirmation_status->label() }}</x-ui.badge>
-                            </x-ui.td>
-                            <x-ui.td align="right">
-                                <x-ui.button size="sm" variant="ghost" :href="route('tenant.finance.payments.show', $payment)" wire:navigate>
-                                    View
-                                </x-ui.button>
-                            </x-ui.td>
-                        </tr>
-                    @endforeach
-                </x-ui.table>
+                            </div>
+                        </a>
+                    </li>
+                @endforeach
+            </ul>
 
-                <ul class="divide-y divide-[var(--c-hairline)] lg:hidden">
-                    @foreach ($payments as $payment)
-                        <li>
-                            <a href="{{ route('tenant.finance.payments.show', $payment) }}" wire:navigate
-                                class="block p-4 transition hover:bg-raised">
-                                <div class="flex items-start justify-between gap-3">
-                                    <div class="min-w-0">
-                                        <p class="truncate font-medium text-ink">{{ $payment->member->name }}
-                                            <x-ui.reference :value="$organisation->reference('payment', $payment->id)" class="ml-1" /></p>
-                                        <p class="numeric mt-0.5 text-xs text-ink-muted">
-                                            {{ $payment->payment_date->format('d M Y') }} &middot;
-                                            {{ $payment->club->name }} &middot; {{ $payment->payment_method->label() }}
-                                        </p>
-                                    </div>
-                                    <p class="numeric shrink-0 font-medium text-ink">{{ $organisation->money($payment->amount_minor) }}</p>
-                                </div>
-                                <div class="mt-2">
-                                    <x-ui.badge :tone="$payment->confirmation_status->tone()">{{ $payment->confirmation_status->label() }}</x-ui.badge>
-                                </div>
-                            </a>
-                        </li>
-                    @endforeach
-                </ul>
-
-                {{ $payments->links() }}
-            @endif
-        </div>
+            {{ $payments->links() }}
+        @endif
     </x-ui.card>
 </div>
