@@ -262,3 +262,101 @@ it('renders the description as markdown with raw html stripped', function (): vo
     $this->get('http://tasks.test/tasks/'.$task->id)->assertOk()->assertSee('<strong>Call</strong>', false)->assertDontSee('alert(1)');
     $this->get('http://tasks.test/tasks/'.$task->id.'/edit')->assertOk()->assertSee('markdownEditor(', false)->assertSee('Preview');
 });
+
+it('takes comments, mentions colleagues with @, and shows the task to whoever was mentioned', function (): void {
+    $admin = signIn($this->organisation, admin: true);
+    $priya = OrganisationUser::factory()->create(['organisation_id' => $this->organisation->id, 'user_id' => User::factory()->create(['name' => 'Priya Nair'])->id]);
+    OrganisationUser::factory()->create(['organisation_id' => $this->organisation->id, 'user_id' => User::factory()->create(['name' => 'Priya'])->id]);
+
+    $task = app(CreateTask::class)->handle($this->category, ['title' => 'Belt order'], $admin);
+
+    Livewire::test(TaskShow::class, ['task' => $task])
+        ->set('comment', "Can @Priya Nair chase the supplier?\nThanks")
+        ->call('addComment')
+        ->assertHasNoErrors()
+        ->assertSet('comment', '')
+        ->assertSee('Can <span', false)
+        ->assertSee('@Priya Nair</span>', false)
+        ->assertSee('Thanks');
+
+    // Longest name wins: "Priya Nair" is one mention, not also "Priya".
+    expect($task->mentions()->count())->toBe(1)
+        ->and($task->mentions()->first()?->organisation_user_id)->toBe($priya->id)
+        ->and($task->fresh()?->involves($priya))->toBeTrue();
+
+    // Priya can now see and open the task, and it is under "Mentioned me".
+    $this->actingAs($priya->user);
+    $this->get('http://tasks.test/tasks')->assertOk()->assertSee('Belt order');
+    $this->get('http://tasks.test/tasks?who=mentioned')->assertOk()->assertSee('Belt order');
+    $this->get('http://tasks.test/tasks/'.$task->id)->assertOk()->assertSee('Priya Nair');
+
+    // An empty comment is refused.
+    Livewire::test(TaskShow::class, ['task' => $task])->set('comment', '  ')->call('addComment')->assertHasErrors(['comment']);
+});
+
+it('shows who changed what, in order, as activity', function (): void {
+    $admin = signIn($this->organisation, admin: true);
+    $helper = OrganisationUser::factory()->create(['organisation_id' => $this->organisation->id, 'user_id' => User::factory()->create(['name' => 'Helper Hari'])->id]);
+
+    $task = app(CreateTask::class)->handle($this->category, ['title' => 'Service rowers'], $admin);
+    $item = $task->items()->firstOrFail();
+
+    Livewire::test(TaskShow::class, ['task' => $task])
+        ->call('setItemStatus', $item->id, $this->subDone->id)
+        ->call('setStatus', $this->done->id)
+        ->set('comment', 'All done here.')
+        ->call('addComment');
+
+    Livewire::test(TaskForm::class, ['task' => $task])
+        ->set('title', 'Service rowers and bikes')
+        ->set('dueDate', '2026-10-01')
+        ->set('assigneeIds', [$helper->id])
+        ->call('save')
+        ->assertHasNoErrors();
+
+    $page = $this->get('http://tasks.test/tasks/'.$task->id)->assertOk();
+
+    $page->assertSee('created the task')
+        ->assertSee('set Treadmill belt to Done')
+        ->assertSee('moved the task to Done')
+        ->assertSee('commented')
+        ->assertSee('All done here.')
+        ->assertSee('changed the title to “Service rowers and bikes”')
+        ->assertSee('changed the due date to 01 Oct 2026')
+        ->assertSee('assigned Helper Hari');
+
+    // Oldest first: creation comes before the status change.
+    $html = $page->getContent();
+    expect(strpos($html, 'created the task'))->toBeLessThan((int) strpos($html, 'moved the task to Done'));
+});
+
+it('lets the author or an admin delete a comment, nobody else', function (): void {
+    $admin = signIn($this->organisation, admin: true);
+    $task = app(CreateTask::class)->handle($this->category, ['title' => 'Belt order'], $admin);
+
+    $author = OrganisationUser::factory()->create(['organisation_id' => $this->organisation->id, 'user_id' => User::factory()->create()->id]);
+    $task->assignees()->attach($author->id);
+    $comment = $task->comments()->create(['organisation_user_id' => $author->id, 'body' => 'Mine']);
+
+    $other = OrganisationUser::factory()->create(['organisation_id' => $this->organisation->id, 'user_id' => User::factory()->create()->id]);
+    $task->assignees()->attach($other->id);
+
+    $this->actingAs($other->user);
+    Livewire::test(TaskShow::class, ['task' => $task])->call('deleteComment', $comment->id)->assertForbidden();
+
+    $this->actingAs($author->user);
+    Livewire::test(TaskShow::class, ['task' => $task])->call('deleteComment', $comment->id);
+
+    expect($task->comments()->count())->toBe(0);
+});
+
+it('has a help guide for writing descriptions', function (): void {
+    signIn($this->organisation, admin: true);
+
+    $this->get('http://tasks.test/tasks/create')
+        ->assertOk()
+        ->assertSee('How to format the description')
+        ->assertSee('## Sub title')
+        ->assertSee('- [ ] To do')
+        ->assertSee('Checkbox, ticked');
+});

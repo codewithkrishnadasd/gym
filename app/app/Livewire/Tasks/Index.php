@@ -37,7 +37,7 @@ class Index extends Component
     #[Url]
     public string $show = 'open';
 
-    /** '' (everything visible), 'mine' (assigned to me), 'reported' (raised by me). */
+    /** '' (everything visible), 'mine' (assigned to me), 'reported' (raised by me), 'mentioned' (named in a comment). */
     #[Url]
     public string $who = '';
 
@@ -71,6 +71,7 @@ class Index extends Component
             ->when(! $membership->isAdmin(), fn (Builder $query) => $query->involving($membership))
             ->when($this->who === 'mine', fn (Builder $query) => $query->whereHas('assignees', fn (Builder $assignees) => $assignees->where('organisation_users.id', $membership->id)))
             ->when($this->who === 'reported', fn (Builder $query) => $query->where('created_by', $membership->id))
+            ->when($this->who === 'mentioned', fn (Builder $query) => $query->whereHas('mentions', fn (Builder $mentions) => $mentions->where('organisation_user_id', $membership->id)))
             ->when($this->search !== '', fn (Builder $query) => $query->where(fn (Builder $inner) => $inner
                 ->where('title', 'ilike', '%'.$this->search.'%')
                 ->orWhereHas('member', fn (Builder $member) => $member->where('name', 'ilike', '%'.$this->search.'%'))))

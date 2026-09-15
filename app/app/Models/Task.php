@@ -80,6 +80,22 @@ class Task extends Model
     }
 
     /**
+     * @return HasMany<TaskComment, $this>
+     */
+    public function comments(): HasMany
+    {
+        return $this->hasMany(TaskComment::class)->orderBy('created_at')->orderBy('id');
+    }
+
+    /**
+     * @return HasMany<TaskMention, $this>
+     */
+    public function mentions(): HasMany
+    {
+        return $this->hasMany(TaskMention::class);
+    }
+
+    /**
      * The member this task is about, if any.
      *
      * @return BelongsTo<Member, $this>
@@ -100,13 +116,18 @@ class Task extends Model
     {
         return $query->where(fn (Builder $inner) => $inner
             ->where('created_by', $membership->id)
-            ->orWhereHas('assignees', fn (Builder $assignees) => $assignees->where('organisation_users.id', $membership->id)));
+            ->orWhereHas('assignees', fn (Builder $assignees) => $assignees->where('organisation_users.id', $membership->id))
+            ->orWhereHas('mentions', fn (Builder $mentions) => $mentions->where('organisation_user_id', $membership->id)));
     }
 
+    /**
+     * Reported it, was handed it, or was named in a comment on it.
+     */
     public function involves(OrganisationUser $membership): bool
     {
         return $this->created_by === $membership->id
-            || $this->assignees()->where('organisation_users.id', $membership->id)->exists();
+            || $this->assignees()->where('organisation_users.id', $membership->id)->exists()
+            || $this->mentions()->where('organisation_user_id', $membership->id)->exists();
     }
 
     /**

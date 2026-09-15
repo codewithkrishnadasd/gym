@@ -40,6 +40,7 @@ export function toMarkdown(html) {
 document.addEventListener('alpine:init', () => {
     window.Alpine.data('markdownEditor', ({ property }) => ({
         mode: 'code',
+        help: false,
         text: '',
         html: '',
         // Set while the preview is being typed in, so the effect below does

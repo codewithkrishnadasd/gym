@@ -45,6 +45,44 @@
             </div>
 
             <span class="ml-auto hidden text-[11px] text-ink-muted sm:block" x-text="mode === 'code' ? 'Markdown' : 'Editing the preview — saved as Markdown'"></span>
+
+            <button type="button" x-on:click="help = ! help" x-bind:aria-expanded="help" aria-controls="{{ $id }}-help"
+                x-bind:class="help ? 'bg-accent text-on-accent' : 'text-ink-soft hover:bg-surface hover:text-ink'"
+                class="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium transition" title="How to format">
+                <x-heroicon-o-question-mark-circle class="h-4 w-4" /> Help
+            </button>
+        </div>
+
+        {{-- Formatting guide. Every example is written the way it is typed in
+             Code, with what it becomes alongside, so it doubles as a cheat
+             sheet for the Preview toolbar. --}}
+        <div x-show="help" x-cloak x-collapse id="{{ $id }}-help" class="border-b border-hairline bg-raised px-3 py-3 text-xs text-ink-soft">
+            <p class="mb-2 font-medium text-ink">How to format the description</p>
+            <p class="mb-2.5">Type these in <strong>Code</strong>, or switch to <strong>Preview</strong> and use the toolbar — either way the result is the same.</p>
+            <dl class="grid gap-x-6 gap-y-1.5 sm:grid-cols-2">
+                @foreach ([
+                    ['# Title', 'Title (large heading)'],
+                    ['## Sub title', 'Sub title (smaller heading)'],
+                    ['### Section', 'Section heading'],
+                    ['**bold text**', 'Bold text'],
+                    ['_italic text_', 'Italic text'],
+                    ['- First point', 'Bulleted list — one line per item'],
+                    ['1. First step', 'Numbered list — one line per step'],
+                    ['- [ ] To do', 'Checkbox, not ticked'],
+                    ['- [x] Done', 'Checkbox, ticked'],
+                    ['> Note', 'Highlighted quote or note'],
+                    ['`SKU-88`', 'Inline code or a reference number'],
+                    ['[Manual](https://…)', 'Link with its own label'],
+                    ['---', 'Horizontal line between sections'],
+                    ['Blank line', 'Starts a new paragraph'],
+                ] as [$syntax, $meaning])
+                    <div class="flex items-baseline gap-2">
+                        <dt class="shrink-0"><code class="rounded bg-sunken px-1.5 py-0.5 font-mono text-[11px] text-ink">{{ $syntax }}</code></dt>
+                        <dd class="text-ink-soft">{{ $meaning }}</dd>
+                    </div>
+                @endforeach
+            </dl>
+            <p class="mt-2.5 text-ink-muted">Headings and lists need to start at the beginning of a line. Indent a list item by two spaces to nest it under the one above.</p>
         </div>
 
         <textarea x-ref="code" x-show="mode === 'code'" id="{{ $id }}" rows="{{ $rows }}" placeholder="{{ $placeholder }}"

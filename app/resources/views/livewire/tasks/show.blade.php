@@ -118,6 +118,72 @@
                 </x-ui.card>
             @endif
 
+            <x-ui.card title="Activity" :description="$activity->count().' '.($activity->count() === 1 ? 'entry' : 'entries').' — comments and every change, with who made it'">
+                @if ($activity->isEmpty())
+                    <p class="text-sm text-ink-muted">Nothing yet.</p>
+                @else
+                    <ol class="relative space-y-4 border-l border-hairline pl-5">
+                        @foreach ($activity as $entry)
+                            <li class="relative" @if ($entry['comment_id']) wire:key="comment-{{ $entry['comment_id'] }}" @endif>
+                                {{-- Marker on the rail: filled for comments, hollow for changes. --}}
+                                <span @class(['absolute -left-[26px] top-1 h-3 w-3 rounded-full border-2 border-surface', 'bg-accent' => $entry['kind'] === 'comment', 'bg-hairline-strong' => $entry['kind'] !== 'comment'])></span>
+                                <div class="flex flex-wrap items-baseline gap-x-2 text-sm">
+                                    <span class="font-medium text-ink">{{ $entry['actor'] }}</span>
+                                    @if ($entry['kind'] === 'change')
+                                        <span class="text-ink-soft">{{ $entry['text'] }}</span>
+                                    @else
+                                        <span class="text-ink-muted">commented</span>
+                                    @endif
+                                    <span class="numeric text-xs text-ink-muted" title="{{ $entry['at']->timezone($organisation->timezone)->format('d M Y, H:i') }}">{{ $entry['at']->diffForHumans() }}</span>
+                                    @if ($entry['kind'] === 'comment' && ($me->isAdmin() || $entry['author_id'] === $me->id))
+                                        <button type="button" wire:click="deleteComment({{ $entry['comment_id'] }})" class="ml-auto text-xs text-ink-muted hover:text-critical"
+                                            data-confirm-title="Delete this comment?" data-confirm-action="Delete" data-confirm="Delete this comment? This cannot be undone.">Delete</button>
+                                    @endif
+                                </div>
+                                @if ($entry['kind'] === 'comment')
+                                    <div class="mt-1.5 rounded-lg border border-hairline bg-raised px-3 py-2 text-sm leading-relaxed text-ink">{!! $entry['html'] !!}</div>
+                                @endif
+                            </li>
+                        @endforeach
+                    </ol>
+                @endif
+
+                @can('view', $task)
+                    <form wire:submit="addComment" class="mt-5 border-t border-hairline pt-4">
+                        {{-- "@" opens the colleague picker; see resources/js/mention-box.js.
+                             State lives on a plain div: @js() inside an x-component
+                             attribute is not compiled by Livewire's Blade pass. --}}
+                        <div x-data="mentionBox({ people: @js($mentionable) })" class="relative">
+                            <x-ui.field label="Add a comment" name="comment" hint="Type @ to mention a colleague — mentioned people see this task on their list.">
+                                <textarea x-ref="box" wire:model="comment" rows="3" placeholder="Write a comment… use @ to mention someone"
+                                    x-on:input="onInput" x-on:keydown="onKeydown" x-on:blur="setTimeout(() => close(), 150)"
+                                    class="min-h-[80px] w-full rounded-lg border border-hairline-strong bg-surface px-3 py-2 text-sm text-ink placeholder:text-ink-muted focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25"></textarea>
+                            </x-ui.field>
+
+                            <ul x-show="open" x-cloak class="absolute left-0 z-20 mt-1 w-72 overflow-hidden rounded-lg border border-hairline bg-surface py-1 elevate-lg" role="listbox">
+                                <template x-for="(person, i) in matches" :key="person.id">
+                                    <li>
+                                        <button type="button" x-on:mousedown.prevent="pick(person)" role="option" :aria-selected="i === index"
+                                            :class="i === index ? 'bg-accent-soft text-accent-ink' : 'text-ink hover:bg-raised'"
+                                            class="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm">
+                                            <span class="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-sunken text-[10px] font-semibold uppercase text-ink-soft" x-text="person.name.slice(0, 1)"></span>
+                                            <span x-text="person.name"></span>
+                                        </button>
+                                    </li>
+                                </template>
+                            </ul>
+                        </div>
+
+                        <div class="mt-2 flex justify-end">
+                            <x-ui.button type="submit" variant="primary" size="sm" icon="chat-bubble-left" wire:loading.attr="disabled" wire:target="addComment">
+                                <span wire:loading.remove wire:target="addComment">Comment</span>
+                                <span wire:loading wire:target="addComment" class="inline-flex items-center gap-1.5"><x-ui.spinner size="xs" /> Posting…</span>
+                            </x-ui.button>
+                        </div>
+                    </form>
+                @endcan
+            </x-ui.card>
+
             @if ($task->description)
                 <x-ui.card title="Description">
                     {{-- Rendered server-side with raw HTML stripped (Task::descriptionHtml). --}}

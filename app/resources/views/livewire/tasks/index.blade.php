@@ -40,6 +40,7 @@
                 <option value="">Everyone</option>
                 <option value="mine">Assigned to me</option>
                 <option value="reported">Reported by me</option>
+                <option value="mentioned">Mentioned me</option>
             </x-ui.filter-select>
 
             <x-ui.filter-select wire:model.live="show" label="Show">
