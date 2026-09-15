@@ -7,6 +7,7 @@ namespace App\Livewire\Members;
 use App\Actions\Notifications\CreateActionNotification;
 use App\Actions\Subscriptions\CreateSubscription;
 use App\Enums\ChangeLabel;
+use App\Enums\Feature;
 use App\Enums\MemberStatus;
 use App\Enums\NotificationActionType;
 use App\Enums\NotificationEntityType;
@@ -118,8 +119,11 @@ class Form extends Component
             'dateOfBirth' => ['nullable', 'date'],
             'gender' => ['nullable', 'string', 'max:30'],
             // Limited to the acting user's clubs, not merely the organisation's:
-            // staff may only add members to clubs they are assigned to.
-            'primaryClubId' => ['required', Rule::in($this->accessibleClubs()->pluck('id')->all())],
+            // staff may only add members to clubs they are assigned to. Without
+            // the Clubs module there is no club to choose and none is stored.
+            'primaryClubId' => $this->organisation()->usesClubs()
+                ? ['required', Rule::in($this->accessibleClubs()->pluck('id')->all())]
+                : ['nullable', Rule::in([])],
             'addressLine' => ['nullable', 'string', 'max:255'],
             'joinedAt' => ['required', 'date'],
             'status' => ['required', Rule::enum(MemberStatus::class)],
@@ -179,7 +183,7 @@ class Form extends Component
             $member = Member::create([
                 ...$attributes,
                 'primary_club_id' => $validated['primaryClubId'],
-                'admission_fee_minor' => $this->admissionFeeFor((int) $validated['primaryClubId']),
+                'admission_fee_minor' => $this->admissionFeeFor($validated['primaryClubId']),
                 'created_by' => $membership->id,
             ]);
 
@@ -228,11 +232,14 @@ class Form extends Component
 
     /**
      * Only admins may start plans (MemberSubscriptionPolicy::createFor), so
-     * staff creating a member never see the option.
+     * staff creating a member never see the option — nor does anyone in an
+     * organisation without the Plans module.
      */
     public function canStartPlan(): bool
     {
-        return $this->member === null && $this->currentMembership()->isAdmin();
+        return $this->member === null
+            && $this->organisation()->hasFeature(Feature::Plans)
+            && $this->currentMembership()->isAdmin();
     }
 
     /**
@@ -289,11 +296,16 @@ class Form extends Component
     /**
      * The admission fee this member signs up under: the club's fee at the
      * moment of joining, frozen on the member so a later change to the club
-     * does not alter what an existing member owes.
+     * does not alter what an existing member owes. Admission is a club's
+     * setting, so a member with no club owes none.
      */
-    private function admissionFeeFor(int $clubId): int
+    private function admissionFeeFor(mixed $clubId): int
     {
-        return (int) Club::query()->whereKey($clubId)->value('admission_fee_minor');
+        if ($clubId === null || $clubId === '') {
+            return 0;
+        }
+
+        return (int) Club::query()->whereKey((int) $clubId)->value('admission_fee_minor');
     }
 
     /**

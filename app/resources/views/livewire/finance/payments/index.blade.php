@@ -46,12 +46,14 @@
                 @endforeach
             </x-ui.filter-select>
 
-            <x-ui.filter-select wire:model.live="club" label="Club">
-                <option value="">All {{ strtolower($organisation->term('club_plural')) }}</option>
-                @foreach ($clubs as $clubOption)
-                    <option value="{{ $clubOption->id }}">{{ $clubOption->name }}</option>
-                @endforeach
-            </x-ui.filter-select>
+            @if ($organisation->usesClubs())
+                <x-ui.filter-select wire:model.live="club" label="Club">
+                    <option value="">All {{ strtolower($organisation->term('club_plural')) }}</option>
+                    @foreach ($clubs as $clubOption)
+                        <option value="{{ $clubOption->id }}">{{ $clubOption->name }}</option>
+                    @endforeach
+                </x-ui.filter-select>
+            @endif
 
             <x-ui.filter-select wire:model.live="method" label="Payment method">
                 <option value="">All methods</option>
@@ -93,7 +95,9 @@
                 <x-slot:head>
                     <x-ui.th>Date</x-ui.th>
                     <x-ui.th>{{ $organisation->term('member_singular') }}</x-ui.th>
-                    <x-ui.th>{{ $organisation->term('club_singular') }}</x-ui.th>
+                    @if ($organisation->usesClubs())
+                        <x-ui.th>{{ $organisation->term('club_singular') }}</x-ui.th>
+                    @endif
                     <x-ui.th>Method</x-ui.th>
                     <x-ui.th>Collected by</x-ui.th>
                     <x-ui.th align="right">Amount</x-ui.th>
@@ -121,7 +125,9 @@
                                 @endif
                             </p>
                         </x-ui.td>
-                        <x-ui.td>{{ $payment->club->name }}</x-ui.td>
+                        @if ($organisation->usesClubs())
+                            <x-ui.td>{{ $payment->club?->name ?? '—' }}</x-ui.td>
+                        @endif
                         <x-ui.td>
                             {{ $payment->payment_method->label() }}
                             @if ($payment->financialAccount)
@@ -153,7 +159,7 @@
                                         <x-ui.reference :value="$organisation->reference('payment', $payment->id)" class="ml-1" /></p>
                                     <p class="numeric mt-0.5 text-xs text-ink-muted">
                                         {{ $payment->payment_date->format('d M Y') }} &middot;
-                                        {{ $payment->club->name }} &middot; {{ $payment->payment_method->label() }}
+                                        @if ($payment->club){{ $payment->club->name }} &middot; @endif{{ $payment->payment_method->label() }}
                                     </p>
                                 </div>
                                 <p class="numeric shrink-0 font-medium text-ink">{{ $organisation->money($payment->amount_minor) }}</p>

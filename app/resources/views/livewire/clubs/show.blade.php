@@ -1,10 +1,15 @@
 @php
-    $tabs = [
+    // Tabs follow the organisation's modules (App\Enums\Feature).
+    $tabs = array_filter([
         'overview' => 'Overview',
-        'staff' => $organisation->term('user_plural'),
-        'members' => $organisation->term('member_plural'),
-        'finance' => 'Finance',
-    ];
+        'staff' => $organisation->hasFeature('staff') ? $organisation->term('user_plural') : null,
+        'members' => $organisation->hasFeature('members') ? $organisation->term('member_plural') : null,
+        'finance' => $organisation->hasFeature('payments') || $organisation->hasFeature('expenses') ? 'Finance' : null,
+    ]);
+
+    if (! isset($tabs[$tab])) {
+        $tab = 'overview';
+    }
 @endphp
 
 <div>
@@ -13,8 +18,10 @@
     <x-ui.page-header :title="$club->name" :back="route('tenant.clubs.index')" :back-label="$organisation->term('club_plural')"
         :description="collect([$club->code, $club->phone, $club->address['line1'] ?? null])->filter()->join(' · ')">
         <x-slot:actions>
-            <x-ui.button icon="clipboard-document-check"
-                :href="route('tenant.attendance.members', ['clubId' => $club->id])" wire:navigate>Attendance</x-ui.button>
+            @can('markMembers', [\App\Models\Attendance::class, $club->id])
+                <x-ui.button icon="clipboard-document-check"
+                    :href="route('tenant.attendance.members', ['clubId' => $club->id])" wire:navigate>Attendance</x-ui.button>
+            @endcan
             @can('update', $club)
                 <x-ui.button variant="primary" icon="pencil-square" :href="route('tenant.clubs.edit', $club)" wire:navigate>Edit</x-ui.button>
             @endcan
@@ -23,14 +30,22 @@
 
     <div class="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
         @php $periodQuery = ['club' => $club->id, 'from' => $from, 'to' => $to]; @endphp
-        <x-ui.stat :label="'Active '.strtolower($organisation->term('member_plural'))" :value="number_format($memberCount)"
-            icon="user-group" tone="accent" :href="route('tenant.members.index', ['club' => $club->id, 'status' => 'active'])" wire:navigate />
-        <x-ui.stat label="Revenue" :value="$organisation->moneyCompact($revenue)" icon="banknotes" tone="positive"
-            hint="this period" :href="route('tenant.finance.payments.index', ['status' => 'confirmed', ...$periodQuery])" wire:navigate />
-        <x-ui.stat label="Expenses" :value="$organisation->moneyCompact($expenses)" icon="receipt-percent" tone="critical"
-            hint="this period" :href="route('tenant.finance.expenses.index', ['status' => 'completed', ...$periodQuery])" wire:navigate />
-        <x-ui.stat label="Attendance rate" :value="$attendanceRate.'%'" icon="chart-bar"
-            :tone="$attendanceRate >= 60 ? 'positive' : 'caution'" hint="this period" :href="route('tenant.reports.index', ['tab' => 'attendance', 'range' => $range, ...$periodQuery])" wire:navigate />
+        @feature('members')
+            <x-ui.stat :label="'Active '.strtolower($organisation->term('member_plural'))" :value="number_format($memberCount)"
+                icon="user-group" tone="accent" :href="route('tenant.members.index', ['club' => $club->id, 'status' => 'active'])" wire:navigate />
+        @endfeature
+        @feature('payments')
+            <x-ui.stat label="Revenue" :value="$organisation->moneyCompact($revenue)" icon="banknotes" tone="positive"
+                hint="this period" :href="route('tenant.finance.payments.index', ['status' => 'confirmed', ...$periodQuery])" wire:navigate />
+        @endfeature
+        @feature('expenses')
+            <x-ui.stat label="Expenses" :value="$organisation->moneyCompact($expenses)" icon="receipt-percent" tone="critical"
+                hint="this period" :href="route('tenant.finance.expenses.index', ['status' => 'completed', ...$periodQuery])" wire:navigate />
+        @endfeature
+        @feature('attendance')
+            <x-ui.stat label="Attendance rate" :value="$attendanceRate.'%'" icon="chart-bar"
+                :tone="$attendanceRate >= 60 ? 'positive' : 'caution'" hint="this period" :href="$organisation->hasFeature('reports') ? route('tenant.reports.index', ['tab' => 'attendance', 'range' => $range, ...$periodQuery]) : null" wire:navigate />
+        @endfeature
     </div>
 
     <x-ui.tabs :items="collect($tabs)->map(fn ($label, $key) => [
@@ -43,16 +58,19 @@
         <x-ui.period-filter :presets="$presets" :range="$range" />
 
         <div class="grid gap-3 lg:grid-cols-2">
+            @if ($organisation->hasFeature('payments') || $organisation->hasFeature('expenses'))
             <x-ui.card title="Revenue and expenses" :description="$period->label()">
                 <x-ui.chart type="line" :labels="$cashTrend['labels']" :height="230" value-format="currency"
                     :currency-symbol="$organisation->currencySymbol()"
                     :summary="'Revenue '.$organisation->money($revenue).' against '.$organisation->money($expenses).' of expenses.'"
-                    :datasets="[
-                        ['label' => 'Revenue', 'data' => $cashTrend['revenue'], 'color' => 'positive'],
-                        ['label' => 'Expenses', 'data' => $cashTrend['expenses'], 'color' => 'critical'],
-                    ]" />
+                    :datasets="array_values(array_filter([
+                        $organisation->hasFeature('payments') ? ['label' => 'Revenue', 'data' => $cashTrend['revenue'], 'color' => 'positive'] : null,
+                        $organisation->hasFeature('expenses') ? ['label' => 'Expenses', 'data' => $cashTrend['expenses'], 'color' => 'critical'] : null,
+                    ]))" />
             </x-ui.card>
+            @endif
 
+            @feature('attendance')
             <x-ui.card title="Attendance" :description="$period->label()">
                 <x-ui.chart type="bar" :labels="$attendanceTrend['labels']" :height="230" stacked
                     :summary="'Attendance rate is '.$attendanceRate.'%.'"
@@ -61,6 +79,7 @@
                         ['label' => 'Absent', 'data' => $attendanceTrend['absent'], 'color' => 'caution'],
                     ]" />
             </x-ui.card>
+            @endfeature
 
             <x-ui.card class="lg:col-span-2" title="Club settings">
                 <dl class="grid gap-x-6 sm:grid-cols-3">
@@ -151,10 +170,11 @@
                 </ul>
             @endif
         </x-ui.card>
-    @else
+    @elseif ($tab === 'finance')
         <x-ui.period-filter :presets="$presets" :range="$range" />
 
         <div class="grid gap-3 lg:grid-cols-2">
+            @feature('payments')
             <x-ui.card :padded="false" title="Recent payments" :description="'Confirmed · '.$period->label()">
                 @if ($recentPayments->isEmpty())
                     <x-ui.empty icon="banknotes" title="No confirmed payments" description="Nothing collected in this period." />
@@ -173,7 +193,9 @@
                     </ul>
                 @endif
             </x-ui.card>
+            @endfeature
 
+            @feature('expenses')
             <x-ui.card :padded="false" title="Recent expenses" :description="$period->label()">
                 @if ($recentExpenses->isEmpty())
                     <x-ui.empty icon="receipt-percent" title="No expenses" description="Nothing recorded in this period." />
@@ -191,7 +213,9 @@
                     </ul>
                 @endif
             </x-ui.card>
+            @endfeature
 
+            @feature('plans')
             <x-ui.card class="lg:col-span-2">
                 <div class="flex flex-wrap items-center justify-between gap-3">
                     <div>
@@ -203,6 +227,7 @@
                     </p>
                 </div>
             </x-ui.card>
+            @endfeature
         </div>
     @endif
 </div>

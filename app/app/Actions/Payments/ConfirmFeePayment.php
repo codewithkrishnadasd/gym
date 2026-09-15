@@ -13,7 +13,6 @@ use App\Enums\PaymentPurpose;
 use App\Enums\SubscriptionStatus;
 use App\Exceptions\LifecycleViolation;
 use App\Models\AuditEvent;
-use App\Models\Club;
 use App\Models\FeePayment;
 use App\Models\Invoice;
 use App\Models\Member;
@@ -119,8 +118,6 @@ final class ConfirmFeePayment
             // types as nullable — asserted locally rather than guarded.
             /** @var Member $member */
             $member = $locked->member;
-            /** @var Club $club */
-            $club = $locked->club;
 
             $notification = $this->notifications->handle(
                 organisation: $organisation,
@@ -143,7 +140,7 @@ final class ConfirmFeePayment
                     'creditApplied' => $locked->credit_applied_minor > 0
                         ? Money::ofMinor($locked->credit_applied_minor, $locked->currency_code)->format($organisation->locale)
                         : null,
-                    'clubName' => $club->name,
+                    'clubName' => $locked->club?->name,
                     'paymentDate' => $locked->payment_date->format('d M Y'),
                     'endDate' => $subscription?->end_date->format('d M Y'),
                     'reference' => $locked->transaction_reference ?: $organisation->reference('payment', $locked->id),

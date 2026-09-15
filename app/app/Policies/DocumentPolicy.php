@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Policies;
 
+use App\Enums\Feature;
 use App\Enums\Permission;
 use App\Models\Document;
 use App\Models\Member;
@@ -20,6 +21,15 @@ use App\Policies\Concerns\EvaluatesMembership;
 class DocumentPolicy
 {
     use EvaluatesMembership;
+
+    /**
+     * Nothing here is permitted while the organisation has the Documents module
+     * switched off (App\Enums\Feature).
+     */
+    public function before(User $user): ?bool
+    {
+        return $this->featureEnabled(Feature::Documents) ? null : false;
+    }
 
     public function viewAny(User $user): bool
     {

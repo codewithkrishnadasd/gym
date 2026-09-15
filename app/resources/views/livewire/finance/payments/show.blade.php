@@ -2,7 +2,7 @@
     <x-ui.flash />
 
     <x-ui.page-header :title="'Payment '.$organisation->reference('payment', $payment->id)" :back="route('tenant.finance.payments.index')" back-label="Payments"
-        :description="$payment->member->name.' · '.$payment->club->name">
+        :description="collect([$payment->member->name, $payment->club?->name])->filter()->join(' · ')">
         <x-slot:actions>
             @can('notify', $payment)
                 <x-ui.download-button icon="document-arrow-down" what="the receipt for this payment as a PDF" :href="route('tenant.finance.payments.receipt', $payment)">Receipt PDF</x-ui.download-button>
@@ -75,12 +75,18 @@
                             {{ $payment->member->name }}
                         </a>
                     </x-ui.definition>
-                    <x-ui.definition label="{{ $organisation->term('club_singular') }}" :value="$payment->club->name" />
+                    @if ($organisation->usesClubs())
+                        <x-ui.definition label="{{ $organisation->term('club_singular') }}" :value="$payment->club?->name ?? '—'" />
+                    @endif
                     <x-ui.definition label="For" :value="$payment->purposeLabel()" />
                     <x-ui.definition label="Received into" :value="$payment->financialAccount?->name ?? 'Not specified'" />
                     @if ($payment->invoice)
                         <x-ui.definition label="Invoice">
-                            <a href="{{ route('tenant.billing.show', $payment->invoice) }}" wire:navigate class="font-mono text-accent hover:underline">{{ $payment->invoice->number }}</a>
+                            @feature('billing')
+                                <a href="{{ route('tenant.billing.show', $payment->invoice) }}" wire:navigate class="font-mono text-accent hover:underline">{{ $payment->invoice->number }}</a>
+                            @else
+                                <span class="font-mono">{{ $payment->invoice->number }}</span>
+                            @endfeature
                             <span class="text-ink-muted">· {{ $payment->invoice->status->label() }}</span>
                         </x-ui.definition>
                     @endif

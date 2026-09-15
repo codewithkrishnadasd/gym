@@ -60,7 +60,7 @@ class Roster extends Component
 
         $this->date = $this->date !== '' ? $this->date : Carbon::today($this->organisation()->timezone)->toDateString();
 
-        if ($this->isStaffRoster()) {
+        if ($this->isStaffRoster() || ! $this->organisation()->usesClubs()) {
             $this->clubId = null;
 
             return;
@@ -80,11 +80,13 @@ class Roster extends Component
 
     /**
      * Whether there is a roster to mark: staff always, members only once a
-     * club is chosen.
+     * club is chosen — unless the organisation has no clubs, in which case
+     * the member roster is the whole organisation, marked without a club
+     * just as staff are.
      */
     private function hasScope(): bool
     {
-        return $this->isStaffRoster() || $this->clubId !== null;
+        return $this->isStaffRoster() || $this->clubId !== null || ! $this->organisation()->usesClubs();
     }
 
     public function updatedClubId(): void
@@ -172,9 +174,14 @@ class Roster extends Component
      */
     private function assertSubjectOnRoster(int $subjectId, ?Club $club): void
     {
-        $belongs = $this->isStaffRoster()
-            ? OrganisationUser::query()->whereKey($subjectId)->where('status', MembershipStatus::Active)->exists()
-            : ($club !== null && Member::query()->whereKey($subjectId)->where('primary_club_id', $club->id)->exists());
+        if ($this->isStaffRoster()) {
+            $belongs = OrganisationUser::query()->whereKey($subjectId)->where('status', MembershipStatus::Active)->exists();
+        } elseif ($club !== null) {
+            $belongs = Member::query()->whereKey($subjectId)->where('primary_club_id', $club->id)->exists();
+        } else {
+            // Club-less marking is only a thing without the Clubs module.
+            $belongs = ! $this->organisation()->usesClubs() && Member::query()->whereKey($subjectId)->exists();
+        }
 
         abort_unless($belongs, 403);
     }
@@ -190,7 +197,7 @@ class Roster extends Component
 
         if (! $this->isStaffRoster()) {
             return Member::query()
-                ->where('primary_club_id', $this->clubId)
+                ->when($this->organisation()->usesClubs(), fn ($query) => $query->where('primary_club_id', $this->clubId))
                 ->whereIn('status', [MemberStatus::Active, MemberStatus::Paused])
                 ->when($this->search !== '', fn ($query) => Search::apply($query, $this->organisation(), 'member', $this->search))
                 ->orderBy('name')

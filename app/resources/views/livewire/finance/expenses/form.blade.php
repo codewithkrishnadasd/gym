@@ -24,13 +24,15 @@
 
                     <x-ui.input wire:model="expenseDate" name="expenseDate" label="Expense date" type="date" required />
 
-                    <x-ui.select wire:model="clubId" name="clubId" label="{{ $organisation->term('club_singular') }}"
-                        hint="Leave blank for an organisation-wide expense.">
-                        <option value="">Organisation-wide</option>
-                        @foreach ($clubs as $club)
-                            <option value="{{ $club->id }}">{{ $club->name }}</option>
-                        @endforeach
-                    </x-ui.select>
+                    @if ($organisation->usesClubs())
+                        <x-ui.select wire:model="clubId" name="clubId" label="{{ $organisation->term('club_singular') }}"
+                            hint="Leave blank for an organisation-wide expense.">
+                            <option value="">Organisation-wide</option>
+                            @foreach ($clubs as $club)
+                                <option value="{{ $club->id }}">{{ $club->name }}</option>
+                            @endforeach
+                        </x-ui.select>
+                    @endif
 
                     <x-ui.select wire:model="fundingAccountId" name="fundingAccountId" label="Paid from">
                         <option value="">Not specified</option>

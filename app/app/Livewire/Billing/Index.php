@@ -49,10 +49,7 @@ class Index extends Component
      */
     protected function scope(): Builder
     {
-        $membership = $this->currentMembership();
-
-        return Invoice::query()
-            ->when(! $membership->isAdmin(), fn (Builder $query) => $query->whereIn('club_id', $this->accessibleClubIds()));
+        return $this->restrictToClubs(Invoice::query());
     }
 
     /**

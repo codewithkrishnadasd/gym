@@ -12,6 +12,7 @@ use App\Http\Controllers\Tenant\ExportController;
 use App\Http\Controllers\Tenant\PasswordResetController;
 use App\Http\Controllers\Tenant\PublicDocumentController;
 use App\Http\Middleware\EnsureActiveMembership;
+use App\Http\Middleware\EnsureFeatureEnabled;
 use App\Livewire\Attendance\Roster as AttendanceRoster;
 use App\Livewire\Audit\Index as AuditIndex;
 use App\Livewire\Billing\Form as BillingForm;
@@ -122,20 +123,22 @@ Route::post('/logout', [TenantAuthController::class, 'logout'])
 Route::middleware(['auth:web', EnsureActiveMembership::class])->group(function (): void {
     Route::get('/dashboard', TenantDashboard::class)->name('tenant.dashboard');
 
-    Route::prefix('clubs')->name('tenant.clubs.')->group(function (): void {
+    // Each module's routes answer 404 for an organisation that has the module
+    // switched off (see EnsureFeatureEnabled and App\Enums\Feature).
+    Route::prefix('clubs')->name('tenant.clubs.')->middleware(EnsureFeatureEnabled::class.':clubs')->group(function (): void {
         Route::get('/', ClubIndex::class)->name('index');
         Route::get('/create', ClubForm::class)->name('create');
         Route::get('/{club}', ClubShow::class)->name('show');
         Route::get('/{club}/edit', ClubForm::class)->name('edit');
     });
 
-    Route::prefix('staff')->name('tenant.staff.')->group(function (): void {
+    Route::prefix('staff')->name('tenant.staff.')->middleware(EnsureFeatureEnabled::class.':staff')->group(function (): void {
         Route::get('/', StaffIndex::class)->name('index');
         Route::get('/create', StaffForm::class)->name('create');
         Route::get('/{organisationUser}/edit', StaffForm::class)->name('edit');
     });
 
-    Route::prefix('members')->name('tenant.members.')->group(function (): void {
+    Route::prefix('members')->name('tenant.members.')->middleware(EnsureFeatureEnabled::class.':members')->group(function (): void {
         Route::get('/', MemberIndex::class)->name('index');
         Route::get('/create', MemberForm::class)->name('create');
         Route::get('/export', [ExportController::class, 'members'])->name('export');
@@ -143,21 +146,21 @@ Route::middleware(['auth:web', EnsureActiveMembership::class])->group(function (
         Route::get('/{member}/edit', MemberForm::class)->name('edit');
     });
 
-    Route::prefix('plans')->name('tenant.plans.')->group(function (): void {
+    Route::prefix('plans')->name('tenant.plans.')->middleware(EnsureFeatureEnabled::class.':plans')->group(function (): void {
         Route::get('/', PlanIndex::class)->name('index');
         Route::get('/create', PlanForm::class)->name('create');
         Route::get('/{plan}/edit', PlanForm::class)->name('edit');
     });
 
-    Route::prefix('attendance')->name('tenant.attendance.')->group(function (): void {
+    Route::prefix('attendance')->name('tenant.attendance.')->middleware(EnsureFeatureEnabled::class.':attendance')->group(function (): void {
         Route::get('/members', AttendanceRoster::class)->defaults('subject', 'members')->name('members');
         Route::get('/users', AttendanceRoster::class)->defaults('subject', 'staff')->name('staff');
     });
 
     Route::prefix('finance')->name('tenant.finance.')->group(function (): void {
-        Route::get('/confirmations', PaymentConfirmations::class)->name('confirmations');
+        Route::get('/confirmations', PaymentConfirmations::class)->middleware(EnsureFeatureEnabled::class.':payments')->name('confirmations');
 
-        Route::prefix('payments')->name('payments.')->group(function (): void {
+        Route::prefix('payments')->name('payments.')->middleware(EnsureFeatureEnabled::class.':payments')->group(function (): void {
             Route::get('/', PaymentIndex::class)->name('index');
             Route::get('/create', PaymentForm::class)->name('create');
             // Registered before the {payment} binding so "export" is not
@@ -167,7 +170,7 @@ Route::middleware(['auth:web', EnsureActiveMembership::class])->group(function (
             Route::get('/{payment}/receipt', [DocumentController::class, 'paymentReceipt'])->name('receipt');
         });
 
-        Route::prefix('expenses')->name('expenses.')->group(function (): void {
+        Route::prefix('expenses')->name('expenses.')->middleware(EnsureFeatureEnabled::class.':expenses')->group(function (): void {
             Route::get('/', ExpenseIndex::class)->name('index');
             Route::get('/create', ExpenseForm::class)->name('create');
             Route::get('/export', [ExportController::class, 'expenses'])->name('export');
@@ -175,7 +178,7 @@ Route::middleware(['auth:web', EnsureActiveMembership::class])->group(function (
             Route::get('/{expense}/receipt', [DocumentController::class, 'expenseReceipt'])->name('receipt');
         });
 
-        Route::prefix('accounts')->name('accounts.')->group(function (): void {
+        Route::prefix('accounts')->name('accounts.')->middleware(EnsureFeatureEnabled::class.':accounts')->group(function (): void {
             Route::get('/', AccountIndex::class)->name('index');
             Route::get('/create', AccountForm::class)->name('create');
             Route::get('/{financialAccount}', AccountShow::class)->name('show');
@@ -183,31 +186,32 @@ Route::middleware(['auth:web', EnsureActiveMembership::class])->group(function (
         });
     });
 
-    Route::prefix('reports')->name('tenant.reports.')->group(function (): void {
+    Route::prefix('reports')->name('tenant.reports.')->middleware(EnsureFeatureEnabled::class.':reports')->group(function (): void {
         Route::get('/', ReportIndex::class)->name('index');
         Route::get('/export', [ExportController::class, 'report'])->name('export');
         Route::get('/pdf', [DocumentController::class, 'reportSummary'])->name('pdf');
     });
 
-    Route::prefix('billing')->name('tenant.billing.')->group(function (): void {
+    Route::prefix('billing')->name('tenant.billing.')->middleware(EnsureFeatureEnabled::class.':billing')->group(function (): void {
         Route::get('/', BillingIndex::class)->name('index');
         Route::get('/create', BillingForm::class)->name('create');
         Route::get('/{invoice}', BillingShow::class)->name('show');
         Route::get('/{invoice}/pdf', [DocumentController::class, 'invoice'])->name('pdf');
     });
 
-    Route::prefix('tasks')->name('tenant.tasks.')->group(function (): void {
+    Route::prefix('tasks')->name('tenant.tasks.')->middleware(EnsureFeatureEnabled::class.':tasks')->group(function (): void {
         Route::get('/', TaskIndex::class)->name('index');
         Route::get('/create', TaskForm::class)->name('create');
         Route::get('/{task}', TaskShow::class)->name('show');
         Route::get('/{task}/edit', TaskForm::class)->name('edit');
     });
 
-    Route::get('/messages', NotificationIndex::class)->name('tenant.notifications.index');
+    Route::get('/messages', NotificationIndex::class)->middleware(EnsureFeatureEnabled::class.':messaging')->name('tenant.notifications.index');
 
     // Streamed through the app so the policy runs on every fetch — see
     // DocumentController::memberDocument().
     Route::get('/documents/{document}', [DocumentController::class, 'memberDocument'])
+        ->middleware(EnsureFeatureEnabled::class.':documents')
         ->name('tenant.documents.download');
 
     Route::get('/audit-log', AuditIndex::class)->name('tenant.audit.index');

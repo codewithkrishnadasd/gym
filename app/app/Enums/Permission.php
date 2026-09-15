@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Enums;
 
+use App\Models\Organisation;
+
 /**
  * The single source of truth for staff permission keys stored as booleans in
  * `organisation_users.permissions` (MEP.md Section 4.2). Admins bypass every
@@ -95,6 +97,45 @@ enum Permission: string
 
             default => [],
         };
+    }
+
+    /**
+     * The module this permission belongs to. A permission for a module the
+     * organisation has switched off is not offered, and granting it would
+     * mean nothing since the module's policies deny everything anyway.
+     */
+    public function feature(): Feature
+    {
+        return match ($this) {
+            self::MembersView, self::MembersCreate, self::MembersEdit => Feature::Members,
+            self::MembersTransfer, self::ClubsViewAssigned => Feature::Clubs,
+            self::StaffView => Feature::Staff,
+            self::AttendanceMemberMark, self::AttendanceStaffMark => Feature::Attendance,
+            self::FeesCollect, self::FeesViewOwn => Feature::Payments,
+            self::BillingView, self::BillingCreate => Feature::Billing,
+            self::DocumentsView, self::DocumentsManage => Feature::Documents,
+            self::ReportsViewAssigned => Feature::Reports,
+            self::NotificationsSend => Feature::Messaging,
+        };
+    }
+
+    /**
+     * The grantable permissions for an organisation, grouped, leaving out
+     * every module it has switched off.
+     *
+     * @return array<string, array<int, self>>
+     */
+    public static function groupedFor(Organisation $organisation): array
+    {
+        $groups = [];
+
+        foreach (self::cases() as $case) {
+            if ($organisation->hasFeature($case->feature())) {
+                $groups[$case->group()][] = $case;
+            }
+        }
+
+        return $groups;
     }
 
     public function group(): string

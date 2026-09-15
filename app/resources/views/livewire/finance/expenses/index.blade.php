@@ -48,12 +48,14 @@
                 @endforeach
             </x-ui.filter-select>
 
-            <x-ui.filter-select wire:model.live="club" label="Club">
-                <option value="">All {{ strtolower($organisation->term('club_plural')) }}</option>
-                @foreach ($clubs as $clubOption)
-                    <option value="{{ $clubOption->id }}">{{ $clubOption->name }}</option>
-                @endforeach
-            </x-ui.filter-select>
+            @if ($organisation->usesClubs())
+                <x-ui.filter-select wire:model.live="club" label="Club">
+                    <option value="">All {{ strtolower($organisation->term('club_plural')) }}</option>
+                    @foreach ($clubs as $clubOption)
+                        <option value="{{ $clubOption->id }}">{{ $clubOption->name }}</option>
+                    @endforeach
+                </x-ui.filter-select>
+            @endif
 
             <x-ui.filter-select wire:model.live="account" label="Account">
                 <option value="">All accounts</option>

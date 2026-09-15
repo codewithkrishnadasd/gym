@@ -125,12 +125,6 @@ class Show extends Component
             'planDiscount' => ['nullable', 'numeric', 'min:0'],
         ], [], ['planId' => 'plan', 'planDiscount' => 'discount']);
 
-        if ($this->member->primary_club_id === null) {
-            $this->addError('planId', 'Assign a '.strtolower($organisation->term('club_singular')).' before starting a plan.');
-
-            return;
-        }
-
         /** @var Plan $plan */
         $plan = Plan::query()->findOrFail($validated['planId']);
 

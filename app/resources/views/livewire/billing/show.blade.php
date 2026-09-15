@@ -92,9 +92,13 @@
                             <li class="flex items-center justify-between gap-3 px-4 py-3">
                                 <div class="min-w-0">
                                     <div class="flex flex-wrap items-center gap-2">
-                                        <a href="{{ route('tenant.finance.payments.show', $payment) }}" wire:navigate class="text-sm font-medium text-ink hover:text-accent">
-                                            {{ $payment->payment_date->format('d M Y') }}
-                                        </a>
+                                        @feature('payments')
+                                            <a href="{{ route('tenant.finance.payments.show', $payment) }}" wire:navigate class="text-sm font-medium text-ink hover:text-accent">
+                                                {{ $payment->payment_date->format('d M Y') }}
+                                            </a>
+                                        @else
+                                            <span class="text-sm font-medium text-ink">{{ $payment->payment_date->format('d M Y') }}</span>
+                                        @endfeature
                                         <x-ui.badge :tone="$payment->confirmation_status->tone()">{{ $payment->confirmation_status->label() }}</x-ui.badge>
                                     </div>
                                     <p class="truncate text-xs text-ink-muted">

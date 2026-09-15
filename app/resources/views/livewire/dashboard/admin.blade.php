@@ -19,12 +19,18 @@
     <x-ui.page-header :title="'Good '.(now($organisation->timezone)->hour < 12 ? 'morning' : (now($organisation->timezone)->hour < 17 ? 'afternoon' : 'evening')).', '.\Illuminate\Support\Str::before($membership->user?->name ?? '', ' ')"
         :description="$organisation->name.' · '.$period->label()">
         <x-slot:actions>
-            <x-ui.button icon="chart-bar" :href="route('tenant.reports.index')" wire:navigate>Reports</x-ui.button>
-            <x-ui.button variant="primary" icon="plus" :href="route('tenant.finance.payments.create')" wire:navigate>Collect fee</x-ui.button>
+            @feature('reports')
+                <x-ui.button icon="chart-bar" :href="route('tenant.reports.index')" wire:navigate>Reports</x-ui.button>
+            @endfeature
+            @can('create', \App\Models\FeePayment::class)
+                <x-ui.button variant="primary" icon="plus" :href="route('tenant.finance.payments.create')" wire:navigate>Collect fee</x-ui.button>
+            @elsecan('create', \App\Models\Member::class)
+                <x-ui.button variant="primary" icon="plus" :href="route('tenant.members.create')" wire:navigate>Add {{ $organisation->term('member_singular') }}</x-ui.button>
+            @endcan
         </x-slot:actions>
     </x-ui.page-header>
 
-    <x-ui.period-filter :presets="$presets" :range="$range" :clubs="$clubs" :club-label="$organisation->term('club_plural')" />
+    <x-ui.period-filter :presets="$presets" :range="$range" :clubs="$organisation->usesClubs() ? $clubs : null" :club-label="$organisation->term('club_plural')" />
 
     @if ($alerts !== [])
         <div class="mb-4 grid gap-2 md:grid-cols-2">
@@ -41,57 +47,89 @@
         </div>
     @endif
 
+    @php
+        // Every card and panel follows its module (App\Enums\Feature); the
+        // grids reflow around whatever is switched on.
+        $hasPayments = $organisation->hasFeature('payments');
+        $hasExpenses = $organisation->hasFeature('expenses');
+        $hasPlans = $organisation->hasFeature('plans');
+        $hasMembers = $organisation->hasFeature('members');
+        $hasAttendance = $organisation->hasFeature('attendance') && $hasMembers;
+    @endphp
+
     {{-- Core cards (MEP 6.2). --}}
     <div class="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <x-ui.stat label="Revenue collected" :value="$organisation->moneyCompact($revenue)" icon="banknotes" tone="positive"
-            :delta="$revenueDelta" :delta-tone="$revenueTone" hint="vs previous period" :href="$links['revenue']" wire:navigate />
+        @if ($hasPayments)
+            <x-ui.stat label="Revenue collected" :value="$organisation->moneyCompact($revenue)" icon="banknotes" tone="positive"
+                :delta="$revenueDelta" :delta-tone="$revenueTone" hint="vs previous period" :href="$links['revenue']" wire:navigate />
+        @endif
 
-        <x-ui.stat label="Outstanding fees" :value="$organisation->moneyCompact($outstanding)" icon="exclamation-circle"
-            :tone="$outstanding > 0 ? 'caution' : 'neutral'" hint="across active plans" :href="$links['outstanding']" wire:navigate />
+        @if ($hasPlans)
+            <x-ui.stat label="Outstanding fees" :value="$organisation->moneyCompact($outstanding)" icon="exclamation-circle"
+                :tone="$outstanding > 0 ? 'caution' : 'neutral'" hint="across active plans" :href="$links['outstanding']" wire:navigate />
+        @endif
 
-        <x-ui.stat label="Expenses" :value="$organisation->moneyCompact($expenses)" icon="receipt-percent" tone="critical"
-            hint="completed only" :href="$links['expenses']" wire:navigate />
+        @if ($hasExpenses)
+            <x-ui.stat label="Expenses" :value="$organisation->moneyCompact($expenses)" icon="receipt-percent" tone="critical"
+                hint="completed only" :href="$links['expenses']" wire:navigate />
+        @endif
 
-        <x-ui.stat label="Net movement" :value="$organisation->moneyCompact($netMovement)" icon="arrows-right-left"
-            :tone="$netMovement >= 0 ? 'positive' : 'critical'" hint="revenue − expenses" :href="$links['net']" wire:navigate />
+        @if ($hasPayments && $hasExpenses)
+            <x-ui.stat label="Net movement" :value="$organisation->moneyCompact($netMovement)" icon="arrows-right-left"
+                :tone="$netMovement >= 0 ? 'positive' : 'critical'" hint="revenue − expenses" :href="$links['net']" wire:navigate />
+        @endif
 
-        <x-ui.stat :label="'Active '.strtolower($organisation->term('member_plural'))" :value="number_format($activeMembers)"
-            icon="user-group" tone="accent" :href="$links['activeMembers']" wire:navigate />
+        @if ($hasMembers)
+            <x-ui.stat :label="'Active '.strtolower($organisation->term('member_plural'))" :value="number_format($activeMembers)"
+                icon="user-group" tone="accent" :href="$links['activeMembers']" wire:navigate />
 
-        <x-ui.stat :label="'New '.strtolower($organisation->term('member_plural'))" :value="number_format($newMembers)"
-            icon="user-plus" :delta="$membersDelta" :delta-tone="$membersTone" hint="this period" :href="$links['newMembers']" wire:navigate />
+            <x-ui.stat :label="'New '.strtolower($organisation->term('member_plural'))" :value="number_format($newMembers)"
+                icon="user-plus" :delta="$membersDelta" :delta-tone="$membersTone" hint="this period" :href="$links['newMembers']" wire:navigate />
+        @endif
 
-        <x-ui.stat label="Expiring plans" :value="number_format($expiring)" icon="clock"
-            :tone="$expiring > 0 ? 'caution' : 'neutral'" hint="next 30 days" :href="$links['expiring']" wire:navigate />
+        @if ($hasPlans)
+            <x-ui.stat label="Expiring plans" :value="number_format($expiring)" icon="clock"
+                :tone="$expiring > 0 ? 'caution' : 'neutral'" hint="next 30 days" :href="$links['expiring']" wire:navigate />
+        @endif
 
-        <x-ui.stat label="Pending confirmations" :value="number_format($pendingCount)" icon="check-badge"
-            :tone="$pendingCount > 0 ? 'caution' : 'positive'" :href="$links['pending']" wire:navigate
-            :hint="$organisation->moneyCompact($pendingValue).' awaiting'" />
-    </div>
+        @if ($hasPayments)
+            <x-ui.stat label="Pending confirmations" :value="number_format($pendingCount)" icon="check-badge"
+                :tone="$pendingCount > 0 ? 'caution' : 'positive'" :href="$links['pending']" wire:navigate
+                :hint="$organisation->moneyCompact($pendingValue).' awaiting'" />
+        @endif
 
-    <div class="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <x-ui.stat label="Attendance rate" :value="$attendanceRate.'%'" icon="chart-bar"
-            :tone="$attendanceRate >= 60 ? 'positive' : 'caution'" hint="present or late, this period" :href="$links['attendanceRate']" wire:navigate />
-        <x-ui.stat label="Today's attendance" :value="number_format($todaysAttendance)" icon="clipboard-document-check"
-            :href="$links['todaysAttendance']" wire:navigate hint="checked in today" />
-        <x-ui.stat :label="'Active '.strtolower($organisation->term('user_plural'))" :value="number_format($activeStaff)"
-            icon="identification" :href="$links['staff']" wire:navigate />
-        <x-ui.stat :label="$organisation->term('club_plural')" :value="number_format($clubs->count())"
-            icon="building-office-2" :href="$links['clubs']" wire:navigate hint="active" />
+        @if ($hasAttendance)
+            <x-ui.stat label="Attendance rate" :value="$attendanceRate.'%'" icon="chart-bar"
+                :tone="$attendanceRate >= 60 ? 'positive' : 'caution'" hint="present or late, this period" :href="$links['attendanceRate']" wire:navigate />
+            <x-ui.stat label="Today's attendance" :value="number_format($todaysAttendance)" icon="clipboard-document-check"
+                :href="$links['todaysAttendance']" wire:navigate hint="checked in today" />
+        @endif
+        @feature('staff')
+            <x-ui.stat :label="'Active '.strtolower($organisation->term('user_plural'))" :value="number_format($activeStaff)"
+                icon="identification" :href="$links['staff']" wire:navigate />
+        @endfeature
+        @if ($organisation->usesClubs())
+            <x-ui.stat :label="$organisation->term('club_plural')" :value="number_format($clubs->count())"
+                icon="building-office-2" :href="$links['clubs']" wire:navigate hint="active" />
+        @endif
     </div>
 
     {{-- Trends. --}}
+    @if ($hasPayments || $hasExpenses || $hasAttendance)
     <div class="mb-4 grid gap-3 lg:grid-cols-2">
-        <x-ui.card title="Revenue and expenses" :description="$period->label()">
+        @if ($hasPayments || $hasExpenses)
+        <x-ui.card :title="$hasPayments && $hasExpenses ? 'Revenue and expenses' : ($hasPayments ? 'Revenue' : 'Expenses')" :description="$period->label()">
             <x-ui.chart type="line" :labels="$cashTrend['labels']" :height="240" value-format="currency"
                 :currency-symbol="$organisation->currencySymbol()"
                 :summary="'Revenue totalled '.$organisation->money($revenue).' against '.$organisation->money($expenses).' of expenses.'"
-                :datasets="[
-                    ['label' => 'Revenue', 'data' => $cashTrend['revenue'], 'color' => 'positive'],
-                    ['label' => 'Expenses', 'data' => $cashTrend['expenses'], 'color' => 'critical'],
-                ]" />
+                :datasets="array_values(array_filter([
+                    $hasPayments ? ['label' => 'Revenue', 'data' => $cashTrend['revenue'], 'color' => 'positive'] : null,
+                    $hasExpenses ? ['label' => 'Expenses', 'data' => $cashTrend['expenses'], 'color' => 'critical'] : null,
+                ]))" />
         </x-ui.card>
+        @endif
 
+        @if ($hasAttendance)
         <x-ui.card title="Attendance" :description="$period->label()">
             <x-ui.chart type="bar" :labels="$attendanceTrend['labels']" :height="240" stacked
                 :summary="'Attendance rate for the period is '.$attendanceRate.'%.'"
@@ -100,9 +138,12 @@
                     ['label' => 'Absent', 'data' => $attendanceTrend['absent'], 'color' => 'caution'],
                 ]" />
         </x-ui.card>
+        @endif
     </div>
+    @endif
 
     <div class="grid gap-3 lg:grid-cols-3">
+        @if ($hasPayments)
         {{-- Pending staff-collected payments: the queue that needs action. --}}
         <x-ui.card class="lg:col-span-2" :padded="false" title="Pending confirmations"
             description="Staff-collected payments awaiting your review.">
@@ -122,7 +163,7 @@
                                     <a href="{{ route('tenant.finance.payments.show', $payment) }}" wire:navigate
                                         class="block truncate text-sm font-medium text-ink hover:text-accent">{{ $payment->member->name }}</a>
                                     <p class="truncate text-xs text-ink-muted">
-                                        {{ $payment->club->name }} · {{ $payment->collectedBy?->user?->name }}
+                                        @if ($payment->club){{ $payment->club->name }} · @endif{{ $payment->collectedBy?->user?->name }}
                                         · {{ $payment->created_at?->diffForHumans() }}
                                     </p>
                                 </div>
@@ -153,6 +194,9 @@
             @endif
         </x-ui.card>
 
+        @endif
+
+        @if ($organisation->usesClubs())
         {{-- Club comparison. --}}
         <x-ui.card class="lg:col-span-2" :padded="false" :title="$organisation->term('club_plural').' comparison'">
             @if ($clubComparison->isEmpty())
@@ -181,6 +225,9 @@
             @endif
         </x-ui.card>
 
+        @endif
+
+        @if ($hasPlans)
         <x-ui.card :padded="false" title="Needs follow-up" description="Expiring soon or unpaid.">
             @if ($followUps->isEmpty())
                 <x-ui.empty icon="check-circle" title="All clear" description="No plans expiring soon or carrying a balance." />
@@ -204,6 +251,9 @@
             @endif
         </x-ui.card>
 
+        @endif
+
+        @if ($hasPayments)
         <x-ui.card :padded="false" title="Recent payments">
             @if ($recentPayments->isEmpty())
                 <x-ui.empty icon="banknotes" title="No confirmed payments" description="Confirmed collections appear here." />
@@ -214,7 +264,7 @@
                             <div class="min-w-0">
                                 <a href="{{ route('tenant.finance.payments.show', $payment) }}" wire:navigate
                                     class="block truncate text-sm font-medium text-ink hover:text-accent">{{ $payment->member->name }}</a>
-                                <p class="numeric truncate text-xs text-ink-muted">{{ $payment->payment_date->format('d M') }} · {{ $payment->club->name }}</p>
+                                <p class="numeric truncate text-xs text-ink-muted">{{ $payment->payment_date->format('d M') }}@if ($payment->club) · {{ $payment->club->name }}@endif</p>
                             </div>
                             <p class="numeric shrink-0 text-sm font-medium text-positive">{{ $organisation->money($payment->amount_minor) }}</p>
                         </li>
@@ -223,6 +273,9 @@
             @endif
         </x-ui.card>
 
+        @endif
+
+        @if ($hasExpenses)
         <x-ui.card :padded="false" title="Recent expenses" class="lg:col-span-2">
             @if ($recentExpenses->isEmpty())
                 <x-ui.empty icon="receipt-percent" title="No expenses recorded" description="Completed expenses appear here." />
@@ -244,5 +297,6 @@
                 </ul>
             @endif
         </x-ui.card>
+        @endif
     </div>
 </div>

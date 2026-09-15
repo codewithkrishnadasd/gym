@@ -298,6 +298,7 @@
                             </ul>
                         @endif
                     </x-ui.definition>
+                    @feature('members')
                     <x-ui.definition :label="$organisation->term('member_singular')">
                         @if ($task->member)
                             <a href="{{ route('tenant.members.show', $task->member) }}" wire:navigate class="inline-flex items-center gap-2 text-accent hover:underline">
@@ -307,6 +308,7 @@
                             <span class="text-ink-muted">Not about one {{ strtolower($organisation->term('member_singular')) }}</span>
                         @endif
                     </x-ui.definition>
+                    @endfeature
                     <x-ui.definition label="Reported by" :value="$task->createdBy?->user?->name ?? '—'" />
                 </dl>
             </x-ui.card>

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Livewire\Reports;
 
+use App\Enums\Feature;
 use App\Livewire\Concerns\ResolvesMembership;
 use App\Support\Reporting\OrganisationMetrics;
 use App\Support\Reporting\ReportPeriod;
@@ -72,15 +73,23 @@ class Index extends Component
     }
 
     /**
-     * @return array<int, int>
+     * One club when the filter names one the user may see; otherwise the
+     * user's whole reach (null for admins and for organisations without the
+     * Clubs module — see ResolvesMembership::clubRestriction()).
+     *
+     * @return array<int, int>|null
      */
-    private function scopedClubIds(): array
+    private function scopedClubIds(): ?array
     {
-        $available = $this->accessibleClubIds();
+        if ($this->club !== '' && $this->organisation()->usesClubs()) {
+            $available = $this->accessibleClubIds();
 
-        return $this->club !== '' && in_array((int) $this->club, $available, true)
-            ? [(int) $this->club]
-            : $available;
+            if (in_array((int) $this->club, $available, true)) {
+                return [(int) $this->club];
+            }
+        }
+
+        return $this->clubRestriction();
     }
 
     /**
@@ -95,11 +104,34 @@ class Index extends Component
         ], static fn (string $value): bool => $value !== '');
     }
 
+    /**
+     * The reports this organisation has anything to report on: money when it
+     * collects or spends any, members and attendance when it tracks them.
+     *
+     * @return array<string, string>
+     */
+    private function availableTabs(): array
+    {
+        $organisation = $this->organisation();
+
+        return array_filter([
+            'finance' => $organisation->hasFeature(Feature::Payments) || $organisation->hasFeature(Feature::Expenses) ? 'Finance' : null,
+            'members' => $organisation->hasFeature(Feature::Members) ? $organisation->term('member_plural') : null,
+            'attendance' => $organisation->hasFeature(Feature::Attendance) && $organisation->hasFeature(Feature::Members) ? 'Attendance' : null,
+        ]);
+    }
+
     public function render(): View
     {
         $organisation = $this->organisation();
         $period = ReportPeriod::fromStrings($this->from ?: null, $this->to ?: null, $organisation->timezone);
         $metrics = new OrganisationMetrics($organisation, $this->scopedClubIds(), $period);
+
+        $tabs = $this->availableTabs();
+
+        if (! isset($tabs[$this->tab])) {
+            $this->tab = (string) (array_key_first($tabs) ?? 'finance');
+        }
 
         $data = match ($this->tab) {
             'members' => [
@@ -135,6 +167,7 @@ class Index extends Component
 
         return view('livewire.reports.index', [
             ...$data,
+            'reportTabs' => $tabs,
             'organisation' => $organisation,
             'period' => $period,
             'presets' => ReportPeriod::presets($organisation->timezone),

@@ -4,15 +4,14 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Tenant;
 
-use App\Enums\ClubAssignmentStatus;
 use App\Http\Controllers\Controller;
-use App\Models\Club;
 use App\Models\Expense;
 use App\Models\FeePayment;
 use App\Models\Member;
 use App\Models\Organisation;
 use App\Models\OrganisationUser;
 use App\Models\User;
+use App\Support\ClubScope;
 use App\Support\Export\StreamedCsv;
 use App\Support\Money;
 use App\Support\Reporting\OrganisationMetrics;
@@ -39,7 +38,7 @@ class ExportController extends Controller
 
         $query = FeePayment::query()
             ->with(['member:id,name,phone', 'club:id,name', 'collectedBy.user:id,name', 'financialAccount:id,name', 'subscription.plan:id,name'])
-            ->whereIn('club_id', $clubIds)
+            ->when($clubIds !== null, fn ($builder) => $builder->whereIn('club_id', $clubIds))
             ->whereBetween('payment_date', [$period->from->toDateString(), $period->to->toDateString()])
             // A staff user exports only their own collections, exactly as the
             // ledger shows them.
@@ -64,7 +63,7 @@ class ExportController extends Controller
 
         $query = Expense::query()
             ->with(['club:id,name', 'fundingAccount:id,name', 'createdBy.user:id,name'])
-            ->where(fn ($builder) => $builder->whereIn('club_id', $clubIds)->orWhereNull('club_id'))
+            ->when($clubIds !== null, fn ($builder) => $builder->where(fn ($inner) => $inner->whereIn('club_id', $clubIds)->orWhereNull('club_id')))
             ->whereBetween('expense_date', [$period->from->toDateString(), $period->to->toDateString()])
             ->orderBy('expense_date');
 
@@ -85,7 +84,7 @@ class ExportController extends Controller
 
         $query = Member::query()
             ->with(['primaryClub:id,name'])
-            ->whereIn('primary_club_id', $clubIds)
+            ->when($clubIds !== null, fn ($builder) => $builder->whereIn('primary_club_id', $clubIds))
             ->orderBy('name');
 
         return StreamedCsv::respond(
@@ -142,15 +141,13 @@ class ExportController extends Controller
         foreach ($query->lazy(500) as $payment) {
             /** @var Member $member */
             $member = $payment->member;
-            /** @var Club $club */
-            $club = $payment->club;
 
             yield [
                 $organisation->reference('payment', $payment->id),
                 $payment->payment_date->toDateString(),
                 $member->name,
                 $member->phone,
-                $club->name,
+                $payment->club->name ?? '',
                 $payment->purposeLabel(),
                 $payment->payment_method->label(),
                 $payment->financialAccount->name ?? '',
@@ -303,7 +300,7 @@ class ExportController extends Controller
     }
 
     /**
-     * @return array{0: Organisation, 1: OrganisationUser, 2: ReportPeriod, 3: array<int, int>}
+     * @return array{0: Organisation, 1: OrganisationUser, 2: ReportPeriod, 3: array<int, int>|null}
      */
     private function context(Request $request): array
     {
@@ -323,14 +320,7 @@ class ExportController extends Controller
             $organisation->timezone,
         );
 
-        $available = $membership->isAdmin()
-            ? Club::query()->pluck('id')->all()
-            : $membership->clubAssignments()->where('status', ClubAssignmentStatus::Active)->pluck('club_id')->all();
-
-        $requested = $request->integer('club');
-        $clubIds = $requested > 0 && in_array($requested, $available, true) ? [$requested] : $available;
-
-        return [$organisation, $membership, $period, $clubIds];
+        return [$organisation, $membership, $period, ClubScope::resolve($organisation, $membership, $request->integer('club'))];
     }
 
     private function tenant(): Organisation
@@ -352,17 +342,15 @@ class ExportController extends Controller
     /**
      * Context lines so a downloaded file is self-describing (MEP.md 6.11).
      *
-     * @param  array<int, int>  $clubIds
+     * @param  array<int, int>|null  $clubIds
      * @return array<int, string>
      */
-    private function preamble(Organisation $organisation, string $title, ReportPeriod $period, array $clubIds): array
+    private function preamble(Organisation $organisation, string $title, ReportPeriod $period, ?array $clubIds): array
     {
-        $clubNames = Club::query()->whereIn('id', $clubIds)->orderBy('name')->pluck('name')->implode(', ');
-
         return [
             $organisation->name.' — '.$title,
             'Period: '.$period->label(),
-            'Scope: '.($clubNames !== '' ? $clubNames : 'No clubs in scope'),
+            'Scope: '.ClubScope::describe($organisation, $clubIds),
             'Generated: '.now($organisation->timezone)->format('d M Y H:i').' ('.$organisation->timezone.')',
             'Note: only confirmed payments and completed expenses contribute to financial totals.',
         ];

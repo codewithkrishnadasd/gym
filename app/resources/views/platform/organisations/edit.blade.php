@@ -322,6 +322,84 @@
                 </div>
             </x-ui.card>
 
+            @php
+                $enabledFeatures = \App\Enums\Feature::expand((array) old('features', $organisation->enabledFeatures()));
+                $featureRequirements = collect(\App\Enums\Feature::cases())
+                    ->mapWithKeys(fn ($feature) => [$feature->value => array_map(fn ($required) => $required->value, $feature->requires())])
+                    ->all();
+                $featureLabels = collect(\App\Enums\Feature::cases())
+                    ->mapWithKeys(fn ($feature) => [$feature->value => $feature->label()])
+                    ->all();
+            @endphp
+
+            <x-ui.card title="Features"
+                description="Which parts of the application this organisation can use. Anything unticked is absent for them — no menu entry, no pages, no data shown elsewhere. Ticking a module ticks what it cannot work without.">
+                {{-- State lives on a plain div: @js() inside an x-component
+                     attribute is not compiled by Livewire's Blade pass. --}}
+                <div x-data="{
+                    enabled: @js($enabledFeatures),
+                    requires: @js($featureRequirements),
+                    labels: @js($featureLabels),
+                    has(key) {
+                        return this.enabled.includes(key);
+                    },
+                    neededBy(key) {
+                        return Object.entries(this.requires)
+                            .filter(([dependent, needs]) => needs.includes(key) && this.has(dependent))
+                            .map(([dependent]) => dependent);
+                    },
+                    toggle(key) {
+                        if (this.has(key)) {
+                            if (this.neededBy(key).length) return;
+                            this.enabled = this.enabled.filter((k) => k !== key);
+                            return;
+                        }
+                        const add = (k) => {
+                            if (this.enabled.includes(k)) return;
+                            this.enabled.push(k);
+                            (this.requires[k] ?? []).forEach(add);
+                        };
+                        add(key);
+                    },
+                }" class="space-y-5">
+                    @foreach (\App\Enums\Feature::grouped() as $group => $features)
+                        <div>
+                            <p class="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-muted">{{ $group }}</p>
+                            <div class="grid gap-2 sm:grid-cols-2">
+                                @foreach ($features as $feature)
+                                    <label class="flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition"
+                                        :class="has('{{ $feature->value }}') ? 'border-accent/40 bg-accent-soft/40' : 'border-hairline bg-surface hover:bg-raised'">
+                                        <input type="checkbox" name="features[]" value="{{ $feature->value }}"
+                                            :checked="has('{{ $feature->value }}')"
+                                            x-on:click.prevent="toggle('{{ $feature->value }}')"
+                                            class="mt-0.5 h-4 w-4 shrink-0 rounded border-hairline-strong text-accent focus:ring-accent/25">
+                                        <span class="min-w-0 flex-1">
+                                            <span class="flex items-center gap-1.5 text-sm font-medium text-ink">
+                                                <x-dynamic-component :component="'heroicon-o-'.$feature->icon()" class="h-4 w-4 text-ink-muted" />
+                                                {{ $feature->label() }}
+                                            </span>
+                                            <span class="mt-0.5 block text-xs text-ink-muted">{{ $feature->description() }}</span>
+                                            @if ($feature->requires() !== [])
+                                                <span class="mt-1 block text-[11px] text-ink-soft">
+                                                    Needs {{ collect($feature->requires())->map(fn ($required) => $required->label())->join(' and ') }}
+                                                </span>
+                                            @endif
+                                            <span x-show="has('{{ $feature->value }}') && neededBy('{{ $feature->value }}').length" x-cloak class="mt-1 block text-[11px] text-caution"
+                                                x-text="'Kept on for ' + neededBy('{{ $feature->value }}').map((k) => labels[k]).join(', ')"></span>
+                                        </span>
+                                    </label>
+                                @endforeach
+                            </div>
+                        </div>
+                    @endforeach
+
+                    <p class="text-xs text-ink-muted">
+                        Switching a module off hides it; nothing already recorded is deleted, and switching it back on
+                        brings the data back.
+                    </p>
+                </div>
+            </x-ui.card>
+
             <x-ui.button type="submit" variant="primary" size="lg">Save changes</x-ui.button>
         </form>
 

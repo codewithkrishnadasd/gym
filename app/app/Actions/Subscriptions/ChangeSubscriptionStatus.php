@@ -11,7 +11,6 @@ use App\Enums\NotificationRecipientType;
 use App\Enums\SubscriptionStatus;
 use App\Exceptions\LifecycleViolation;
 use App\Models\AuditEvent;
-use App\Models\Club;
 use App\Models\Member;
 use App\Models\MemberSubscription;
 use App\Models\Organisation;
@@ -64,8 +63,6 @@ final class ChangeSubscriptionStatus
         $member = $subscription->member;
         /** @var Plan $plan */
         $plan = $subscription->plan;
-        /** @var Club $club */
-        $club = $subscription->club;
 
         $this->notifications->handle(
             organisation: $organisation,
@@ -81,7 +78,7 @@ final class ChangeSubscriptionStatus
             context: [
                 'planAction' => $status->value,
                 'planName' => $plan->name,
-                'clubName' => $club->name,
+                'clubName' => $subscription->club?->name,
                 'startDate' => $subscription->start_date->format('d M Y'),
                 'endDate' => $subscription->end_date->format('d M Y'),
             ],

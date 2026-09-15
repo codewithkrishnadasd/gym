@@ -4,9 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Tenant;
 
-use App\Enums\ClubAssignmentStatus;
 use App\Http\Controllers\Controller;
-use App\Models\Club;
 use App\Models\Document;
 use App\Models\Expense;
 use App\Models\FeePayment;
@@ -14,6 +12,7 @@ use App\Models\Invoice;
 use App\Models\Organisation;
 use App\Models\OrganisationUser;
 use App\Models\User;
+use App\Support\ClubScope;
 use App\Support\Documents\PdfDocuments;
 use App\Support\Reporting\OrganisationMetrics;
 use App\Support\Reporting\ReportPeriod;
@@ -58,7 +57,7 @@ class DocumentController extends Controller
             'organisation' => $organisation,
             'period' => $period,
             'report' => $report,
-            'clubNames' => Club::query()->whereIn('id', $clubIds)->orderBy('name')->pluck('name')->implode(', '),
+            'clubNames' => ClubScope::describe($organisation, $clubIds),
             'metrics' => $metrics,
             'statusTotals' => $metrics->paymentStatusTotals(),
             'clubComparison' => $metrics->clubComparison(),
@@ -131,7 +130,7 @@ class DocumentController extends Controller
     }
 
     /**
-     * @return array{0: ReportPeriod, 1: array<int, int>}
+     * @return array{0: ReportPeriod, 1: array<int, int>|null}
      */
     private function scope(Request $request, Organisation $organisation): array
     {
@@ -149,13 +148,7 @@ class DocumentController extends Controller
             $organisation->timezone,
         );
 
-        $available = $membership->isAdmin()
-            ? Club::query()->pluck('id')->all()
-            : $membership->clubAssignments()->where('status', ClubAssignmentStatus::Active)->pluck('club_id')->all();
-
-        $requested = $request->integer('club');
-
-        return [$period, $requested > 0 && in_array($requested, $available, true) ? [$requested] : $available];
+        return [$period, ClubScope::resolve($organisation, $membership, $request->integer('club'))];
     }
 
     private function tenant(): Organisation

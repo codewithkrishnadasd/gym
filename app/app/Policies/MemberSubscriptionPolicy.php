@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Policies;
 
+use App\Enums\Feature;
 use App\Models\Member;
 use App\Models\MemberSubscription;
 use App\Models\User;
@@ -17,6 +18,15 @@ use App\Policies\Concerns\EvaluatesMembership;
 class MemberSubscriptionPolicy
 {
     use EvaluatesMembership;
+
+    /**
+     * Nothing here is permitted while the organisation has the Plans module
+     * switched off (App\Enums\Feature).
+     */
+    public function before(User $user): ?bool
+    {
+        return $this->featureEnabled(Feature::Plans) ? null : false;
+    }
 
     public function viewAny(User $user): bool
     {

@@ -74,15 +74,23 @@ class Index extends Component
     }
 
     /**
-     * @return array<int, int>
+     * One club when the filter names one the user may see; otherwise the
+     * user's whole reach (null for admins and for organisations without the
+     * Clubs module — see ResolvesMembership::clubRestriction()).
+     *
+     * @return array<int, int>|null
      */
-    private function scopedClubIds(): array
+    private function scopedClubIds(): ?array
     {
-        $available = $this->accessibleClubIds();
+        if ($this->club !== '' && $this->organisation()->usesClubs()) {
+            $available = $this->accessibleClubIds();
 
-        return $this->club !== '' && in_array((int) $this->club, $available, true)
-            ? [(int) $this->club]
-            : $available;
+            if (in_array((int) $this->club, $available, true)) {
+                return [(int) $this->club];
+            }
+        }
+
+        return $this->clubRestriction();
     }
 
     public function render(): View
@@ -208,17 +216,21 @@ class Index extends Component
             ->get()
             ->keyBy('confirmation_status');
 
+        // Permissions read through the policies so a module that is switched
+        // off (App\Enums\Feature) takes its shortcuts and cards with it.
+        $user = auth()->user();
+
         return [
-            'canMarkAttendance' => $membership->hasPermission('attendance.member.mark'),
-            'canCollectFees' => $membership->hasPermission('fees.collect'),
-            'canViewMembers' => $membership->hasPermission('members.view'),
+            'canMarkAttendance' => $user?->can('markMembers', Attendance::class) ?? false,
+            'canCollectFees' => $user?->can('create', FeePayment::class) ?? false,
+            'canViewMembers' => $user?->can('viewAny', Member::class) ?? false,
             'todaysAttendance' => Attendance::query()
-                ->whereIn('club_id', $clubIds)
+                ->when($clubIds !== null, fn ($query) => $query->whereIn('club_id', $clubIds))
                 ->where('subject_type', 'member')
                 ->whereDate('attendance_date', $today->toDateString())
                 ->count(),
             'rosterSize' => Member::query()
-                ->whereIn('primary_club_id', $clubIds)
+                ->when($clubIds !== null, fn ($query) => $query->whereIn('primary_club_id', $clubIds))
                 ->whereIn('status', [MemberStatus::Active, MemberStatus::Paused])
                 ->count(),
             'followUps' => $metrics->membersNeedingFollowUp(6),

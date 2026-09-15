@@ -53,15 +53,17 @@
                 </div>
             </x-ui.card>
 
-            <x-ui.card title="Fees and discounts"
-                :description="'What joining this '.strtolower($organisation->term('club_singular')).' costs, and the standing discount its '.strtolower($organisation->term('member_plural')).' get on each plan. Discounts are prefilled when a plan is started and can be changed for the individual.'">
+            @feature('payments')
+            <x-ui.card :title="$organisation->hasFeature('plans') ? 'Fees and discounts' : 'Fees'"
+                :description="'What joining this '.strtolower($organisation->term('club_singular')).' costs'.($organisation->hasFeature('plans') ? ', and the standing discount its '.strtolower($organisation->term('member_plural')).' get on each plan. Discounts are prefilled when a plan is started and can be changed for the individual.' : '.')">
                 <div class="grid gap-4 sm:grid-cols-2">
                     <x-ui.input wire:model="admissionFee" name="admissionFee" label="Admission fee" inputmode="decimal"
                         :prefix="$organisation->currencySymbol()" placeholder="0.00"
                         :hint="'Charged once when a '.strtolower($organisation->term('member_singular')).' joins. Leave empty for none.'" />
                 </div>
 
-                @if ($plans->isNotEmpty())
+                @if (! $organisation->hasFeature('plans'))
+                @elseif ($plans->isNotEmpty())
                     <div class="mt-4 overflow-hidden rounded-lg border border-hairline">
                         <table class="w-full text-sm">
                             <thead class="bg-sunken text-left text-xs font-medium uppercase tracking-wide text-ink-muted">
@@ -89,7 +91,9 @@
                     <p class="mt-3 text-sm text-ink-muted">No active plans yet — add plans to set discounts on them here.</p>
                 @endif
             </x-ui.card>
+            @endfeature
 
+            @feature('staff')
             <x-ui.card :title="'Assigned '.strtolower($organisation->term('user_plural'))"
                 :description="strtolower($organisation->term('user_plural')).' can be assigned to several '.strtolower($organisation->term('club_plural')).'. Unassigning keeps the history rather than deleting it.'">
                 @if ($availableUsers->isEmpty())
@@ -106,6 +110,7 @@
                     </div>
                 @endif
             </x-ui.card>
+            @endfeature
         </div>
 
         <div class="space-y-5">
@@ -126,12 +131,16 @@
                 <x-ui.card title="Shortcuts">
                     <div class="flex flex-col gap-2">
                         <x-ui.button :href="route('tenant.clubs.show', $club)" wire:navigate icon="chart-bar">Overview and KPIs</x-ui.button>
-                        <x-ui.button :href="route('tenant.members.index', ['club' => $club->id])" wire:navigate icon="user-group">
-                            {{ $organisation->term('member_plural') }}
-                        </x-ui.button>
-                        <x-ui.button :href="route('tenant.attendance.members', ['clubId' => $club->id])" wire:navigate icon="clipboard-document-check">
-                            Attendance
-                        </x-ui.button>
+                        @feature('members')
+                            <x-ui.button :href="route('tenant.members.index', ['club' => $club->id])" wire:navigate icon="user-group">
+                                {{ $organisation->term('member_plural') }}
+                            </x-ui.button>
+                        @endfeature
+                        @can('markMembers', [\App\Models\Attendance::class, $club->id])
+                            <x-ui.button :href="route('tenant.attendance.members', ['clubId' => $club->id])" wire:navigate icon="clipboard-document-check">
+                                Attendance
+                            </x-ui.button>
+                        @endcan
                     </div>
                 </x-ui.card>
             @endif

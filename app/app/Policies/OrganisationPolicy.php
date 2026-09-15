@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Policies;
 
+use App\Enums\Feature;
 use App\Models\User;
 use App\Policies\Concerns\EvaluatesMembership;
 
@@ -34,11 +35,12 @@ class OrganisationPolicy
 
     public function viewReports(User $user): bool
     {
-        return $this->isAdmin($user) || $this->hasPermission($user, 'reports.view_assigned');
+        return $this->featureEnabled(Feature::Reports)
+            && ($this->isAdmin($user) || $this->hasPermission($user, 'reports.view_assigned'));
     }
 
     public function exportReports(User $user): bool
     {
-        return $this->isAdmin($user) || $this->hasPermission($user, 'reports.view_assigned');
+        return $this->viewReports($user);
     }
 }

@@ -51,7 +51,9 @@
                 </div>
             </x-ui.card>
 
-            <x-ui.card title="People" :description="'Who is doing this, and which '.strtolower($organisation->term('member_singular')).' it concerns. Both optional. Assignees and the person who raised it can see the task.'">
+            <x-ui.card title="People" :description="$organisation->hasFeature('members')
+                ? 'Who is doing this, and which '.strtolower($organisation->term('member_singular')).' it concerns. Both optional. Assignees and the person who raised it can see the task.'
+                : 'Who is doing this. Optional. Assignees and the person who raised it can see the task.'">
                 <div class="grid gap-5 sm:grid-cols-2">
                     <x-ui.field label="Assigned to" name="assigneeIds" :hint="$assignees->isEmpty() ? 'Optional. Add as many people as needed.' : null">
                         @if (! $hasPeople)
@@ -104,6 +106,7 @@
                         @endif
                     </x-ui.field>
 
+                    @feature('members')
                     <x-ui.field :label="$organisation->term('member_singular')" name="memberId">
                         @if ($selectedMember)
                             <div class="flex items-center justify-between gap-3 rounded-lg border border-hairline bg-raised p-2.5">
@@ -143,6 +146,7 @@
                             @endif
                         @endif
                     </x-ui.field>
+                    @endfeature
                 </div>
             </x-ui.card>
 

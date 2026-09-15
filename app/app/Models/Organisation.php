@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Enums\Feature;
 use App\Enums\NotificationActionType;
 use App\Enums\OrganisationStatus;
 use App\Support\Money;
@@ -17,7 +18,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Facades\Storage;
 
 #[Fillable([
-    'name', 'slug', 'logo_path', 'favicon_path', 'accent_color', 'theme_colors', 'id_prefixes', 'status', 'timezone', 'currency_code', 'locale',
+    'name', 'slug', 'logo_path', 'favicon_path', 'accent_color', 'theme_colors', 'id_prefixes', 'features', 'status', 'timezone', 'currency_code', 'locale',
     'default_country_code', 'contact_email', 'contact_phone', 'address',
     'notification_settings', 'expense_categories', 'created_by',
     'terminology_member_singular', 'terminology_member_plural',
@@ -50,6 +51,7 @@ class Organisation extends Model
             'expense_categories' => 'array',
             'theme_colors' => 'array',
             'id_prefixes' => 'array',
+            'features' => 'array',
         ];
     }
 
@@ -334,6 +336,32 @@ class Organisation extends Model
     ];
 
     /**
+     * The kinds of record this organisation numbers — DEFAULT_ID_PREFIXES
+     * less the entities of modules it has switched off.
+     *
+     * @return array<string, array{prefix: string, label: string}>
+     */
+    public function idPrefixEntities(): array
+    {
+        $features = [
+            'member' => Feature::Members,
+            'staff' => Feature::Staff,
+            'club' => Feature::Clubs,
+            'plan' => Feature::Plans,
+            'payment' => Feature::Payments,
+            'expense' => Feature::Expenses,
+            'invoice' => Feature::Billing,
+            'task' => Feature::Tasks,
+        ];
+
+        return array_filter(
+            self::DEFAULT_ID_PREFIXES,
+            fn (string $entity): bool => $this->hasFeature($features[$entity]),
+            ARRAY_FILTER_USE_KEY,
+        );
+    }
+
+    /**
      * The prefix for one kind of record, e.g. "MEM". Falls back to the default
      * for anything unset, so a partially configured organisation never shows a
      * bare number.
@@ -360,6 +388,46 @@ class Organisation extends Model
     }
 
     /**
+     * The modules this organisation has switched on, closed over what each
+     * needs. Null in storage means everything: organisations predate the
+     * switch, and a platform admin who has never opened the list gets the
+     * whole product rather than none of it.
+     *
+     * @return array<int, string>
+     */
+    public function enabledFeatures(): array
+    {
+        /** @var array<int, mixed>|null $configured */
+        $configured = $this->features;
+
+        if ($configured === null) {
+            return Feature::keys();
+        }
+
+        return Feature::expand(array_values(array_filter(
+            $configured,
+            static fn (mixed $key): bool => is_string($key),
+        )));
+    }
+
+    public function hasFeature(Feature|string $feature): bool
+    {
+        $key = $feature instanceof Feature ? $feature->value : $feature;
+
+        return in_array($key, $this->enabledFeatures(), true);
+    }
+
+    /**
+     * Whether members, money, and attendance are grouped by club. When the
+     * Clubs module is off, nothing carries a club and every list is
+     * organisation-wide.
+     */
+    public function usesClubs(): bool
+    {
+        return $this->hasFeature(Feature::Clubs);
+    }
+
+    /**
      * Terminology lookups are indirected through here so views never guess a
      * column name — MEP.md Section 1 requires configured labels everywhere.
      */
@@ -381,6 +449,12 @@ class Organisation extends Model
         // it would leave an admin holding a link they have no way to pass on.
         if (! $type->isOptional()) {
             return true;
+        }
+
+        // With the module off, no message is composed after an action: there
+        // is no queue to hold it and no panel to show it in.
+        if (! $this->hasFeature(Feature::Messaging)) {
+            return false;
         }
 
         $settings = $this->notification_settings ?? [];

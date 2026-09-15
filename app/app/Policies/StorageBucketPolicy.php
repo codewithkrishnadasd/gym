@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Policies;
 
+use App\Enums\Feature;
 use App\Models\User;
 use App\Policies\Concerns\EvaluatesMembership;
 
@@ -16,6 +17,15 @@ use App\Policies\Concerns\EvaluatesMembership;
 class StorageBucketPolicy
 {
     use EvaluatesMembership;
+
+    /**
+     * Nothing here is permitted while the organisation has the Documents module
+     * switched off (App\Enums\Feature).
+     */
+    public function before(User $user): ?bool
+    {
+        return $this->featureEnabled(Feature::Documents) ? null : false;
+    }
 
     public function viewAny(User $user): bool
     {

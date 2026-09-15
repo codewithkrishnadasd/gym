@@ -9,16 +9,30 @@
 
     <x-ui.page-header title="Settings" :description="$organisation->name" />
 
-    <x-ui.tabs :items="[
-        ['label' => 'Profile', 'url' => route('tenant.settings.organisation', ['tab' => 'profile']), 'active' => $tab === 'profile'],
-        ['label' => 'Terminology', 'url' => route('tenant.settings.organisation', ['tab' => 'terminology']), 'active' => $tab === 'terminology'],
-        ['label' => 'Notifications', 'url' => route('tenant.settings.organisation', ['tab' => 'notifications']), 'active' => $tab === 'notifications'],
-        ['label' => 'Expense categories', 'url' => route('tenant.settings.organisation', ['tab' => 'expenses']), 'active' => $tab === 'expenses'],
-        ['label' => 'Billing', 'url' => route('tenant.settings.organisation', ['tab' => 'billing']), 'active' => $tab === 'billing'],
-        ['label' => 'Storage', 'url' => route('tenant.settings.organisation', ['tab' => 'storage']), 'active' => $tab === 'storage'],
-        ['label' => 'Tasks', 'url' => route('tenant.settings.organisation', ['tab' => 'tasks']), 'active' => $tab === 'tasks'],
-        ['label' => 'Message templates', 'url' => route('tenant.settings.organisation', ['tab' => 'templates']), 'active' => $tab === 'templates'],
-    ]" />
+    @php
+        // A module's settings tab exists only while the module does
+        // (App\Enums\Feature); an old link to a hidden tab lands on Profile.
+        $settingsTabs = array_filter([
+            'profile' => 'Profile',
+            'terminology' => 'Terminology',
+            'notifications' => $organisation->hasFeature('messaging') ? 'Notifications' : null,
+            'expenses' => $organisation->hasFeature('expenses') ? 'Expense categories' : null,
+            'billing' => $organisation->hasFeature('billing') ? 'Billing' : null,
+            'storage' => $organisation->hasFeature('documents') ? 'Storage' : null,
+            'tasks' => $organisation->hasFeature('tasks') ? 'Tasks' : null,
+            'templates' => $organisation->hasFeature('messaging') ? 'Message templates' : null,
+        ]);
+
+        if (! isset($settingsTabs[$tab])) {
+            $tab = 'profile';
+        }
+    @endphp
+
+    <x-ui.tabs :items="collect($settingsTabs)->map(fn ($label, $key) => [
+        'label' => $label,
+        'url' => route('tenant.settings.organisation', ['tab' => $key]),
+        'active' => $tab === $key,
+    ])->values()->all()" />
 
     @if ($tab === 'profile')
         <form wire:submit="saveProfile" class="grid gap-5 lg:grid-cols-3">
@@ -168,15 +182,17 @@
                         <x-ui.input wire:model.live.debounce.400ms="memberPlural" name="memberPlural" label="Member (plural)" required placeholder="Members" />
                         <x-ui.input wire:model.live.debounce.400ms="userSingular" name="userSingular" label="Staff (singular)" required placeholder="Staff" />
                         <x-ui.input wire:model.live.debounce.400ms="userPlural" name="userPlural" label="Staff (plural)" required placeholder="Staff" />
-                        <x-ui.input wire:model.live.debounce.400ms="clubSingular" name="clubSingular" label="Club (singular)" required placeholder="Club" />
-                        <x-ui.input wire:model.live.debounce.400ms="clubPlural" name="clubPlural" label="Club (plural)" required placeholder="Clubs" />
+                        @if ($organisation->usesClubs())
+                            <x-ui.input wire:model.live.debounce.400ms="clubSingular" name="clubSingular" label="Club (singular)" required placeholder="Club" />
+                            <x-ui.input wire:model.live.debounce.400ms="clubPlural" name="clubPlural" label="Club (plural)" required placeholder="Clubs" />
+                        @endif
                     </div>
                 </x-ui.card>
 
                 <x-ui.card title="Reference prefixes"
                     description="How records are numbered on screen, in receipts, exports, and messages — e.g. MEM-42 for a member. Letters and digits only, up to 8 characters. Numbers themselves never change; only the prefix in front of them.">
                     <div class="grid gap-4 sm:grid-cols-2">
-                        @foreach (\App\Models\Organisation::DEFAULT_ID_PREFIXES as $entity => $default)
+                        @foreach ($organisation->idPrefixEntities() as $entity => $default)
                             <x-ui.input wire:model.live.debounce.400ms="idPrefixes.{{ $entity }}" name="idPrefixes.{{ $entity }}"
                                 :label="$default['label']" required maxlength="8" :placeholder="$default['prefix']"
                                 class="font-mono uppercase" :hint="'e.g. '.($idPrefixes[$entity] !== '' ? strtoupper($idPrefixes[$entity]) : $default['prefix']).($entity === 'invoice' ? '-'.now()->format('Y').'-0042' : '-42')" />
@@ -194,9 +210,11 @@
                         <li class="flex items-center gap-2 text-ink-soft">
                             <x-heroicon-o-identification class="h-4 w-4 text-ink-muted" /> {{ $userPlural ?: 'Staff' }}
                         </li>
-                        <li class="flex items-center gap-2 text-ink-soft">
-                            <x-heroicon-o-building-office-2 class="h-4 w-4 text-ink-muted" /> {{ $clubPlural ?: 'Clubs' }}
-                        </li>
+                        @if ($organisation->usesClubs())
+                            <li class="flex items-center gap-2 text-ink-soft">
+                                <x-heroicon-o-building-office-2 class="h-4 w-4 text-ink-muted" /> {{ $clubPlural ?: 'Clubs' }}
+                            </li>
+                        @endif
                     </ul>
 
                     <p class="mt-3 rounded-lg bg-raised px-3 py-2 text-xs text-ink-muted">
@@ -205,7 +223,7 @@
                     </p>
 
                     <ul class="mt-4 space-y-1.5 border-t border-hairline pt-3 text-sm text-ink-soft">
-                        @foreach (\App\Models\Organisation::DEFAULT_ID_PREFIXES as $entity => $default)
+                        @foreach ($organisation->idPrefixEntities() as $entity => $default)
                             <li class="flex items-center justify-between gap-3">
                                 <span>{{ $default['label'] }}</span>
                                 <x-ui.reference :value="strtoupper($idPrefixes[$entity] ?: $default['prefix']).($entity === 'invoice' ? '-'.now()->format('Y').'-0042' : '-42')" />

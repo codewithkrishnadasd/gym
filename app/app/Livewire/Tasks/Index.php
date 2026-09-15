@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Livewire\Tasks;
 
+use App\Enums\Feature;
 use App\Livewire\Concerns\ResolvesMembership;
 use App\Models\Member;
 use App\Models\Task;
@@ -157,10 +158,12 @@ class Index extends Component
             'tasks' => $this->tasks(),
             'categories' => TaskCategory::query()->where('status', 'active')->orderBy('position')->orderBy('name')->get(),
             // Only members who have a task the viewer can see, so the list stays short.
-            'members' => Member::query()
-                ->whereIn('id', $this->scopeWithoutShow()->whereNotNull('member_id')->select('member_id'))
-                ->orderBy('name')
-                ->get(['id', 'name']),
+            'members' => $this->organisation()->hasFeature(Feature::Members)
+                ? Member::query()
+                    ->whereIn('id', $this->scopeWithoutShow()->whereNotNull('member_id')->select('member_id'))
+                    ->orderBy('name')
+                    ->get(['id', 'name'])
+                : new Collection,
             'statuses' => $this->statusesForFilter(),
             'totalCount' => $totalCount,
             'doneCount' => $doneCount,

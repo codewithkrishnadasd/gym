@@ -324,7 +324,7 @@ class Form extends Component
         return view('livewire.staff.form', [
             'organisation' => $organisation,
             'availableClubs' => $this->accessibleClubs(),
-            'permissionGroups' => Permission::grouped(),
+            'permissionGroups' => Permission::groupedFor($organisation),
             'roles' => MembershipRole::cases(),
             'statuses' => MembershipStatus::cases(),
         ])->layout('components.layouts.app', [

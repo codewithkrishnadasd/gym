@@ -52,10 +52,6 @@ final class IssueInvoice
             throw new InvalidArgumentException('An invoice needs at least one line.');
         }
 
-        if ($member->primary_club_id === null) {
-            throw new InvalidArgumentException('The member has no club to bill against.');
-        }
-
         $issueDate = Carbon::today($organisation->timezone);
 
         $total = 0;

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Policies;
 
+use App\Enums\Feature;
 use App\Models\Club;
 use App\Models\User;
 use App\Policies\Concerns\EvaluatesMembership;
@@ -16,6 +17,15 @@ use App\Policies\Concerns\EvaluatesMembership;
 class ClubPolicy
 {
     use EvaluatesMembership;
+
+    /**
+     * Nothing here is permitted while the organisation has the Clubs module
+     * switched off (App\Enums\Feature).
+     */
+    public function before(User $user): ?bool
+    {
+        return $this->featureEnabled(Feature::Clubs) ? null : false;
+    }
 
     public function viewAny(User $user): bool
     {

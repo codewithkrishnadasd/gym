@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Platform;
 
 use App\Enums\DomainStatus;
+use App\Enums\Feature;
 use App\Enums\FinancialAccountStatus;
 use App\Enums\FinancialAccountType;
 use App\Enums\MembershipRole;
@@ -181,6 +182,11 @@ class OrganisationController extends Controller
             'theme' => ['nullable', 'array'],
             'theme.*' => ['nullable', 'array'],
             'theme.*.*' => ['nullable', 'string', 'regex:/^#[0-9a-fA-F]{6}$/'],
+            // Which modules the organisation gets. An unticked list is a
+            // valid choice (nothing but the dashboard), so absence is not
+            // treated as "leave alone".
+            'features' => ['nullable', 'array'],
+            'features.*' => ['string', Rule::enum(Feature::class)],
             'contact_email' => ['nullable', 'email', 'max:255'],
             'contact_phone' => ['nullable', 'string', 'max:50'],
             'terminology_member_singular' => ['required', 'string', 'max:50'],
@@ -200,6 +206,12 @@ class OrganisationController extends Controller
         $theme = ThemeTokens::sanitize($validated['theme'] ?? []);
         unset($validated['theme']);
         $validated['theme_colors'] = $theme === [] ? null : $theme;
+
+        // Closed over what each module needs, so a stored list never names a
+        // module without the ones it cannot work without.
+        /** @var array<int, string> $features */
+        $features = $validated['features'] ?? [];
+        $validated['features'] = Feature::expand($features);
 
         $before = $organisation->only(array_keys($validated));
 

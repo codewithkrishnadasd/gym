@@ -27,12 +27,14 @@
                 @endforeach
             </x-ui.filter-select>
 
-            <x-ui.filter-select wire:model.live="club" :label="$organisation->term('club_singular')">
-                <option value="">All {{ strtolower($organisation->term('club_plural')) }}</option>
-                @foreach ($clubs as $clubOption)
-                    <option value="{{ $clubOption->id }}">{{ $clubOption->name }}</option>
-                @endforeach
-            </x-ui.filter-select>
+            @if ($organisation->usesClubs())
+                <x-ui.filter-select wire:model.live="club" :label="$organisation->term('club_singular')">
+                    <option value="">All {{ strtolower($organisation->term('club_plural')) }}</option>
+                    @foreach ($clubs as $clubOption)
+                        <option value="{{ $clubOption->id }}">{{ $clubOption->name }}</option>
+                    @endforeach
+                </x-ui.filter-select>
+            @endif
         </x-ui.filters>
 
         <x-ui.list-loader />

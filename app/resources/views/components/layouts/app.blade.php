@@ -200,7 +200,7 @@
         @endif
     </div>
 
-    @if (! $isPlatform && $membership)
+    @if (! $isPlatform && $membership && $organisation?->hasFeature(\App\Enums\Feature::Tasks))
         {{-- Due task reminders, shown once per page load. --}}
         <livewire:tasks.reminders />
     @endif

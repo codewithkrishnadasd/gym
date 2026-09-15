@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Policies;
 
+use App\Enums\Feature;
 use App\Enums\Permission;
 use App\Models\Invoice;
 use App\Models\User;
@@ -20,6 +21,15 @@ use App\Policies\Concerns\EvaluatesMembership;
 class InvoicePolicy
 {
     use EvaluatesMembership;
+
+    /**
+     * Nothing here is permitted while the organisation has the Billing module
+     * switched off (App\Enums\Feature).
+     */
+    public function before(User $user): ?bool
+    {
+        return $this->featureEnabled(Feature::Billing) ? null : false;
+    }
 
     public function viewAny(User $user): bool
     {

@@ -51,6 +51,7 @@
                 </div>
             </x-ui.card>
 
+            @if ($organisation->usesClubs())
             <x-ui.card :title="'Assigned '.strtolower($organisation->term('club_plural'))"
                 :description="$role === 'admin'
                     ? 'Administrators can already reach every '.strtolower($organisation->term('club_singular')).'. Assignments are still recorded for reporting.'
@@ -68,6 +69,7 @@
                     </div>
                 @endif
             </x-ui.card>
+            @endif
 
             @if ($role !== 'admin')
                 <x-ui.card title="Permissions"

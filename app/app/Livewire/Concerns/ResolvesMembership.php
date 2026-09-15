@@ -9,6 +9,7 @@ use App\Models\Club;
 use App\Models\Organisation;
 use App\Models\OrganisationUser;
 use App\Models\User;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\Auth;
 
@@ -66,6 +67,39 @@ trait ResolvesMembership
             ))
             ->orderBy('name')
             ->get();
+    }
+
+    /**
+     * The clubs a list must be restricted to, or null for no restriction.
+     * Admins see the whole organisation; so does everyone when the Clubs
+     * module is off, since nothing then carries a club to restrict by.
+     *
+     * @return array<int, int>|null
+     */
+    protected function clubRestriction(): ?array
+    {
+        $membership = $this->currentMembership();
+
+        if ($membership->isAdmin() || ! $this->organisation()->usesClubs()) {
+            return null;
+        }
+
+        return $membership->activeClubIds();
+    }
+
+    /**
+     * Applies `clubRestriction()` to a query on `$column`.
+     *
+     * @template TModel of \Illuminate\Database\Eloquent\Model
+     *
+     * @param  Builder<TModel>  $query
+     * @return Builder<TModel>
+     */
+    protected function restrictToClubs(Builder $query, string $column = 'club_id'): Builder
+    {
+        $clubIds = $this->clubRestriction();
+
+        return $clubIds === null ? $query : $query->whereIn($column, $clubIds);
     }
 
     /**

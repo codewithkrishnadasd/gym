@@ -26,6 +26,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\Paginator;
+use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\ServiceProvider;
 
@@ -53,6 +54,21 @@ class AppServiceProvider extends ServiceProvider
         if (str_starts_with((string) config('app.url'), 'https://')) {
             URL::forceScheme('https');
         }
+
+        // `@feature('payments') … @endfeature` in tenant views: true when the
+        // resolved organisation has the module switched on. Off the tenant
+        // surface (the platform console) there is no organisation and nothing
+        // is gated, so it reads as true.
+        Blade::if('feature', static function (string $feature): bool {
+            if (! app()->bound('tenant')) {
+                return true;
+            }
+
+            /** @var Organisation $organisation */
+            $organisation = app('tenant');
+
+            return $organisation->hasFeature($feature);
+        });
 
         Paginator::defaultView('vendor.pagination.default');
         Paginator::defaultSimpleView('vendor.pagination.default');

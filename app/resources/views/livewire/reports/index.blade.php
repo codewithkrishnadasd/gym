@@ -23,13 +23,19 @@
         </x-slot:actions>
     </x-ui.page-header>
 
-    <x-ui.tabs :items="[
-        ['label' => 'Finance', 'url' => route('tenant.reports.index', ['tab' => 'finance', ...$exportQuery]), 'active' => $tab === 'finance'],
-        ['label' => $organisation->term('member_plural'), 'url' => route('tenant.reports.index', ['tab' => 'members', ...$exportQuery]), 'active' => $tab === 'members'],
-        ['label' => 'Attendance', 'url' => route('tenant.reports.index', ['tab' => 'attendance', ...$exportQuery]), 'active' => $tab === 'attendance'],
-    ]" />
+    @php
+        $hasPayments = $organisation->hasFeature('payments');
+        $hasExpenses = $organisation->hasFeature('expenses');
+        $hasPlans = $organisation->hasFeature('plans');
+    @endphp
 
-    <x-ui.period-filter :presets="$presets" :range="$range" :clubs="$clubs" :club-label="$organisation->term('club_plural')" />
+    <x-ui.tabs :items="collect($reportTabs)->map(fn ($label, $key) => [
+        'label' => $label,
+        'url' => route('tenant.reports.index', ['tab' => $key, ...$exportQuery]),
+        'active' => $tab === $key,
+    ])->values()->all()" />
+
+    <x-ui.period-filter :presets="$presets" :range="$range" :clubs="$organisation->usesClubs() ? $clubs : null" :club-label="$organisation->term('club_plural')" />
 
     {{-- Changing the period or club re-queries every figure below; the
          figures stay put, dimmed, while that happens. --}}
@@ -37,25 +43,34 @@
         <x-ui.list-loader />
     @if ($tab === 'finance')
         <div class="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
-            <x-ui.stat label="Confirmed revenue" :value="$organisation->money($revenue)" icon="banknotes" tone="positive" />
-            <x-ui.stat label="Expenses" :value="$organisation->money($expenses)" icon="receipt-percent" tone="critical" />
-            <x-ui.stat label="Net movement" :value="$organisation->money($netMovement)" icon="arrows-right-left"
-                :tone="$netMovement >= 0 ? 'positive' : 'critical'" />
-            <x-ui.stat label="Outstanding fees" :value="$organisation->money($outstanding)" icon="exclamation-circle"
-                :tone="$outstanding > 0 ? 'caution' : 'neutral'" hint="all active plans" />
+            @if ($hasPayments)
+                <x-ui.stat label="Confirmed revenue" :value="$organisation->money($revenue)" icon="banknotes" tone="positive" />
+            @endif
+            @if ($hasExpenses)
+                <x-ui.stat label="Expenses" :value="$organisation->money($expenses)" icon="receipt-percent" tone="critical" />
+            @endif
+            @if ($hasPayments && $hasExpenses)
+                <x-ui.stat label="Net movement" :value="$organisation->money($netMovement)" icon="arrows-right-left"
+                    :tone="$netMovement >= 0 ? 'positive' : 'critical'" />
+            @endif
+            @if ($hasPlans)
+                <x-ui.stat label="Outstanding fees" :value="$organisation->money($outstanding)" icon="exclamation-circle"
+                    :tone="$outstanding > 0 ? 'caution' : 'neutral'" hint="all active plans" />
+            @endif
         </div>
 
-        <x-ui.card class="mb-4" title="Revenue and expenses" :description="$period->label()">
+        <x-ui.card class="mb-4" :title="$hasPayments && $hasExpenses ? 'Revenue and expenses' : ($hasPayments ? 'Revenue' : 'Expenses')" :description="$period->label()">
             <x-ui.chart type="line" :labels="$cashTrend['labels']" :height="280" value-format="currency"
                 :currency-symbol="$organisation->currencySymbol()"
                 :summary="'Revenue '.$organisation->money($revenue).', expenses '.$organisation->money($expenses).', net '.$organisation->money($netMovement).'.'"
-                :datasets="[
-                    ['label' => 'Revenue', 'data' => $cashTrend['revenue'], 'color' => 'positive'],
-                    ['label' => 'Expenses', 'data' => $cashTrend['expenses'], 'color' => 'critical'],
-                    ['label' => 'Net', 'data' => $cashTrend['net'], 'color' => 'accent', 'fill' => false],
-                ]" />
+                :datasets="array_values(array_filter([
+                    $hasPayments ? ['label' => 'Revenue', 'data' => $cashTrend['revenue'], 'color' => 'positive'] : null,
+                    $hasExpenses ? ['label' => 'Expenses', 'data' => $cashTrend['expenses'], 'color' => 'critical'] : null,
+                    $hasPayments && $hasExpenses ? ['label' => 'Net', 'data' => $cashTrend['net'], 'color' => 'accent', 'fill' => false] : null,
+                ]))" />
         </x-ui.card>
 
+        @if ($hasPayments)
         <x-ui.card class="mb-4" :padded="false" title="Payment lifecycle"
             description="Only confirmed payments contribute to revenue and account statements.">
             <x-ui.table>
@@ -85,14 +100,15 @@
                 </p>
             @endif
         </x-ui.card>
+        @endif
 
         <div class="mb-4 grid gap-3 lg:grid-cols-2">
-            @foreach ([
-                ['Revenue by payment method', $methodSplit, 'credit-card'],
-                ['Revenue by plan', $planSplit, 'rectangle-stack'],
-                ['Revenue by account', $accountSplit, 'building-library'],
-                ['Expenses by category', $categorySplit, 'receipt-percent'],
-            ] as [$title, $rows, $icon])
+            @foreach (array_values(array_filter([
+                $hasPayments ? ['Revenue by payment method', $methodSplit, 'credit-card'] : null,
+                $hasPayments && $hasPlans ? ['Revenue by plan', $planSplit, 'rectangle-stack'] : null,
+                $hasPayments ? ['Revenue by account', $accountSplit, 'building-library'] : null,
+                $hasExpenses ? ['Expenses by category', $categorySplit, 'receipt-percent'] : null,
+            ])) as [$title, $rows, $icon])
                 <x-ui.card :title="$title">
                     @if (empty($rows))
                         <p class="py-4 text-center text-sm text-ink-muted">Nothing recorded in this period.</p>
@@ -116,6 +132,7 @@
         </div>
 
         <div class="grid gap-3 lg:grid-cols-2">
+            @if ($organisation->usesClubs())
             <x-ui.card :padded="false" :title="$organisation->term('club_plural').' performance'">
                 @if ($clubComparison->isEmpty())
                     <x-ui.empty icon="building-office-2" title="No data" description="No clubs in scope for this period." />
@@ -139,7 +156,9 @@
                     </x-ui.table>
                 @endif
             </x-ui.card>
+            @endif
 
+            @if ($hasPayments)
             <x-ui.card :padded="false" title="Collections by staff">
                 @if ($leaderboard->isEmpty())
                     <x-ui.empty icon="trophy" title="No collections" description="No confirmed payments in this period." />
@@ -161,6 +180,7 @@
                     </x-ui.table>
                 @endif
             </x-ui.card>
+            @endif
         </div>
     @elseif ($tab === 'members')
         <div class="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -232,7 +252,7 @@
                 @endif
             </x-ui.card>
         </div>
-    @else
+    @elseif ($tab === 'attendance')
         <div class="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
             <x-ui.stat label="Attendance rate" :value="$attendanceRate.'%'" icon="chart-bar"
                 :tone="$attendanceRate >= 60 ? 'positive' : 'caution'" hint="present or late" />
@@ -253,6 +273,7 @@
                 ]" />
         </x-ui.card>
 
+        @if ($organisation->usesClubs())
         <x-ui.card :padded="false" :title="'Attendance by '.strtolower($organisation->term('club_singular'))">
             @if ($clubComparison->isEmpty())
                 <x-ui.empty icon="building-office-2" title="No data" description="No clubs in scope for this period." />
@@ -274,6 +295,7 @@
                 </x-ui.table>
             @endif
         </x-ui.card>
+        @endif
     @endif
     </div>
 </div>

@@ -14,15 +14,22 @@
     <x-ui.flash />
 
     <x-ui.page-header title="Attendance" :description="$isStaffRoster
-        ? 'Mark who is in for the day. '.$organisation->term('user_plural').' are marked once per day, whichever '.strtolower($organisation->term('club_plural')).' they work across.'
-        : 'Mark the daily roster for one '.strtolower($organisation->term('club_singular')).' at a time.'" />
+        ? 'Mark who is in for the day. '.$organisation->term('user_plural').' are marked once per day'.($organisation->usesClubs() ? ', whichever '.strtolower($organisation->term('club_plural')).' they work across.' : '.')
+        : ($organisation->usesClubs() ? 'Mark the daily roster for one '.strtolower($organisation->term('club_singular')).' at a time.' : 'Mark the daily roster.')" />
 
-    <x-ui.tabs :items="[
-        ['label' => $organisation->term('member_plural'), 'route' => 'tenant.attendance.members'],
-        ['label' => $organisation->term('user_plural'), 'route' => 'tenant.attendance.staff'],
-    ]" />
+    @php
+        // One tab per roster the user may mark; a lone roster needs no tabs.
+        $rosterTabs = array_values(array_filter([
+            auth()->user()?->can('markMembers', \App\Models\Attendance::class) ? ['label' => $organisation->term('member_plural'), 'route' => 'tenant.attendance.members'] : null,
+            auth()->user()?->can('markStaff', \App\Models\Attendance::class) ? ['label' => $organisation->term('user_plural'), 'route' => 'tenant.attendance.staff'] : null,
+        ]));
+    @endphp
 
-    @if (! $isStaffRoster && $clubs->isEmpty())
+    @if (count($rosterTabs) > 1)
+        <x-ui.tabs :items="$rosterTabs" />
+    @endif
+
+    @if (! $isStaffRoster && $organisation->usesClubs() && $clubs->isEmpty())
         <x-ui.card>
             <x-ui.empty icon="building-office-2" :title="'No '.strtolower($organisation->term('club_plural')).' available'"
                 :description="'You need at least one active '.strtolower($organisation->term('club_singular')).' assigned to you before attendance can be marked.'" />
@@ -51,13 +58,13 @@
                         @endunless
                     </div>
 
-                    @unless ($isStaffRoster)
+                    @if (! $isStaffRoster && $organisation->usesClubs())
                         <x-ui.filter-select wire:model.live="clubId" label="Club" class="sm:max-w-xs">
                             @foreach ($clubs as $club)
                                 <option value="{{ $club->id }}">{{ $club->name }}</option>
                             @endforeach
                         </x-ui.filter-select>
-                    @endunless
+                    @endif
 
                     <div class="relative min-w-0 flex-1">
                         <x-heroicon-o-magnifying-glass class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-muted" />
@@ -107,7 +114,7 @@
 
             @if ($roster->isEmpty())
                 <x-ui.empty icon="user-group" :title="'Nobody on this roster'"
-                    :description="$search !== '' ? 'No one matches “'.$search.'”.' : ($isStaffRoster ? 'No active '.strtolower($organisation->term('user_plural')).' yet.' : 'Nobody is assigned to this '.strtolower($organisation->term('club_singular')).' yet.')" />
+                    :description="$search !== '' ? 'No one matches “'.$search.'”.' : ($isStaffRoster ? 'No active '.strtolower($organisation->term('user_plural')).' yet.' : ($organisation->usesClubs() ? 'Nobody is assigned to this '.strtolower($organisation->term('club_singular')).' yet.' : 'No active '.strtolower($organisation->term('member_plural')).' yet.'))" />
             @else
                 <ul class="divide-y divide-[var(--c-hairline)]">
                     @foreach ($roster as $person)

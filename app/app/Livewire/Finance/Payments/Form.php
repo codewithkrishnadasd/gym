@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Livewire\Finance\Payments;
 
 use App\Actions\Payments\RecordFeePayment;
+use App\Enums\Feature;
 use App\Enums\FinancialAccountStatus;
 use App\Enums\InvoiceStatus;
 use App\Enums\MemberStatus;
@@ -377,12 +378,6 @@ class Form extends Component
         // client, and is re-authorized here (MEP.md 4.3).
         $this->authorize('createForClub', [FeePayment::class, $member->primary_club_id]);
 
-        if ($member->primary_club_id === null) {
-            $this->addError('memberId', 'This '.strtolower($organisation->term('member_singular')).' has no club and cannot be billed.');
-
-            return;
-        }
-
         $money = Money::parseMajor($validated['amount'], $organisation->currency_code);
         $discount = $validated['discount'] !== null && $validated['discount'] !== ''
             ? Money::parseMajor((string) $validated['discount'], $organisation->currency_code)
@@ -537,9 +532,8 @@ class Form extends Component
             return collect();
         }
 
-        return Member::query()
+        return $this->restrictToClubs(Member::query(), 'primary_club_id')
             ->with('primaryClub:id,name')
-            ->whereIn('primary_club_id', $this->accessibleClubIds())
             ->whereIn('status', [MemberStatus::Active, MemberStatus::Paused])
             ->when($this->memberSearch !== '', fn ($query) => $query->where(
                 fn ($inner) => $inner->where('name', 'ilike', "%{$this->memberSearch}%")
@@ -556,7 +550,8 @@ class Form extends Component
      */
     protected function openInvoicesForMember(): Collection
     {
-        if ($this->memberId === null) {
+        // No Invoices module, nothing to pay an invoice against.
+        if ($this->memberId === null || ! $this->organisation()->hasFeature(Feature::Billing)) {
             return collect();
         }
 
@@ -573,7 +568,7 @@ class Form extends Component
      */
     protected function subscriptionsForMember(): Collection
     {
-        if ($this->memberId === null) {
+        if ($this->memberId === null || ! $this->organisation()->hasFeature(Feature::Plans)) {
             return collect();
         }
 

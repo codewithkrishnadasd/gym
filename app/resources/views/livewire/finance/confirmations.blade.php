@@ -27,12 +27,14 @@
 
     <x-ui.card :padded="false">
         <x-ui.filters>
-            <x-ui.filter-select wire:model.live="club" label="Club">
-                <option value="">All {{ strtolower($organisation->term('club_plural')) }}</option>
-                @foreach ($clubs as $clubOption)
-                    <option value="{{ $clubOption->id }}">{{ $clubOption->name }}</option>
-                @endforeach
-            </x-ui.filter-select>
+            @if ($organisation->usesClubs())
+                <x-ui.filter-select wire:model.live="club" label="Club">
+                    <option value="">All {{ strtolower($organisation->term('club_plural')) }}</option>
+                    @foreach ($clubs as $clubOption)
+                        <option value="{{ $clubOption->id }}">{{ $clubOption->name }}</option>
+                    @endforeach
+                </x-ui.filter-select>
+            @endif
 
             <x-ui.filter-select wire:model.live="collector" label="Collected by">
                 <option value="">All collectors</option>
@@ -68,8 +70,8 @@
                                     @endif
                                 </div>
                                 <p class="mt-0.5 text-xs text-ink-muted">
-                                    {{ $payment->club->name }}
-                                    &middot; {{ $payment->payment_method->label() }}
+                                    @if ($payment->club){{ $payment->club->name }} &middot; @endif
+                                    {{ $payment->payment_method->label() }}
                                     &middot; collected by {{ $payment->collectedBy?->user?->name ?? '—' }}
                                     &middot; {{ $payment->created_at?->diffForHumans() }}
                                 </p>

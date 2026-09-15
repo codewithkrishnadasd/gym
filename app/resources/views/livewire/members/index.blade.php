@@ -2,7 +2,7 @@
     <x-ui.flash />
 
     <x-ui.page-header :title="$organisation->term('member_plural')"
-        :description="'Everyone training with you. Each belongs to exactly one '.strtolower($organisation->term('club_singular')).'.'">
+        :description="$organisation->usesClubs() ? 'Everyone training with you. Each belongs to exactly one '.strtolower($organisation->term('club_singular')).'.' : 'Everyone training with you.'">
         <x-slot:actions>
             <x-ui.download-button icon="arrow-down-tray" :what="'a CSV of the '.strtolower($organisation->term('member_plural')).' shown'" note="It uses the filters currently applied." :href="route('tenant.members.export', request()->query())">Export CSV</x-ui.download-button>
             @can('create', \App\Models\Member::class)
@@ -15,12 +15,14 @@
 
     <x-ui.card :padded="false">
         <x-ui.filters search="search" placeholder="Search by name or WhatsApp number…">
-            <x-ui.filter-select wire:model.live="club" :label="$organisation->term('club_singular')">
-                <option value="">All {{ strtolower($organisation->term('club_plural')) }}</option>
-                @foreach ($clubs as $availableClub)
-                    <option value="{{ $availableClub->id }}">{{ $availableClub->name }}</option>
-                @endforeach
-            </x-ui.filter-select>
+            @if ($organisation->usesClubs())
+                <x-ui.filter-select wire:model.live="club" :label="$organisation->term('club_singular')">
+                    <option value="">All {{ strtolower($organisation->term('club_plural')) }}</option>
+                    @foreach ($clubs as $availableClub)
+                        <option value="{{ $availableClub->id }}">{{ $availableClub->name }}</option>
+                    @endforeach
+                </x-ui.filter-select>
+            @endif
 
             <x-ui.filter-select wire:model.live="status" label="Status">
                 <option value="">All except removed</option>
@@ -31,12 +33,14 @@
 
             {{-- Separate from Status on purpose: a member can be perfectly
                  active while their plan lapsed last week. --}}
-            <x-ui.filter-select wire:model.live="plan" label="Plan">
-                <option value="">Any plan state</option>
-                @foreach ($planStates as $state)
-                    <option value="{{ $state->value }}">{{ $state->label() }}</option>
-                @endforeach
-            </x-ui.filter-select>
+            @feature('plans')
+                <x-ui.filter-select wire:model.live="plan" label="Plan">
+                    <option value="">Any plan state</option>
+                    @foreach ($planStates as $state)
+                        <option value="{{ $state->value }}">{{ $state->label() }}</option>
+                    @endforeach
+                </x-ui.filter-select>
+            @endfeature
         </x-ui.filters>
 
         @if ($narrowing)
@@ -70,9 +74,13 @@
                 <x-slot:head>
                     <x-ui.th>Name</x-ui.th>
                     <x-ui.th>Contact</x-ui.th>
-                    <x-ui.th>{{ $organisation->term('club_singular') }}</x-ui.th>
-                    <x-ui.th>Plan</x-ui.th>
-                    <x-ui.th align="right">Outstanding</x-ui.th>
+                    @if ($organisation->usesClubs())
+                        <x-ui.th>{{ $organisation->term('club_singular') }}</x-ui.th>
+                    @endif
+                    @feature('plans')
+                        <x-ui.th>Plan</x-ui.th>
+                        <x-ui.th align="right">Outstanding</x-ui.th>
+                    @endfeature
                     <x-ui.th>Status</x-ui.th>
                     <x-ui.th align="right"></x-ui.th>
                 </x-slot:head>
@@ -95,7 +103,10 @@
                             </div>
                         </x-ui.td>
                         <x-ui.td numeric>{{ $member->phone ?: '—' }}</x-ui.td>
-                        <x-ui.td>{{ $member->primaryClub?->name ?? 'Unassigned' }}</x-ui.td>
+                        @if ($organisation->usesClubs())
+                            <x-ui.td>{{ $member->primaryClub?->name ?? 'Unassigned' }}</x-ui.td>
+                        @endif
+                        @feature('plans')
                         <x-ui.td>
                             @if ($subscription)
                                 @php $health = $subscription->health($today); @endphp
@@ -116,6 +127,7 @@
                         <x-ui.td align="right" numeric class="{{ $due > 0 ? 'font-medium text-caution' : 'text-ink-muted' }}">
                             {{ $due > 0 ? $organisation->money($due) : '—' }}
                         </x-ui.td>
+                        @endfeature
                         <x-ui.td><x-ui.badge :tone="$member->status->tone()">{{ $member->status->label() }}</x-ui.badge></x-ui.td>
                         <x-ui.td align="right">
                             <div class="flex items-center justify-end gap-1">
@@ -154,7 +166,7 @@
                                     <x-ui.reference :value="$organisation->reference('member', $member->id)" class="shrink-0" />
                                 </div>
                                 <p class="numeric truncate text-xs text-ink-muted">
-                                    {{ $member->phone }} · {{ $member->primaryClub?->name ?? 'Unassigned' }}
+                                    {{ $member->phone }}@if ($organisation->usesClubs()) · {{ $member->primaryClub?->name ?? 'Unassigned' }}@endif
                                 </p>
                                 <div class="mt-1.5 flex flex-wrap items-center gap-1.5">
                                     <x-ui.badge :tone="$member->status->tone()">{{ $member->status->label() }}</x-ui.badge>

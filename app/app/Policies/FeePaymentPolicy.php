@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Policies;
 
 use App\Enums\ConfirmationStatus;
+use App\Enums\Feature;
 use App\Models\FeePayment;
 use App\Models\User;
 use App\Policies\Concerns\EvaluatesMembership;
@@ -22,6 +23,15 @@ use App\Policies\Concerns\EvaluatesMembership;
 class FeePaymentPolicy
 {
     use EvaluatesMembership;
+
+    /**
+     * Nothing here is permitted while the organisation has the Payments module
+     * switched off (App\Enums\Feature).
+     */
+    public function before(User $user): ?bool
+    {
+        return $this->featureEnabled(Feature::Payments) ? null : false;
+    }
 
     public function viewAny(User $user): bool
     {

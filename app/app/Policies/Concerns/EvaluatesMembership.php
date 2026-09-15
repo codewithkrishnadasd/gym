@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Policies\Concerns;
 
 use App\Enums\ClubAssignmentStatus;
+use App\Enums\Feature;
+use App\Models\Organisation;
 use App\Models\OrganisationUser;
 use App\Models\User;
 
@@ -23,6 +25,24 @@ trait EvaluatesMembership
         }
 
         return app()->bound('tenant') ? $user->membershipFor(app('tenant')) : null;
+    }
+
+    /**
+     * Whether the resolved organisation has a module switched on. Policies
+     * for a module's records answer false to everything when it is off, so
+     * a stale link, a bookmarked Livewire page, or a button left in a view
+     * all fail closed.
+     */
+    protected function featureEnabled(Feature $feature): bool
+    {
+        if (! app()->bound('tenant')) {
+            return false;
+        }
+
+        /** @var Organisation $organisation */
+        $organisation = app('tenant');
+
+        return $organisation->hasFeature($feature);
     }
 
     protected function isAdmin(User $user): bool

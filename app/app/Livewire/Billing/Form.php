@@ -227,9 +227,8 @@ class Form extends Component
             return collect();
         }
 
-        return Member::query()
+        return $this->restrictToClubs(Member::query(), 'primary_club_id')
             ->with('primaryClub:id,name')
-            ->whereIn('primary_club_id', $this->accessibleClubIds())
             ->whereIn('status', [MemberStatus::Active, MemberStatus::Paused])
             ->when($this->memberSearch !== '', fn ($query) => $query->where(
                 fn ($inner) => $inner->where('name', 'ilike', "%{$this->memberSearch}%")

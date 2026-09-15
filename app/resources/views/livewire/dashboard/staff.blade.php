@@ -2,9 +2,14 @@
     <x-ui.flash />
 
     <x-ui.page-header :title="'Hello, '.\Illuminate\Support\Str::before($membership->user?->name ?? '', ' ')"
-        :description="$organisation->name.' · '.$clubs->pluck('name')->join(', ', ' and ')" />
+        :description="$organisation->usesClubs() && $clubs->isNotEmpty() ? $organisation->name.' · '.$clubs->pluck('name')->join(', ', ' and ') : $organisation->name" />
 
-    <x-ui.period-filter :presets="$presets" :range="$range" :clubs="$clubs" :club-label="$organisation->term('club_plural')" />
+    <x-ui.period-filter :presets="$presets" :range="$range" :clubs="$organisation->usesClubs() ? $clubs : null" :club-label="$organisation->term('club_plural')" />
+
+    @php
+        $hasPlans = $organisation->hasFeature('plans');
+        $hasAttendance = $organisation->hasFeature('attendance') && $organisation->hasFeature('members');
+    @endphp
 
     {{-- Quick actions: only what this user is actually permitted to do. --}}
     <div class="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -38,12 +43,14 @@
             </a>
         @endif
 
+        @if ($hasAttendance)
         <div class="flex min-h-[76px] flex-col justify-between rounded-xl border border-hairline bg-surface p-4 elevate">
             <span class="text-[13px] font-medium text-ink-soft">Today's attendance</span>
             <span class="numeric font-[family-name:var(--font-display)] text-xl font-semibold">
                 {{ $todaysAttendance }}<span class="text-sm font-normal text-ink-muted">/{{ $rosterSize }}</span>
             </span>
         </div>
+        @endif
     </div>
 
     @if ($canCollectFees)
@@ -60,6 +67,7 @@
     @endif
 
     <div class="grid gap-3 lg:grid-cols-2">
+        @if ($hasPlans)
         <x-ui.card :padded="false" title="Needs follow-up" description="Expiring soon or carrying a balance.">
             @if ($followUps->isEmpty())
                 <x-ui.empty icon="check-circle" title="All clear"
@@ -84,6 +92,7 @@
                 </ul>
             @endif
         </x-ui.card>
+        @endif
 
         @if ($canCollectFees)
             <x-ui.card :padded="false" title="Your recent collections" description="Including their confirmation status.">
@@ -108,7 +117,7 @@
                                     <a href="{{ route('tenant.finance.payments.show', $payment) }}" wire:navigate
                                         class="block truncate text-sm font-medium text-ink hover:text-accent">{{ $payment->member->name }}</a>
                                     <p class="numeric truncate text-xs text-ink-muted">
-                                        {{ $payment->payment_date->format('d M') }} · {{ $payment->club->name }}
+                                        {{ $payment->payment_date->format('d M') }}@if ($payment->club) · {{ $payment->club->name }}@endif
                                     </p>
                                 </div>
                                 <div class="flex shrink-0 items-center gap-2">

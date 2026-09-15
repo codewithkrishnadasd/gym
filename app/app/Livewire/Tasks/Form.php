@@ -245,9 +245,8 @@ class Form extends Component
             return new Collection;
         }
 
-        return Member::query()
+        return $this->restrictToClubs(Member::query(), 'primary_club_id')
             ->with('primaryClub:id,name')
-            ->whereIn('primary_club_id', $this->accessibleClubIds())
             ->where('status', '!=', MemberStatus::Archived)
             ->when($this->memberSearch !== '', fn ($query) => $query->where(
                 fn ($inner) => $inner->where('name', 'ilike', "%{$this->memberSearch}%")

@@ -63,10 +63,12 @@
                 @if ($payment->member->phone) <span class="muted">· {{ $payment->member->phone }}</span> @endif
             </td>
         </tr>
+        @if ($payment->club)
         <tr>
             <td class="label">{{ $organisation->term('club_singular') }}</td>
             <td>{{ $payment->club->name }}</td>
         </tr>
+        @endif
         <tr>
             <td class="label">Paid for</td>
             <td>

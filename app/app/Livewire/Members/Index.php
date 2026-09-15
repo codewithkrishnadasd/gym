@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Livewire\Members;
 
-use App\Enums\ClubAssignmentStatus;
 use App\Enums\MemberStatus;
 use App\Enums\SubscriptionHealth;
 use App\Enums\SubscriptionStatus;
@@ -125,9 +124,7 @@ class Index extends Component
      */
     protected function members(): LengthAwarePaginator
     {
-        $membership = $this->currentMembership();
-
-        $query = Member::query()
+        $query = $this->restrictToClubs(Member::query(), 'primary_club_id')
             ->with('primaryClub:id,name')
             // The member's live plan, so the list can show expiry and balance
             // without an N+1 lookup per row (MEP.md 6.6).
@@ -136,10 +133,6 @@ class Index extends Component
                 ->with('plan:id,name')
                 ->orderByDesc('end_date')
                 ->limit(1)])
-            ->when(! $membership->isAdmin(), fn ($query) => $query->whereIn(
-                'primary_club_id',
-                $membership->clubAssignments()->where('status', ClubAssignmentStatus::Active)->pluck('club_id')
-            ))
             // Name, phone, or reference (MEM-42) — see App\Support\Search.
             ->when($this->search !== '', fn ($query) => Search::apply($query, $this->organisation(), 'member', $this->search))
             // Removed rows are only ever listed when they are asked for by

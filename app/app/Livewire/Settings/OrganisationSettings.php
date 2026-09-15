@@ -496,7 +496,9 @@ class OrganisationSettings extends Component
         ];
         $messages = [];
 
-        foreach (Organisation::DEFAULT_ID_PREFIXES as $entity => $default) {
+        // Only the entities on screen are validated; the rest keep their
+        // stored prefix so switching a module back on finds it intact.
+        foreach ($organisation->idPrefixEntities() as $entity => $default) {
             $validation['idPrefixes.'.$entity] = ['required', 'string', 'regex:/^[A-Z0-9]{1,8}$/'];
             $messages['idPrefixes.'.$entity.'.required'] = 'The '.strtolower($default['label']).' prefix is required.';
             $messages['idPrefixes.'.$entity.'.regex'] = 'Use 1–8 letters or digits only for '.strtolower($default['label']).', e.g. '.$default['prefix'].'.';
@@ -507,7 +509,9 @@ class OrganisationSettings extends Component
         $prefixes = [];
 
         foreach (array_keys(Organisation::DEFAULT_ID_PREFIXES) as $entity) {
-            $prefixes[$entity] = $this->idPrefixes[$entity];
+            $prefixes[$entity] = isset($validation['idPrefixes.'.$entity])
+                ? $this->idPrefixes[$entity]
+                : $organisation->idPrefix($entity);
         }
 
         $before = [

@@ -26,7 +26,9 @@
 
             <x-ui.card :title="'Membership'">
                 <div class="grid gap-4 sm:grid-cols-2">
-                    @if ($member)
+                    @if (! $organisation->usesClubs())
+                        {{-- No Clubs module: members belong to the organisation as a whole. --}}
+                    @elseif ($member)
                         {{-- Club is only changed through the transfer flow, so the
                              history stays accurate (MEP 5.7). --}}
                         <x-ui.field :label="$organisation->term('club_singular')"
@@ -108,7 +110,7 @@
         </form>
 
         <div class="space-y-5">
-            @if ($member)
+            @if ($member && $organisation->usesClubs())
                 @can('transfer', $member)
                     <x-ui.card :title="'Transfer '.strtolower($organisation->term('club_singular'))"
                         description="Moves this record to another location and writes a history entry. Past attendance and payments keep their original club.">

@@ -4,13 +4,15 @@ declare(strict_types=1);
 
 namespace App\Support;
 
+use App\Enums\Feature;
 use App\Models\Organisation;
 use App\Models\OrganisationUser;
 
 /**
  * Builds the role- and permission-aware navigation for the tenant shell
  * (MEP.md Section 7). Hiding an item here is presentation only — every
- * destination re-authorizes in its own component's `mount()`.
+ * destination re-authorizes in its own component's `mount()`, and a module
+ * the organisation has switched off (App\Enums\Feature) answers 404.
  *
  * @phpstan-type NavItem array{label: string, route: string, icon: string, active: string, mobile?: bool}
  * @phpstan-type NavSection array{heading: string|null, items: array<int, NavItem>}
@@ -28,6 +30,13 @@ final class Navigation
 
         $isAdmin = $membership->isAdmin();
         $can = static fn (string $key): bool => $membership->hasPermission($key);
+        $has = static fn (Feature $feature): bool => $organisation->hasFeature($feature);
+
+        // The member roster is the natural first stop; an organisation
+        // without members marks staff only.
+        $attendanceRoute = $has(Feature::Members) ? 'tenant.attendance.members' : 'tenant.attendance.staff';
+        $attendanceAllowed = ($has(Feature::Members) && ($isAdmin || $can('attendance.member.mark')))
+            || ($has(Feature::Staff) && ($isAdmin || $can('attendance.staff.mark')));
 
         $sections = [];
 
@@ -41,45 +50,45 @@ final class Navigation
                     'active' => 'tenant.dashboard',
                     'mobile' => true,
                 ],
-                ($isAdmin || $can('members.view')) ? [
+                $has(Feature::Members) && ($isAdmin || $can('members.view')) ? [
                     'label' => $organisation->term('member_plural'),
                     'route' => 'tenant.members.index',
                     'icon' => 'user-group',
                     'active' => 'tenant.members.*',
                     'mobile' => true,
                 ] : null,
-                ($isAdmin || $can('attendance.member.mark') || $can('attendance.staff.mark')) ? [
+                $has(Feature::Attendance) && $attendanceAllowed ? [
                     'label' => 'Attendance',
-                    'route' => 'tenant.attendance.members',
+                    'route' => $attendanceRoute,
                     'icon' => 'clipboard-document-check',
                     'active' => 'tenant.attendance.*',
                     'mobile' => true,
                 ] : null,
                 // Every active membership: tasks are how the team coordinates.
-                [
+                $has(Feature::Tasks) ? [
                     'label' => 'Tasks',
                     'route' => 'tenant.tasks.index',
                     'icon' => 'check-circle',
                     'active' => 'tenant.tasks.*',
                     'mobile' => true,
-                ],
+                ] : null,
             ])),
         ];
 
         $organisationItems = array_values(array_filter([
-            ($isAdmin || $can('clubs.view_assigned')) ? [
+            $has(Feature::Clubs) && ($isAdmin || $can('clubs.view_assigned')) ? [
                 'label' => $organisation->term('club_plural'),
                 'route' => 'tenant.clubs.index',
                 'icon' => 'building-office-2',
                 'active' => 'tenant.clubs.*',
             ] : null,
-            ($isAdmin || $can('staff.view')) ? [
+            $has(Feature::Staff) && ($isAdmin || $can('staff.view')) ? [
                 'label' => $organisation->term('user_plural'),
                 'route' => 'tenant.staff.index',
                 'icon' => 'identification',
                 'active' => 'tenant.staff.*',
             ] : null,
-            $isAdmin ? [
+            $has(Feature::Plans) && $isAdmin ? [
                 'label' => 'Plans',
                 'route' => 'tenant.plans.index',
                 'icon' => 'rectangle-stack',
@@ -92,32 +101,32 @@ final class Navigation
         }
 
         $financeItems = array_values(array_filter([
-            ($isAdmin || $can('fees.collect') || $can('fees.view_own')) ? [
+            $has(Feature::Payments) && ($isAdmin || $can('fees.collect') || $can('fees.view_own')) ? [
                 'label' => 'Payments',
                 'route' => 'tenant.finance.payments.index',
                 'icon' => 'banknotes',
                 'active' => 'tenant.finance.payments.*',
                 'mobile' => true,
             ] : null,
-            ($isAdmin || $can('billing.view')) ? [
+            $has(Feature::Billing) && ($isAdmin || $can('billing.view')) ? [
                 'label' => 'Invoices',
                 'route' => 'tenant.billing.index',
                 'icon' => 'document-text',
                 'active' => 'tenant.billing.*',
             ] : null,
-            $isAdmin ? [
+            $has(Feature::Payments) && $isAdmin ? [
                 'label' => 'Confirmations',
                 'route' => 'tenant.finance.confirmations',
                 'icon' => 'check-badge',
                 'active' => 'tenant.finance.confirmations',
             ] : null,
-            $isAdmin ? [
+            $has(Feature::Expenses) && $isAdmin ? [
                 'label' => 'Expenses',
                 'route' => 'tenant.finance.expenses.index',
                 'icon' => 'receipt-percent',
                 'active' => 'tenant.finance.expenses.*',
             ] : null,
-            $isAdmin ? [
+            $has(Feature::Accounts) && $isAdmin ? [
                 'label' => 'Accounts',
                 'route' => 'tenant.finance.accounts.index',
                 'icon' => 'credit-card',
@@ -129,7 +138,7 @@ final class Navigation
             $sections[] = ['heading' => 'Finance', 'items' => $financeItems];
         }
 
-        $messagingItems = ($isAdmin || $can('notifications.send')) ? [[
+        $messagingItems = $has(Feature::Messaging) && ($isAdmin || $can('notifications.send')) ? [[
             'label' => 'Messages',
             'route' => 'tenant.notifications.index',
             'icon' => 'chat-bubble-left-right',
@@ -141,7 +150,7 @@ final class Navigation
         }
 
         $insightItems = array_values(array_filter([
-            ($isAdmin || $can('reports.view_assigned')) ? [
+            $has(Feature::Reports) && ($isAdmin || $can('reports.view_assigned')) ? [
                 'label' => 'Reports',
                 'route' => 'tenant.reports.index',
                 'icon' => 'chart-bar',

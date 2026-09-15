@@ -10,7 +10,7 @@
     </div>
 
     <x-ui.page-header :title="$organisation->term('user_plural')"
-        :description="'People who can sign in to '.$organisation->name.'. Each can be assigned to several '.strtolower($organisation->term('club_plural')).'.'">
+        :description="'People who can sign in to '.$organisation->name.($organisation->usesClubs() ? '. Each can be assigned to several '.strtolower($organisation->term('club_plural')).'.' : '.')">
         <x-slot:actions>
             @can('mark', [\App\Models\Attendance::class, \App\Enums\AttendanceSubjectType::User, null])
                 <x-ui.button icon="clipboard-document-check" :href="route('tenant.attendance.staff')" wire:navigate>
@@ -41,12 +41,14 @@
                 @endforeach
             </x-ui.filter-select>
 
-            <x-ui.filter-select wire:model.live="club" :label="$organisation->term('club_singular')">
-                <option value="">All {{ strtolower($organisation->term('club_plural')) }}</option>
-                @foreach ($clubs as $clubOption)
-                    <option value="{{ $clubOption->id }}">{{ $clubOption->name }}</option>
-                @endforeach
-            </x-ui.filter-select>
+            @if ($organisation->usesClubs())
+                <x-ui.filter-select wire:model.live="club" :label="$organisation->term('club_singular')">
+                    <option value="">All {{ strtolower($organisation->term('club_plural')) }}</option>
+                    @foreach ($clubs as $clubOption)
+                        <option value="{{ $clubOption->id }}">{{ $clubOption->name }}</option>
+                    @endforeach
+                </x-ui.filter-select>
+            @endif
         </x-ui.filters>
 
         <x-ui.list-loader />
@@ -67,7 +69,9 @@
                 <x-slot:head>
                     <x-ui.th>Name</x-ui.th>
                     <x-ui.th>Role</x-ui.th>
-                    <x-ui.th>{{ $organisation->term('club_plural') }}</x-ui.th>
+                    @if ($organisation->usesClubs())
+                        <x-ui.th>{{ $organisation->term('club_plural') }}</x-ui.th>
+                    @endif
                     <x-ui.th>Last sign-in</x-ui.th>
                     <x-ui.th>Status</x-ui.th>
                     <x-ui.th align="right"></x-ui.th>
@@ -90,6 +94,7 @@
                                 {{ $person->isAdmin() ? 'Administrator' : $organisation->term('user_singular') }}
                             </x-ui.badge>
                         </x-ui.td>
+                        @if ($organisation->usesClubs())
                         <x-ui.td>
                             @if ($person->isAdmin())
                                 <span class="text-ink-muted">All {{ strtolower($organisation->term('club_plural')) }}</span>
@@ -99,6 +104,7 @@
                                 <span class="text-ink-soft">{{ $person->clubAssignments->pluck('club.name')->filter()->join(', ') }}</span>
                             @endif
                         </x-ui.td>
+                        @endif
                         <x-ui.td numeric>{{ $person->last_login_at?->diffForHumans() ?? 'Never' }}</x-ui.td>
                         <x-ui.td><x-ui.badge :tone="$person->status->tone()">{{ $person->status->label() }}</x-ui.badge></x-ui.td>
                         <x-ui.td align="right">

@@ -1,8 +1,22 @@
 @php
-    $tabs = ['overview' => 'Overview', 'plans' => 'Plans', 'attendance' => 'Attendance', 'payments' => 'Payments'];
+    // Each tab follows its module (App\Enums\Feature): an organisation without
+    // Plans has no plans tab, and so on. Documents and invoices are separate
+    // permissions from the member record itself, so those tabs are absent
+    // rather than empty for staff who cannot open them.
+    $tabs = ['overview' => 'Overview'];
 
-    // Documents are a separate permission from the member record itself, so the
-    // tab is absent rather than empty for staff who cannot open them.
+    if ($organisation->hasFeature('plans')) {
+        $tabs['plans'] = 'Plans';
+    }
+
+    if ($organisation->hasFeature('attendance')) {
+        $tabs['attendance'] = 'Attendance';
+    }
+
+    if ($organisation->hasFeature('payments')) {
+        $tabs['payments'] = 'Payments';
+    }
+
     if (auth()->user()?->can('viewAny', \App\Models\Invoice::class)) {
         $tabs['billing'] = 'Billing';
     }
@@ -10,6 +24,11 @@
     if (auth()->user()?->can('viewAny', \App\Models\Document::class)) {
         $tabs['documents'] = 'Documents';
     }
+
+    if (! isset($tabs[$tab])) {
+        $tab = 'overview';
+    }
+
     $today = \Illuminate\Support\Carbon::today($organisation->timezone);
 @endphp
 
@@ -62,22 +81,28 @@
     {{-- Snapshot cards, always visible above the tabs. --}}
     <div class="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
         <x-ui.stat label="Status" :value="$member->status->label()" :tone="$member->status->tone()" icon="user-circle" />
-        @php
-            // Derived from the end date, not the stored status: nothing writes
-            // "expired" when a term simply runs out, so a lapsed plan would
-            // otherwise render as a healthy green card.
-            $planHealth = \App\Enums\SubscriptionHealth::for($currentSubscription, $today);
-        @endphp
-        <x-ui.stat label="Current plan" :value="$currentSubscription?->plan->name ?? 'None'"
-            :hint="$currentSubscription
-                ? $planHealth->detailedLabel($currentSubscription, $today).' · '.$currentSubscription->end_date->format('d M Y')
-                : 'no active plan'"
-            :tone="$planHealth->tone()" icon="rectangle-stack" />
-        <x-ui.stat label="Outstanding" :value="$organisation->money($outstanding)"
-            :hint="$member->owesAdmissionFee() ? 'includes '.$organisation->money($member->admissionOutstandingMinor()).' admission fee' : null"
-            :tone="$outstanding > 0 ? 'caution' : 'positive'" icon="exclamation-circle" />
-        <x-ui.stat label="Attendance" :value="$attendanceRate.'%'" :hint="$presentMarks.' visits in 12 weeks'"
-            :tone="$attendanceRate >= 60 ? 'positive' : 'neutral'" icon="clipboard-document-check" />
+        @feature('plans')
+            @php
+                // Derived from the end date, not the stored status: nothing writes
+                // "expired" when a term simply runs out, so a lapsed plan would
+                // otherwise render as a healthy green card.
+                $planHealth = \App\Enums\SubscriptionHealth::for($currentSubscription, $today);
+            @endphp
+            <x-ui.stat label="Current plan" :value="$currentSubscription?->plan->name ?? 'None'"
+                :hint="$currentSubscription
+                    ? $planHealth->detailedLabel($currentSubscription, $today).' · '.$currentSubscription->end_date->format('d M Y')
+                    : 'no active plan'"
+                :tone="$planHealth->tone()" icon="rectangle-stack" />
+        @endfeature
+        @feature('payments')
+            <x-ui.stat label="Outstanding" :value="$organisation->money($outstanding)"
+                :hint="$member->owesAdmissionFee() ? 'includes '.$organisation->money($member->admissionOutstandingMinor()).' admission fee' : null"
+                :tone="$outstanding > 0 ? 'caution' : 'positive'" icon="exclamation-circle" />
+        @endfeature
+        @feature('attendance')
+            <x-ui.stat label="Attendance" :value="$attendanceRate.'%'" :hint="$presentMarks.' visits in 12 weeks'"
+                :tone="$attendanceRate >= 60 ? 'positive' : 'neutral'" icon="clipboard-document-check" />
+        @endfeature
     </div>
 
     <x-ui.tabs :items="collect($tabs)->map(fn ($label, $key) => [
@@ -87,7 +112,7 @@
     ])->values()->all()" />
 
     @if ($tab === 'overview')
-        @if ($member->admission_fee_minor > 0)
+        @if ($member->admission_fee_minor > 0 && $organisation->hasFeature('payments'))
             {{-- Admission is a one-off owed by the member, not a term, so it
                  gets its own line rather than hiding among plan payments. --}}
             <div class="mb-5">
@@ -125,7 +150,9 @@
                     <x-ui.definition label="Date of birth"
                         :value="$member->date_of_birth ? $member->date_of_birth->format('d M Y').' ('.(int) $member->date_of_birth->diffInYears($today).' yrs)' : '—'" />
                     <x-ui.definition label="Gender" :value="$member->gender ?: '—'" />
-                    <x-ui.definition :label="$organisation->term('club_singular')" :value="$member->primaryClub?->name ?? 'Unassigned'" />
+                    @if ($organisation->usesClubs())
+                        <x-ui.definition :label="$organisation->term('club_singular')" :value="$member->primaryClub?->name ?? 'Unassigned'" />
+                    @endif
                     <x-ui.definition label="Joined" :value="$member->joined_at->format('d M Y')" />
                     <x-ui.definition label="Address" :value="$member->address['line1'] ?? '—'" />
                     @if ($member->notes)
@@ -134,6 +161,7 @@
                 </dl>
             </x-ui.card>
 
+            @if ($organisation->usesClubs())
             <x-ui.card :padded="false" :title="$organisation->term('club_singular').' history'">
                 @if ($clubHistory->isEmpty())
                     <div class="px-4 py-5 text-sm text-ink-muted">
@@ -157,6 +185,7 @@
                     </ol>
                 @endif
             </x-ui.card>
+            @endif
         </div>
     @elseif ($tab === 'plans')
         <div class="space-y-5">
@@ -188,7 +217,9 @@
                             <tr class="transition hover:bg-raised">
                                 <x-ui.td>
                                     <p class="font-medium text-ink">{{ $subscription->plan->name }}</p>
-                                    <p class="text-xs text-ink-muted">{{ $subscription->club->name }}</p>
+                                    @if ($subscription->club)
+                                        <p class="text-xs text-ink-muted">{{ $subscription->club->name }}</p>
+                                    @endif
                                 </x-ui.td>
                                 <x-ui.td numeric class="whitespace-nowrap">
                                     {{ $subscription->start_date->format('d M Y') }} – {{ $subscription->end_date->format('d M Y') }}
@@ -273,7 +304,7 @@
                 <span class="flex items-center gap-1.5"><span class="h-3 w-3 rounded-[3px] bg-sunken"></span> Not marked</span>
             </div>
         </x-ui.card>
-    @else
+    @elseif ($tab === 'payments')
         @if ($unlinkedPaid > 0)
             {{-- Money received without saying what for. Shown apart from the
                  ledger because it is the one figure that still needs a decision:

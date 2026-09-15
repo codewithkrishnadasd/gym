@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Policies;
 
 use App\Enums\ExpenseStatus;
+use App\Enums\Feature;
 use App\Models\Expense;
 use App\Models\User;
 use App\Policies\Concerns\EvaluatesMembership;
@@ -17,6 +18,15 @@ use App\Policies\Concerns\EvaluatesMembership;
 class ExpensePolicy
 {
     use EvaluatesMembership;
+
+    /**
+     * Nothing here is permitted while the organisation has the Expenses module
+     * switched off (App\Enums\Feature).
+     */
+    public function before(User $user): ?bool
+    {
+        return $this->featureEnabled(Feature::Expenses) ? null : false;
+    }
 
     public function viewAny(User $user): bool
     {

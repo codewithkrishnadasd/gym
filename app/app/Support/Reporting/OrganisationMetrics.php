@@ -44,11 +44,11 @@ use InvalidArgumentException;
 final class OrganisationMetrics
 {
     /**
-     * @param  array<int, int>  $clubIds  The clubs the acting user may see.
+     * @param  array<int, int>|null  $clubIds  The clubs the acting user may see, or null for the whole organisation.
      */
     public function __construct(
         private readonly Organisation $organisation,
-        private readonly array $clubIds,
+        private readonly ?array $clubIds,
         private readonly ReportPeriod $period,
     ) {}
 
@@ -146,7 +146,7 @@ final class OrganisationMetrics
      */
     private function invoiceScope(): Builder
     {
-        return Invoice::query()->whereIn('club_id', $this->clubIds);
+        return $this->withinClubs(Invoice::query());
     }
 
     public function expensesRecorded(): int
@@ -194,8 +194,7 @@ final class OrganisationMetrics
 
     public function todaysAttendance(): int
     {
-        return Attendance::query()
-            ->whereIn('club_id', $this->clubIds)
+        return $this->withinClubs(Attendance::query())
             ->where('subject_type', AttendanceSubjectType::Member->value)
             ->whereDate('attendance_date', Carbon::today($this->organisation->timezone)->toDateString())
             ->whereIn('action', [AttendanceAction::Present, AttendanceAction::Late])
@@ -286,7 +285,7 @@ final class OrganisationMetrics
      */
     public function clubComparison(): Collection
     {
-        $clubs = Club::query()->whereIn('id', $this->clubIds)->orderBy('name')->get();
+        $clubs = $this->withinClubs(Club::query(), 'id')->orderBy('name')->get();
 
         $revenue = $this->paymentScope()
             ->where('confirmation_status', ConfirmationStatus::Confirmed)
@@ -300,8 +299,7 @@ final class OrganisationMetrics
             ->groupBy('club_id')
             ->pluck('total', 'club_id');
 
-        $members = Member::query()
-            ->whereIn('primary_club_id', $this->clubIds)
+        $members = $this->memberScope()
             ->where('status', MemberStatus::Active)
             ->selectRaw('primary_club_id, COUNT(*) AS total')
             ->groupBy('primary_club_id')
@@ -555,9 +553,8 @@ final class OrganisationMetrics
      */
     public function pendingPayments(int $limit = 6): Collection
     {
-        return FeePayment::query()
+        return $this->withinClubs(FeePayment::query())
             ->with(['member:id,name', 'club:id,name', 'collectedBy.user:id,name'])
-            ->whereIn('club_id', $this->clubIds)
             ->where('confirmation_status', ConfirmationStatus::PendingAdminConfirmation)
             ->orderBy('created_at')
             ->limit($limit)
@@ -662,13 +659,15 @@ final class OrganisationMetrics
             ];
         }
 
-        $inactiveClubs = Club::query()
-            ->whereIn('id', $this->clubIds)
-            ->whereDoesntHave('attendances', fn (Builder $query) => $query
-                ->whereDate('attendance_date', '>=', $today->copy()->subDays(7)->toDateString()))
-            ->count();
+        // Only meaningful where attendance is marked per club.
+        $inactiveClubs = $this->organisation->usesClubs()
+            ? $this->withinClubs(Club::query(), 'id')
+                ->whereDoesntHave('attendances', fn (Builder $query) => $query
+                    ->whereDate('attendance_date', '>=', $today->copy()->subDays(7)->toDateString()))
+                ->count()
+            : 0;
 
-        if ($inactiveClubs > 0 && count($this->clubIds) > 0) {
+        if ($inactiveClubs > 0) {
             $alerts[] = [
                 'tone' => 'caution',
                 'title' => $inactiveClubs.' '.str('club')->plural($inactiveClubs).' with no attendance this week',
@@ -688,8 +687,7 @@ final class OrganisationMetrics
     {
         // Columns are table-qualified because the revenue-by-plan and
         // revenue-by-account reports join tables that also carry `club_id`.
-        return FeePayment::query()
-            ->whereIn('fee_payments.club_id', $this->clubIds)
+        return $this->withinClubs(FeePayment::query(), 'fee_payments.club_id')
             ->whereBetween('fee_payments.payment_date', [$this->period->from->toDateString(), $this->period->to->toDateString()]);
     }
 
@@ -701,7 +699,8 @@ final class OrganisationMetrics
         return Expense::query()
             // Organisation-wide expenses have no club and belong to everyone
             // with finance access.
-            ->where(fn (Builder $query) => $query->whereIn('club_id', $this->clubIds)->orWhereNull('club_id'))
+            ->when($this->clubIds !== null, fn (Builder $query) => $query
+                ->where(fn (Builder $inner) => $inner->whereIn('club_id', $this->clubIds)->orWhereNull('club_id')))
             ->whereBetween('expense_date', [$this->period->from->toDateString(), $this->period->to->toDateString()]);
     }
 
@@ -710,7 +709,7 @@ final class OrganisationMetrics
      */
     private function memberScope(): Builder
     {
-        return Member::query()->whereIn('primary_club_id', $this->clubIds);
+        return $this->withinClubs(Member::query(), 'primary_club_id');
     }
 
     /**
@@ -718,7 +717,7 @@ final class OrganisationMetrics
      */
     private function subscriptionScope(): Builder
     {
-        return MemberSubscription::query()->whereIn('club_id', $this->clubIds);
+        return $this->withinClubs(MemberSubscription::query());
     }
 
     /**
@@ -726,10 +725,23 @@ final class OrganisationMetrics
      */
     private function attendanceScope(AttendanceSubjectType $subjectType): Builder
     {
-        return Attendance::query()
-            ->whereIn('club_id', $this->clubIds)
+        return $this->withinClubs(Attendance::query())
             ->where('subject_type', $subjectType->value)
             ->whereBetween('attendance_date', [$this->period->from->toDateString(), $this->period->to->toDateString()]);
+    }
+
+    /**
+     * Restricts a query to the permitted clubs; no restriction when the
+     * scope is the whole organisation (admins, or the Clubs module off).
+     *
+     * @template TModel of \Illuminate\Database\Eloquent\Model
+     *
+     * @param  Builder<TModel>  $query
+     * @return Builder<TModel>
+     */
+    private function withinClubs(Builder $query, string $column = 'club_id'): Builder
+    {
+        return $this->clubIds === null ? $query : $query->whereIn($column, $this->clubIds);
     }
 
     // --------------------------------------------------------------- helpers
