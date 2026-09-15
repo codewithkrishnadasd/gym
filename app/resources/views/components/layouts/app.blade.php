@@ -158,7 +158,6 @@
                     {{ $toolbar }}
                 @endisset
 
-                <x-ui.nav-style-toggle />
                 <x-ui.theme-toggle />
             </header>
 

@@ -76,7 +76,9 @@ it('offers a side menu and a full-screen launcher, remembered per device', funct
         // Both styles present: the sidebar, the header Menu button, the toggle, and the launcher grid.
         ->assertSee('nav-sidebar', false)
         ->assertSee('nav-launcher-button', false)
+        // The style switch is an option in the account menu (and the launcher), not a top-bar button.
         ->assertSee('Use the full-screen menu', false)
+        ->assertSeeInOrder(['Use the full-screen menu', 'Sign out'])
         ->assertSee('aria-label="Menu"', false)
         ->assertSeeInOrder(['Overview', 'Organisation', 'Finance'])
         ->assertSee('open-launcher', false);
