@@ -1,5 +1,6 @@
 import Chart from 'chart.js/auto';
 import './date-field';
+import './filters-bar';
 import './markdown-editor';
 import './mention-box';
 

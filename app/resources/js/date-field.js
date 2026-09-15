@@ -52,8 +52,17 @@ document.addEventListener('alpine:init', () => {
     window.Alpine.data('dateField', ({ property, live }) => ({
         text: '',
         invalid: false,
+        live,
 
         init() {
+            // Inside a filter bar the value waits for "Apply" like the other
+            // controls, however the field was declared.
+            if (this.$el.closest('[data-filters]')) {
+                this.live = false;
+            }
+
+            this.$el.dataset.dateProperty = property;
+
             // Follow the server: a property set from PHP (a prefilled start
             // date, "Start today") must show up here without a page load.
             window.Alpine.effect(() => {
@@ -105,7 +114,7 @@ document.addEventListener('alpine:init', () => {
                 return;
             }
 
-            this.$wire.set(property, iso, live);
+            this.$wire.set(property, iso, this.live);
         },
 
         openPicker() {

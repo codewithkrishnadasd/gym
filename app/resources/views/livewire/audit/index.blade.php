@@ -23,13 +23,13 @@
 
     <x-ui.card :padded="false">
         <x-ui.filters search="search" placeholder="Search actions…">
-            <label class="flex items-center gap-1.5 text-xs text-ink-muted">
-                <span class="sr-only sm:not-sr-only">From</span>
-                <x-ui.date-input bare wire:model.live="from" aria-label="From date" class="w-40" />
+            <label class="block">
+                <span class="mb-1 block text-xs font-medium text-ink-soft">From</span>
+                <x-ui.date-input bare wire:model.live="from" aria-label="From date" class="w-full" />
             </label>
-            <label class="flex items-center gap-1.5 text-xs text-ink-muted">
-                <span class="sr-only sm:not-sr-only">To</span>
-                <x-ui.date-input bare wire:model.live="to" aria-label="To date" class="w-40" />
+            <label class="block">
+                <span class="mb-1 block text-xs font-medium text-ink-soft">To</span>
+                <x-ui.date-input bare wire:model.live="to" aria-label="To date" class="w-full" />
             </label>
 
             <x-ui.filter-select wire:model.live="entityType" label="Record type">

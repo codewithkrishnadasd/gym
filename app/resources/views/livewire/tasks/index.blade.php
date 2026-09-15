@@ -48,7 +48,7 @@
                 <option value="mentioned">Mentioned me</option>
             </x-ui.filter-select>
 
-            <x-ui.filter-select wire:model.live="show" label="Show">
+            <x-ui.filter-select wire:model.live="show" label="Show" default="open">
                 <option value="open">Open</option>
                 <option value="done">Done</option>
                 <option value="all">All</option>
