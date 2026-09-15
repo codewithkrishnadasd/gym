@@ -134,11 +134,11 @@ it('shares a receipt for a confirmed payment, with the link in the confirmation 
 it('shows the share panel on the invoice page and hides it once void', function (): void {
     $invoice = issueOne();
 
-    $this->get('http://links.test/billing/'.$invoice->id)->assertOk()->assertSee('Share with the member')->assertSee($invoice->publicUrl());
+    $this->get('http://links.test/billing/'.$invoice->id)->assertOk()->assertSee('Share with ')->assertSee($invoice->publicUrl());
 
     $invoice->forceFill(['status' => 'void'])->save();
 
-    $this->get('http://links.test/billing/'.$invoice->id)->assertOk()->assertDontSee('Share with the member');
+    $this->get('http://links.test/billing/'.$invoice->id)->assertOk()->assertDontSee('Share with ');
 });
 
 it('prints the organisation logo on invoices and receipts', function (): void {

@@ -61,8 +61,8 @@
         <tr>
             <td class="label">Billed to</td>
             <td>
-                <strong>{{ $invoice->member->name }}</strong>
-                @if ($invoice->member->phone) <span class="muted">· {{ $invoice->member->phone }}</span> @endif
+                <strong>{{ $invoice->billedToName() }}</strong>
+                @if ($invoice->billedToPhone()) <span class="muted">· {{ $invoice->billedToPhone() }}</span> @endif
                 @if ($invoice->club && $organisation->usesClubs())<div class="muted">{{ $invoice->club->name }}</div>@endif
             </td>
             <td class="label">Issued</td>

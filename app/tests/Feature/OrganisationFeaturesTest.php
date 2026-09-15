@@ -97,6 +97,7 @@ it('lets the platform admin choose the modules and stores the closed set', funct
         ->assertOk()
         ->assertSee('Features')
         ->assertSee('name="features[]" value="expenses"', false)
+        ->assertDontSee('type="checkbox" name="features[]"', false)
         ->assertSee('Fee collection')
         ->assertSee('Needs Members and Accounts');
 });

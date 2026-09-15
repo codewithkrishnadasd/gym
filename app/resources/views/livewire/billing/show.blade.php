@@ -77,7 +77,7 @@
             </x-ui.card>
 
             @unless ($invoice->status === \App\Enums\InvoiceStatus::Void)
-                <x-ui.card title="Share with the member" description="Anyone with this link can view and download the invoice — no sign-in needed. The WhatsApp message includes it.">
+                <x-ui.card :title="'Share with '.$invoice->billedToName()" description="Anyone with this link can view and download the invoice — no sign-in needed. The WhatsApp message includes it.">
                     <x-ui.share-link :url="$invoice->publicUrl()" label="Invoice link" />
                 </x-ui.card>
             @endunless
@@ -121,13 +121,17 @@
         </div>
 
         <div class="space-y-5">
-            <x-ui.card title="Billed to">
+            <x-ui.card title="Billed to" :description="$invoice->member ? null : 'Not a '.strtolower($organisation->term('member_singular')).' — recorded by name.'">
                 <div class="flex items-center gap-3">
-                    <x-ui.avatar :name="$invoice->member?->name ?? '?'" tone="accent" />
+                    <x-ui.avatar :name="$invoice->billedToName()" tone="accent" />
                     <div class="min-w-0">
-                        <a href="{{ route('tenant.members.show', ['member' => $invoice->member_id, 'tab' => 'billing']) }}" wire:navigate
-                            class="block truncate text-sm font-medium text-ink hover:text-accent">{{ $invoice->member?->name }}</a>
-                        <p class="numeric truncate text-xs text-ink-muted">{{ $invoice->member?->phone }}</p>
+                        @if ($invoice->member)
+                            <a href="{{ route('tenant.members.show', ['member' => $invoice->member_id, 'tab' => 'billing']) }}" wire:navigate
+                                class="block truncate text-sm font-medium text-ink hover:text-accent">{{ $invoice->member->name }}</a>
+                        @else
+                            <p class="truncate text-sm font-medium text-ink">{{ $invoice->billedToName() }}</p>
+                        @endif
+                        <p class="numeric truncate text-xs text-ink-muted">{{ $invoice->billedToPhone() ?: 'No phone' }}</p>
                     </div>
                 </div>
             </x-ui.card>

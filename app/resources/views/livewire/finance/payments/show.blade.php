@@ -2,7 +2,7 @@
     <x-ui.flash />
 
     <x-ui.page-header :title="'Payment '.$organisation->reference('payment', $payment->id)" :back="route('tenant.finance.payments.index')" back-label="Payments"
-        :description="collect([$payment->member->name, $organisation->usesClubs() ? $payment->club?->name : null])->filter()->join(' · ')">
+        :description="collect([$payment->payerName(), $organisation->usesClubs() ? $payment->club?->name : null])->filter()->join(' · ')">
         <x-slot:actions>
             @can('notify', $payment)
                 <x-ui.download-button icon="document-arrow-down" what="the receipt for this payment as a PDF" :href="route('tenant.finance.payments.receipt', $payment)">Receipt PDF</x-ui.download-button>
@@ -70,11 +70,15 @@
                 <dl class="grid gap-x-6 sm:grid-cols-2">
                     <x-ui.definition label="Payment date" :value="$payment->payment_date->format('d M Y')" />
                     <x-ui.definition label="Method" :value="$payment->payment_method->label()" />
-                    <x-ui.definition label="{{ $organisation->term('member_singular') }}">
-                        <a href="{{ route('tenant.members.show', $payment->member) }}" wire:navigate class="text-accent hover:underline">
-                            {{ $payment->member->name }}
-                        </a>
-                    </x-ui.definition>
+                    @if ($payment->member)
+                        <x-ui.definition label="{{ $organisation->term('member_singular') }}">
+                            <a href="{{ route('tenant.members.show', $payment->member) }}" wire:navigate class="text-accent hover:underline">
+                                {{ $payment->member->name }}
+                            </a>
+                        </x-ui.definition>
+                    @else
+                        <x-ui.definition label="Paid by" :value="$payment->payer_name" />
+                    @endif
                     @if ($organisation->usesClubs())
                         <x-ui.definition label="{{ $organisation->term('club_singular') }}" :value="$payment->club?->name ?? '—'" />
                     @endif
@@ -158,18 +162,21 @@
                     :key="'panel-'.$payment->id" />
             @endif
 
-            <x-ui.card title="{{ $organisation->term('member_singular') }}">
+            <x-ui.card :title="$payment->member ? $organisation->term('member_singular') : 'Paid by'"
+                :description="$payment->member ? null : 'Not a '.strtolower($organisation->term('member_singular')).' — recorded by name.'">
                 <div class="flex items-center gap-3">
-                    <x-ui.avatar :name="$payment->member->name" size="lg" tone="accent" />
+                    <x-ui.avatar :name="$payment->payerName()" size="lg" tone="accent" />
                     <div class="min-w-0">
-                        <p class="truncate font-medium text-ink">{{ $payment->member->name }}</p>
-                        <p class="truncate text-sm text-ink-muted">{{ $payment->member->phone ?: 'No phone' }}</p>
+                        <p class="truncate font-medium text-ink">{{ $payment->payerName() }}</p>
+                        <p class="truncate text-sm text-ink-muted">{{ $payment->payerPhone() ?: 'No phone' }}</p>
                     </div>
                 </div>
 
-                <x-ui.button class="mt-3 w-full" :href="route('tenant.members.show', $payment->member)" wire:navigate>
-                    Open profile
-                </x-ui.button>
+                @if ($payment->member)
+                    <x-ui.button class="mt-3 w-full" :href="route('tenant.members.show', $payment->member)" wire:navigate>
+                        Open profile
+                    </x-ui.button>
+                @endif
             </x-ui.card>
         </div>
     </div>

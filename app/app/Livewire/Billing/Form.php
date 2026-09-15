@@ -12,6 +12,7 @@ use App\Models\BillableItem;
 use App\Models\Invoice;
 use App\Models\Member;
 use App\Support\Money;
+use App\Support\PhoneNumber;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Validation\Rule;
@@ -36,6 +37,13 @@ class Form extends Component
     public string $memberSearch = '';
 
     public ?int $memberId = null;
+
+    /** Billing someone who is not a member: the invoice names them directly. */
+    public bool $walkIn = false;
+
+    public string $payerName = '';
+
+    public string $payerPhone = '';
 
     /** @var array<int, LineState> */
     public array $lines = [];
@@ -75,7 +83,20 @@ class Form extends Component
 
     public function clearMember(): void
     {
-        $this->reset(['memberId', 'memberSearch']);
+        $this->reset(['memberId', 'memberSearch', 'walkIn', 'payerName', 'payerPhone']);
+    }
+
+    /**
+     * Switches to billing someone who is not a member. Whatever was typed in
+     * the search box is the likely name, so it carries over.
+     */
+    public function startWalkIn(): void
+    {
+        $this->reset(['memberId']);
+
+        $this->walkIn = true;
+        $this->payerName = trim($this->memberSearch);
+        $this->memberSearch = '';
     }
 
     /**
@@ -153,7 +174,9 @@ class Form extends Component
         $organisation = $this->organisation();
 
         $this->validate([
-            'memberId' => ['required', Rule::exists('members', 'id')->where('organisation_id', $organisation->id)],
+            'memberId' => [Rule::requiredIf(! $this->walkIn), 'nullable', Rule::exists('members', 'id')->where('organisation_id', $organisation->id)],
+            'payerName' => [Rule::requiredIf($this->walkIn), 'nullable', 'string', 'max:255'],
+            'payerPhone' => ['nullable', 'string', 'max:50'],
             'lines' => ['required', 'array', 'min:1'],
             'lines.*.description' => ['required', 'string', 'max:160'],
             'lines.*.quantity' => ['required', 'integer', 'min:1', 'max:999'],
@@ -164,18 +187,34 @@ class Form extends Component
             'lines.required' => 'Add at least one line before issuing.',
             'lines.*.description.required' => 'Every line needs a description.',
             'lines.*.price.required' => 'Every line needs a price.',
+            'memberId.required' => 'Choose a '.strtolower($organisation->term('member_singular')).', or bill someone who is not one.',
+            'payerName.required' => 'Enter the name this invoice is for.',
         ], [
             'memberId' => $organisation->term('member_singular'),
+            'payerName' => 'name',
             'lines.*.description' => 'description',
             'lines.*.quantity' => 'quantity',
             'lines.*.price' => 'price',
         ]);
 
-        /** @var Member $member */
-        $member = Member::query()->findOrFail($this->memberId);
+        /** @var Member|null $member */
+        $member = $this->walkIn ? null : Member::query()->findOrFail($this->memberId);
 
-        // Club scope comes from the member, never from the client.
-        $this->authorize('createForClub', [Invoice::class, $member->primary_club_id]);
+        // Club scope comes from the member, never from the client; a walk-in
+        // invoice has neither.
+        $this->authorize('createForClub', [Invoice::class, $member?->primary_club_id]);
+
+        $payerPhone = null;
+
+        if ($this->walkIn && trim($this->payerPhone) !== '') {
+            $payerPhone = PhoneNumber::normalise($this->payerPhone, $organisation->defaultCountry());
+
+            if ($payerPhone === null) {
+                $this->addError('payerPhone', 'Enter a valid WhatsApp number, or leave it empty.');
+
+                return;
+            }
+        }
 
         $lines = [];
 
@@ -203,6 +242,8 @@ class Form extends Component
                 actor: $this->currentMembership(),
                 dueDate: $this->dueDate !== '' ? Carbon::parse($this->dueDate) : null,
                 notes: $this->notes ?: null,
+                payerName: $this->walkIn ? $this->payerName : null,
+                payerPhone: $payerPhone,
             );
         } catch (InvalidArgumentException $exception) {
             $this->addError('lines', $exception->getMessage());
@@ -210,7 +251,7 @@ class Form extends Component
             return;
         }
 
-        session()->flash('status', 'Invoice '.$issued->invoice->number.' issued for '.$member->name.'.');
+        session()->flash('status', 'Invoice '.$issued->invoice->number.' issued for '.$issued->invoice->billedToName().'.');
         session()->flash('notification_id', $issued->notification?->id);
 
         $this->redirect(route('tenant.billing.show', $issued->invoice), navigate: true);

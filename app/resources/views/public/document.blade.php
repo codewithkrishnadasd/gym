@@ -13,7 +13,7 @@
                 {{ $kind === 'invoice' ? $invoice->number : $organisation->reference('payment', $payment->id) }}
             </p>
             <p class="text-sm text-ink-soft">
-                {{ ($kind === 'invoice' ? $invoice->member?->name : $payment->member?->name) ?? '' }}
+                {{ $kind === 'invoice' ? $invoice->billedToName() : $payment->payerName() }}
                 @if ($kind === 'invoice')
                     · issued {{ $invoice->issue_date->format('d M Y') }}
                     @if ($invoice->due_date) · due {{ $invoice->due_date->format('d M Y') }} @endif

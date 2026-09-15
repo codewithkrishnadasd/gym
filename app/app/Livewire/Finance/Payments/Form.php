@@ -19,6 +19,7 @@ use App\Models\Invoice;
 use App\Models\Member;
 use App\Models\MemberSubscription;
 use App\Support\Money;
+use App\Support\PhoneNumber;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Validation\Rule;
@@ -40,6 +41,17 @@ class Form extends Component
     public string $memberSearch = '';
 
     public ?int $memberId = null;
+
+    /**
+     * A payer who is not a member — a day visitor, a guest, a company. The
+     * payment then names them directly and can only settle an invoice raised
+     * for them, or nothing in particular.
+     */
+    public bool $walkIn = false;
+
+    public string $payerName = '';
+
+    public string $payerPhone = '';
 
     public ?int $subscriptionId = null;
 
@@ -98,6 +110,15 @@ class Form extends Component
         $invoice = request()->integer('invoice') ?: null;
 
         if ($invoice !== null) {
+            // "Collect" on a walk-in invoice: the payer is whoever it names.
+            $walkInInvoice = $this->memberId === null
+                ? Invoice::query()->whereNull('member_id')->find($invoice)
+                : null;
+
+            if ($walkInInvoice) {
+                $this->startWalkIn($walkInInvoice->payer_name ?? '', $walkInInvoice->payer_phone ?? '');
+            }
+
             $this->selectInvoice($invoice);
         }
 
@@ -328,7 +349,21 @@ class Form extends Component
 
     public function clearMember(): void
     {
-        $this->reset(['memberId', 'subscriptionId', 'invoiceId', 'target', 'amount', 'discount', 'memberSearch']);
+        $this->reset(['memberId', 'walkIn', 'payerName', 'payerPhone', 'subscriptionId', 'invoiceId', 'target', 'amount', 'discount', 'memberSearch']);
+    }
+
+    /**
+     * Switches to collecting from someone who is not a member. Whatever was
+     * typed in the search box is the likely name, so it carries over.
+     */
+    public function startWalkIn(?string $name = null, ?string $phone = null): void
+    {
+        $this->reset(['memberId', 'subscriptionId', 'invoiceId', 'target', 'amount', 'discount', 'useCredit', 'creditAmount']);
+
+        $this->walkIn = true;
+        $this->payerName = trim($name ?? $this->memberSearch);
+        $this->payerPhone = trim($phone ?? '');
+        $this->memberSearch = '';
     }
 
     public function save(): void
@@ -339,7 +374,13 @@ class Form extends Component
         $actor = $this->currentMembership();
 
         $validated = $this->validate([
-            'memberId' => ['required', Rule::exists('members', 'id')->where('organisation_id', $organisation->id)],
+            'memberId' => [
+                Rule::requiredIf(! $this->walkIn),
+                'nullable',
+                Rule::exists('members', 'id')->where('organisation_id', $organisation->id),
+            ],
+            'payerName' => [Rule::requiredIf($this->walkIn), 'nullable', 'string', 'max:255'],
+            'payerPhone' => ['nullable', 'string', 'max:50'],
             'subscriptionId' => ['nullable', Rule::exists('member_subscriptions', 'id')->where('organisation_id', $organisation->id)],
             'invoiceId' => ['nullable', Rule::exists('invoices', 'id')->where('organisation_id', $organisation->id)],
             'amount' => ['required', 'numeric', 'min:0'],
@@ -365,18 +406,34 @@ class Form extends Component
             'notes' => ['nullable', 'string', 'max:1000'],
         ], [
             'financialAccountId.required' => 'Choose the account this money was received into.',
+            'memberId.required' => 'Choose a '.strtolower($organisation->term('member_singular')).', or collect from someone who is not one.',
+            'payerName.required' => 'Enter the name of the person paying.',
         ], [
             'memberId' => $organisation->term('member_singular'),
+            'payerName' => 'payer name',
             'amount' => 'amount',
             'financialAccountId' => 'receiving account',
         ]);
 
-        /** @var Member $member */
-        $member = Member::query()->findOrFail($validated['memberId']);
+        /** @var Member|null $member */
+        $member = $this->walkIn ? null : Member::query()->findOrFail($validated['memberId']);
 
         // Club scope is derived from the member, never accepted from the
-        // client, and is re-authorized here (MEP.md 4.3).
-        $this->authorize('createForClub', [FeePayment::class, $member->primary_club_id]);
+        // client, and is re-authorized here (MEP.md 4.3). A walk-in payment
+        // has no club and no member to scope by.
+        $this->authorize('createForClub', [FeePayment::class, $member?->primary_club_id]);
+
+        $payerPhone = null;
+
+        if ($this->walkIn && $validated['payerPhone'] !== null && $validated['payerPhone'] !== '') {
+            $payerPhone = PhoneNumber::normalise($validated['payerPhone'], $organisation->defaultCountry());
+
+            if ($payerPhone === null) {
+                $this->addError('payerPhone', 'Enter a valid WhatsApp number, or leave it empty.');
+
+                return;
+            }
+        }
 
         $money = Money::parseMajor($validated['amount'], $organisation->currency_code);
         $discount = $validated['discount'] !== null && $validated['discount'] !== ''
@@ -420,7 +477,8 @@ class Form extends Component
                 return;
             }
 
-            $available = $member->unlinkedCreditMinor();
+            // Only a member has unlinked money to draw on.
+            $available = $member?->unlinkedCreditMinor() ?? 0;
 
             if ($creditMinor > $available) {
                 $this->addError('creditAmount', 'Only '.$organisation->money($available).' of unlinked money is available for this '.strtolower($organisation->term('member_singular')).'.');
@@ -435,7 +493,7 @@ class Form extends Component
         $purpose = PaymentPurpose::Other;
 
         if ($this->target === 'admission') {
-            if ($member->admissionOutstandingMinor() <= 0) {
+            if ($member === null || $member->admissionOutstandingMinor() <= 0) {
                 $this->addError('target', 'No admission fee is owed by this '.strtolower($organisation->term('member_singular')).'.');
 
                 return;
@@ -494,12 +552,13 @@ class Form extends Component
 
         $result = app(RecordFeePayment::class)->handle(
             attributes: [
-                'club_id' => $member->primary_club_id,
-                'member_id' => $member->id,
+                'club_id' => $member?->primary_club_id,
+                'member_id' => $member?->id,
                 'subscription_id' => $invoice === null ? $subscriptionId : null,
                 'invoice_id' => $invoice?->id,
                 'purpose' => $purpose->value,
-                'payer_name' => $member->name,
+                'payer_name' => $member !== null ? $member->name : (string) $validated['payerName'],
+                'payer_phone' => $member === null ? $payerPhone : null,
                 'amount_minor' => $receivedMinor,
                 'discount_minor' => $discountMinor,
                 'credit_applied_minor' => $creditMinor,
@@ -551,7 +610,26 @@ class Form extends Component
     protected function openInvoicesForMember(): Collection
     {
         // No Invoices module, nothing to pay an invoice against.
-        if ($this->memberId === null || ! $this->organisation()->hasFeature(Feature::Billing)) {
+        if (! $this->organisation()->hasFeature(Feature::Billing)) {
+            return collect();
+        }
+
+        // A walk-in payer can settle the walk-in invoices raised in their name.
+        if ($this->walkIn) {
+            if (trim($this->payerName) === '') {
+                return collect();
+            }
+
+            return Invoice::query()
+                ->whereNull('member_id')
+                ->whereRaw('lower(payer_name) = ?', [mb_strtolower(trim($this->payerName))])
+                ->whereIn('status', [InvoiceStatus::Issued, InvoiceStatus::PartiallyPaid])
+                ->orderBy('due_date')
+                ->orderBy('id')
+                ->get();
+        }
+
+        if ($this->memberId === null) {
             return collect();
         }
 

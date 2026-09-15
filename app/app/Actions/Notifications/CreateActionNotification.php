@@ -38,7 +38,7 @@ final class CreateActionNotification
         Organisation $organisation,
         NotificationActionType $type,
         NotificationRecipientType $recipientType,
-        int $recipientId,
+        ?int $recipientId,
         string $recipientName,
         ?string $recipientPhone,
         NotificationEntityType $entityType,

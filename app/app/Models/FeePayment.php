@@ -24,7 +24,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * classes, never by a direct model update. See MEP.md 5.11.
  */
 #[Fillable([
-    'organisation_id', 'club_id', 'member_id', 'subscription_id', 'invoice_id', 'purpose', 'payer_name',
+    'organisation_id', 'club_id', 'member_id', 'subscription_id', 'invoice_id', 'purpose', 'payer_name', 'payer_phone',
     'amount_minor', 'discount_minor', 'credit_applied_minor', 'currency_code', 'payment_method', 'financial_account_id',
     'transaction_reference', 'payment_date', 'collected_by', 'notes',
 ])]
@@ -46,6 +46,34 @@ class FeePayment extends Model
             'payment_date' => 'date',
             'confirmed_at' => 'datetime',
         ];
+    }
+
+    /**
+     * A payment from someone who is not a member — a day visitor, a guest.
+     * It names its payer directly and can only settle an invoice raised the
+     * same way, or nothing in particular.
+     */
+    public function isWalkIn(): bool
+    {
+        return $this->member_id === null;
+    }
+
+    /**
+     * Who paid, as shown everywhere: the member's current name, or the name
+     * recorded on a walk-in payment.
+     */
+    public function payerName(): string
+    {
+        $member = $this->member;
+
+        return $member !== null ? $member->name : $this->payer_name;
+    }
+
+    public function payerPhone(): ?string
+    {
+        $member = $this->member;
+
+        return $member !== null ? $member->phone : $this->payer_phone;
     }
 
     /**

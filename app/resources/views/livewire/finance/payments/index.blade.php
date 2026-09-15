@@ -109,7 +109,7 @@
                     <tr class="transition hover:bg-raised">
                         <x-ui.td numeric class="whitespace-nowrap">{{ $payment->payment_date->format('d M Y') }}</x-ui.td>
                         <x-ui.td>
-                            <p class="font-medium text-ink">{{ $payment->member->name }}
+                            <p class="font-medium text-ink">{{ $payment->payerName() }}@if ($payment->isWalkIn()) <span class="text-xs font-normal text-ink-muted">· not a {{ strtolower($organisation->term('member_singular')) }}</span>@endif
                                 <x-ui.reference :value="$organisation->reference('payment', $payment->id)" class="ml-1" /></p>
                             <p class="text-xs text-ink-muted">
                                 {{ $payment->purposeLabel() }}
@@ -155,7 +155,7 @@
                             class="block p-4 transition hover:bg-raised">
                             <div class="flex items-start justify-between gap-3">
                                 <div class="min-w-0">
-                                    <p class="truncate font-medium text-ink">{{ $payment->member->name }}
+                                    <p class="truncate font-medium text-ink">{{ $payment->payerName() }}
                                         <x-ui.reference :value="$organisation->reference('payment', $payment->id)" class="ml-1" /></p>
                                     <p class="numeric mt-0.5 text-xs text-ink-muted">
                                         {{ $payment->payment_date->format('d M Y') }} &middot;

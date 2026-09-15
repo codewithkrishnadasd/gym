@@ -59,8 +59,8 @@
     <table class="meta">
         <tr>
             <td class="label">{{ $organisation->term('member_singular') }}</td>
-            <td><strong>{{ $payment->member->name }}</strong>
-                @if ($payment->member->phone) <span class="muted">· {{ $payment->member->phone }}</span> @endif
+            <td><strong>{{ $payment->payerName() }}</strong>
+                @if ($payment->payerPhone()) <span class="muted">· {{ $payment->payerPhone() }}</span> @endif
             </td>
         </tr>
         @if ($payment->club && $organisation->usesClubs())
@@ -199,7 +199,7 @@
         </table>
     @endif
 
-    @if ($payment->purpose->value === 'admission')
+    @if ($payment->purpose->value === 'admission' && $payment->member)
         <table class="lines">
             <tr>
                 <th>Admission fee</th>

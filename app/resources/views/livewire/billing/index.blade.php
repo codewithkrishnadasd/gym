@@ -2,7 +2,7 @@
     <x-ui.flash />
 
     <x-ui.page-header title="Invoices"
-        :description="'Bills raised against '.strtolower($organisation->term('member_plural')).' for anything outside a plan. Payments against them go through the usual confirmation.'">
+        :description="'Bills raised against '.strtolower($organisation->term('member_plural')).' — or anyone else, by name — for anything outside a plan. Payments against them go through the usual confirmation.'">
         <x-slot:actions>
             @can('create', \App\Models\Invoice::class)
                 <x-ui.button variant="primary" icon="plus" :href="route('tenant.billing.create')" wire:navigate>New invoice</x-ui.button>
@@ -68,7 +68,12 @@
                             <p class="text-xs text-ink-muted">{{ collect([$invoice->issue_date->format('d M Y'), $organisation->usesClubs() ? $invoice->club?->name : null])->filter()->join(' · ') }}</p>
                         </x-ui.td>
                         <x-ui.td>
-                            <a href="{{ route('tenant.members.show', $invoice->member_id) }}" wire:navigate class="text-ink hover:text-accent">{{ $invoice->member?->name }}</a>
+                            @if ($invoice->member)
+                                <a href="{{ route('tenant.members.show', $invoice->member_id) }}" wire:navigate class="text-ink hover:text-accent">{{ $invoice->member->name }}</a>
+                            @else
+                                <span class="text-ink">{{ $invoice->billedToName() }}</span>
+                                <span class="block text-xs text-ink-muted">not a {{ strtolower($organisation->term('member_singular')) }}</span>
+                            @endif
                         </x-ui.td>
                         <x-ui.td numeric class="{{ $invoice->isOverdue() ? 'font-medium text-critical' : 'text-ink-soft' }}">
                             {{ $invoice->due_date?->format('d M Y') ?? 'On receipt' }}
@@ -102,7 +107,7 @@
                                     <span class="font-mono text-sm font-medium text-ink">{{ $invoice->number }}</span>
                                     <x-ui.badge :tone="$invoice->status->tone()">{{ $invoice->status->label() }}</x-ui.badge>
                                 </div>
-                                <p class="mt-0.5 truncate text-sm text-ink-soft">{{ $invoice->member?->name }}</p>
+                                <p class="mt-0.5 truncate text-sm text-ink-soft">{{ $invoice->billedToName() }}</p>
                                 <p class="numeric text-xs {{ $invoice->isOverdue() ? 'text-critical' : 'text-ink-muted' }}">
                                     Due {{ $invoice->due_date?->format('d M Y') ?? 'on receipt' }}
                                 </p>

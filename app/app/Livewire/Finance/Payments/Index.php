@@ -104,6 +104,7 @@ class Index extends Component
                 $id = Search::referenceId($this->organisation(), 'payment', $this->search);
 
                 $inner->where('payer_name', 'ilike', "%{$this->search}%")
+                    ->when($digits !== null, fn (Builder $q) => $q->orWhere('payer_phone', 'ilike', '%'.$digits.'%'))
                     ->orWhere('transaction_reference', 'ilike', "%{$this->search}%")
                     ->orWhereHas('member', fn (Builder $member) => $member
                         ->where('name', 'ilike', "%{$this->search}%")

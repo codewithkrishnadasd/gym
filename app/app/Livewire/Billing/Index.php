@@ -64,6 +64,8 @@ class Index extends Component
                 $digits = Search::phoneDigits($this->search, $this->organisation(), 'invoice');
 
                 $inner->where('number', 'ilike', "%{$this->search}%")
+                    ->orWhere('payer_name', 'ilike', "%{$this->search}%")
+                    ->when($digits !== null, fn (Builder $q) => $q->orWhere('payer_phone', 'ilike', '%'.$digits.'%'))
                     ->orWhereHas('member', fn (Builder $member) => $member
                         ->where('name', 'ilike', "%{$this->search}%")
                         ->when($digits !== null, fn (Builder $q) => $q->orWhere('phone', 'ilike', '%'.$digits.'%')));

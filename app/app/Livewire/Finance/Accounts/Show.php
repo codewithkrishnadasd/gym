@@ -11,7 +11,6 @@ use App\Livewire\Concerns\ResolvesMembership;
 use App\Models\Expense;
 use App\Models\FeePayment;
 use App\Models\FinancialAccount;
-use App\Models\Member;
 use App\Support\Reporting\StatementLine;
 use Illuminate\Support\Collection;
 use Illuminate\View\View;
@@ -68,12 +67,9 @@ class Show extends Component
             ->limit(50)
             ->get()
             ->map(function (FeePayment $payment): StatementLine {
-                /** @var Member $member */
-                $member = $payment->member;
-
                 return new StatementLine(
                     date: $payment->payment_date,
-                    description: 'Fee from '.$member->name,
+                    description: 'Fee from '.$payment->payerName(),
                     inbound: true,
                     amountMinor: $payment->amount_minor,
                 );

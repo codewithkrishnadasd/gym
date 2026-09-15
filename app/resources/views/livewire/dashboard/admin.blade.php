@@ -158,10 +158,10 @@
                     @foreach ($pendingPayments as $payment)
                         <li class="flex items-center justify-between gap-3 px-4 py-2.5">
                             <div class="flex min-w-0 items-center gap-2.5">
-                                <x-ui.avatar :name="$payment->member->name" size="sm" />
+                                <x-ui.avatar :name="$payment->payerName()" size="sm" />
                                 <div class="min-w-0">
                                     <a href="{{ route('tenant.finance.payments.show', $payment) }}" wire:navigate
-                                        class="block truncate text-sm font-medium text-ink hover:text-accent">{{ $payment->member->name }}</a>
+                                        class="block truncate text-sm font-medium text-ink hover:text-accent">{{ $payment->payerName() }}</a>
                                     <p class="truncate text-xs text-ink-muted">
                                         @if ($payment->club){{ $payment->club->name }} · @endif{{ $payment->collectedBy?->user?->name }}
                                         · {{ $payment->created_at?->diffForHumans() }}
@@ -263,7 +263,7 @@
                         <li class="flex items-center justify-between gap-3 px-4 py-2.5">
                             <div class="min-w-0">
                                 <a href="{{ route('tenant.finance.payments.show', $payment) }}" wire:navigate
-                                    class="block truncate text-sm font-medium text-ink hover:text-accent">{{ $payment->member->name }}</a>
+                                    class="block truncate text-sm font-medium text-ink hover:text-accent">{{ $payment->payerName() }}</a>
                                 <p class="numeric truncate text-xs text-ink-muted">{{ $payment->payment_date->format('d M') }}@if ($payment->club) · {{ $payment->club->name }}@endif</p>
                             </div>
                             <p class="numeric shrink-0 text-sm font-medium text-positive">{{ $organisation->money($payment->amount_minor) }}</p>

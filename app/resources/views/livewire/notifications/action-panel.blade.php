@@ -23,6 +23,15 @@
                 digits: @js($recipientDigits),
                 editing: false,
                 copied: false,
+                // 'idle' | 'saving' | 'saved': every edit is written as it is
+                // typed, so refreshing or navigating away mid-edit loses nothing.
+                saveState: 'idle',
+                async persist() {
+                    this.saveState = 'saving';
+                    await this.$wire.saveMessage(this.message);
+                    this.saveState = 'saved';
+                    setTimeout(() => this.saveState = 'idle', 2000);
+                },
                 get href() {
                     return this.digits
                         ? `https://wa.me/${this.digits}?text=${encodeURIComponent(this.message)}`
@@ -53,7 +62,7 @@
                 // this panel can never show different wording.
                 toggleEdit() {
                     if (this.editing) {
-                        this.$wire.saveMessage(this.message);
+                        this.persist();
                     }
 
                     this.editing = ! this.editing;
@@ -97,8 +106,13 @@
             <div class="mt-3">
                 <label class="sr-only" for="wa-message-{{ $notification->id }}">Message to send</label>
                 <textarea id="wa-message-{{ $notification->id }}" x-ref="editor" x-model="message" x-show="editing" x-cloak rows="8"
-                    x-on:change="$wire.saveMessage(message)"
+                    x-on:input.debounce.600ms="persist()" x-on:change="persist()"
                     class="w-full rounded-lg border border-hairline-strong bg-surface px-3 py-2 font-mono text-[13px] leading-relaxed text-ink focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25"></textarea>
+                <p x-show="editing" x-cloak class="mt-1 text-xs text-ink-muted">
+                    <span x-show="saveState === 'saving'">Saving…</span>
+                    <span x-show="saveState === 'saved'" class="text-positive">Saved — this wording is what will be sent.</span>
+                    <span x-show="saveState === 'idle'">Changes are saved as you type.</span>
+                </p>
 
                 <pre x-show="! editing"
                     class="max-h-56 overflow-y-auto whitespace-pre-wrap rounded-lg border border-hairline bg-raised px-3 py-2.5 font-sans text-[13px] leading-relaxed text-ink-soft"
@@ -132,12 +146,18 @@
                         Your browser blocked copying — the message is selected, press Ctrl/Cmd+C
                     </span>
 
-                    <x-ui.button type="button" size="md" variant="ghost" icon="pencil-square"
-                        x-on:click="toggleEdit()">
-                        {{-- Server-rendered fallback so the label is never blank
-                             in the moment before Alpine hydrates. --}}
-                        <span x-text="editing ? 'Preview' : 'Edit message'">Edit message</span>
-                    </x-ui.button>
+                    {{-- Only a message still to be sent can be reworded: once it
+                         has gone out, the snapshot is the record of what was sent. --}}
+                    @if ($notification->status === \App\Enums\NotificationStatus::Ready)
+                        <x-ui.button type="button" size="md" variant="ghost" icon="pencil-square"
+                            x-on:click="toggleEdit()">
+                            {{-- Server-rendered fallback so the label is never blank
+                                 in the moment before Alpine hydrates. --}}
+                            <span x-text="editing ? 'Preview' : 'Edit message'">Edit message</span>
+                        </x-ui.button>
+                    @else
+                        <span class="text-xs text-ink-muted">Already {{ strtolower($notification->status->label()) }} — the wording is fixed.</span>
+                    @endif
 
                     @if ($context === 'queue' && $notification->status === \App\Enums\NotificationStatus::Ready)
                         {{-- In the queue, skipping is a decision not to send: it

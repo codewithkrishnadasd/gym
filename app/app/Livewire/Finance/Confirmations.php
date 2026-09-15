@@ -10,7 +10,6 @@ use App\Enums\ConfirmationStatus;
 use App\Exceptions\LifecycleViolation;
 use App\Livewire\Concerns\ResolvesMembership;
 use App\Models\FeePayment;
-use App\Models\Member;
 use App\Models\OrganisationUser;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
@@ -74,16 +73,15 @@ class Confirmations extends Component
             $this->dispatch('notification-created', notificationId: $result->notification->id);
         }
 
-        /** @var Member $member */
-        $member = $result->payment->member;
+        $payer = $result->payment->payerName();
 
         // Naming the account in the confirmation makes the balance change
         // traceable from the notice alone, without opening the payment.
         $account = $result->payment->financialAccount?->name;
 
         session()->flash('status', $account === null
-            ? 'Payment confirmed for '.$member->name.'.'
-            : 'Payment confirmed for '.$member->name.' — credited to '.$account.'.');
+            ? 'Payment confirmed for '.$payer.'.'
+            : 'Payment confirmed for '.$payer.' — credited to '.$account.'.');
     }
 
     public function startReject(int $paymentId): void

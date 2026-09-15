@@ -36,20 +36,31 @@ final class IssueInvoice
     public function __construct(private readonly CreateActionNotification $notifications) {}
 
     /**
+     * Addressed to a member, or — for someone who is not one — to a payer
+     * named directly (`$payerName`, with an optional WhatsApp number).
+     *
      * @param  array<int, LineInput>  $lines
      */
     public function handle(
-        Member $member,
+        ?Member $member,
         array $lines,
         OrganisationUser $actor,
         ?Carbon $dueDate = null,
         ?string $notes = null,
+        ?string $payerName = null,
+        ?string $payerPhone = null,
     ): IssuedInvoice {
         /** @var Organisation $organisation */
         $organisation = app('tenant');
 
         if ($lines === []) {
             throw new InvalidArgumentException('An invoice needs at least one line.');
+        }
+
+        $payerName = $payerName !== null ? trim($payerName) : null;
+
+        if ($member === null && ($payerName === null || $payerName === '')) {
+            throw new InvalidArgumentException('An invoice is addressed to a member or to a named payer.');
         }
 
         $issueDate = Carbon::today($organisation->timezone);
@@ -79,12 +90,14 @@ final class IssueInvoice
             throw new InvalidArgumentException('An invoice has to come to more than nothing.');
         }
 
-        $invoice = DB::transaction(function () use ($organisation, $member, $rows, $total, $actor, $issueDate, $dueDate, $notes): Invoice {
+        $invoice = DB::transaction(function () use ($organisation, $member, $payerName, $payerPhone, $rows, $total, $actor, $issueDate, $dueDate, $notes): Invoice {
             $numbering = InvoiceNumber::next($organisation, $issueDate);
 
             $invoice = Invoice::create([
-                'member_id' => $member->id,
-                'club_id' => $member->primary_club_id,
+                'member_id' => $member?->id,
+                'payer_name' => $member === null ? $payerName : null,
+                'payer_phone' => $member === null ? $payerPhone : null,
+                'club_id' => $member?->primary_club_id,
                 'sequence' => $numbering['sequence'],
                 'number' => $numbering['number'],
                 'status' => InvoiceStatus::Issued,
@@ -103,19 +116,19 @@ final class IssueInvoice
                 'number' => $invoice->number,
                 'total_minor' => $total,
                 'lines' => count($rows),
-            ], ['member_id' => $member->id, 'club_id' => $member->primary_club_id]);
+            ], ['member_id' => $member?->id, 'club_id' => $member?->primary_club_id]);
 
             return $invoice;
         });
 
         $invoice->load('lines');
 
-        $notification = $this->notify($organisation, $invoice, $member, $actor);
+        $notification = $this->notify($organisation, $invoice, $actor);
 
         return new IssuedInvoice($invoice, $notification);
     }
 
-    private function notify(Organisation $organisation, Invoice $invoice, Member $member, OrganisationUser $actor): ?WhatsappActionNotification
+    private function notify(Organisation $organisation, Invoice $invoice, OrganisationUser $actor): ?WhatsappActionNotification
     {
         $items = $invoice->lines
             ->map(fn ($line): string => $line->quantity > 1
@@ -126,10 +139,10 @@ final class IssueInvoice
         return $this->notifications->handle(
             organisation: $organisation,
             type: NotificationActionType::InvoiceIssued,
-            recipientType: NotificationRecipientType::Member,
-            recipientId: $member->id,
-            recipientName: $member->name,
-            recipientPhone: $member->phone,
+            recipientType: $invoice->member_id !== null ? NotificationRecipientType::Member : NotificationRecipientType::Contact,
+            recipientId: $invoice->member_id,
+            recipientName: $invoice->billedToName(),
+            recipientPhone: $invoice->billedToPhone(),
             entityType: NotificationEntityType::Invoice,
             entityId: $invoice->id,
             actor: $actor,

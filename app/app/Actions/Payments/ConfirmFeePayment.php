@@ -114,18 +114,17 @@ final class ConfirmFeePayment
                 ],
             );
 
-            // Both FKs are NOT NULL with constraints, but a belongsTo always
-            // types as nullable — asserted locally rather than guarded.
-            /** @var Member $member */
+            // A walk-in payment names its payer directly; the receipt message
+            // goes to them as a contact rather than to a member record.
             $member = $locked->member;
 
             $notification = $this->notifications->handle(
                 organisation: $organisation,
                 type: NotificationActionType::FeePaymentConfirmed,
-                recipientType: NotificationRecipientType::Member,
-                recipientId: $member->id,
-                recipientName: $member->name,
-                recipientPhone: $member->phone,
+                recipientType: $member ? NotificationRecipientType::Member : NotificationRecipientType::Contact,
+                recipientId: $member?->id,
+                recipientName: $locked->payerName(),
+                recipientPhone: $locked->payerPhone(),
                 entityType: NotificationEntityType::FeePayment,
                 entityId: $locked->id,
                 actor: $actor,

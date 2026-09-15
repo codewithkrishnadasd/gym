@@ -139,14 +139,11 @@ class ExportController extends Controller
     {
         // lazy() keeps memory flat regardless of how many rows match.
         foreach ($query->lazy(500) as $payment) {
-            /** @var Member $member */
-            $member = $payment->member;
-
             yield [
                 $organisation->reference('payment', $payment->id),
                 $payment->payment_date->toDateString(),
-                $member->name,
-                $member->phone,
+                $payment->payerName(),
+                $payment->payerPhone() ?? '',
                 $payment->club->name ?? '',
                 $payment->purposeLabel(),
                 $payment->payment_method->label(),

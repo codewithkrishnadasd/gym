@@ -60,11 +60,11 @@
 
                     <li class="flex flex-col gap-3 p-4 lg:flex-row lg:items-center lg:justify-between">
                         <div class="flex min-w-0 items-start gap-3">
-                            <x-ui.avatar :name="$payment->member->name" tone="accent" />
+                            <x-ui.avatar :name="$payment->payerName()" tone="accent" />
                             <div class="min-w-0">
                                 <div class="flex flex-wrap items-center gap-2">
                                     <a href="{{ route('tenant.finance.payments.show', $payment) }}" wire:navigate
-                                        class="truncate font-medium text-ink hover:text-accent">{{ $payment->member->name }}</a>
+                                        class="truncate font-medium text-ink hover:text-accent">{{ $payment->payerName() }}</a>
                                     @if ($ageDays >= 2)
                                         <x-ui.badge tone="critical">{{ (int) $ageDays }}d waiting</x-ui.badge>
                                     @endif
@@ -114,7 +114,7 @@
 
                                 <x-ui.button size="sm" variant="primary" icon="check"
                                     wire:click="confirm({{ $payment->id }})"
-                                    data-confirm-title="Confirm this payment?" data-confirm-action="Confirm payment" data-confirm-tone="accent" data-confirm="Confirm {{ $organisation->money($payment->amount_minor) }} from {{ $payment->member->name }} as credited to {{ $payment->financialAccount?->name ?? 'no named account' }}?"
+                                    data-confirm-title="Confirm this payment?" data-confirm-action="Confirm payment" data-confirm-tone="accent" data-confirm="Confirm {{ $organisation->money($payment->amount_minor) }} from {{ $payment->payerName() }} as credited to {{ $payment->financialAccount?->name ?? 'no named account' }}?"
                                     wire:loading.attr="disabled" wire:target="confirm({{ $payment->id }})">
                                     <span wire:loading.remove wire:target="confirm({{ $payment->id }})">Confirm</span>
                                     <span wire:loading wire:target="confirm({{ $payment->id }})"><x-ui.spinner size="xs" /></span>

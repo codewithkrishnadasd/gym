@@ -25,7 +25,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * it, which is what keeps "partly paid" honest.
  */
 #[Fillable([
-    'organisation_id', 'member_id', 'club_id', 'sequence', 'number', 'status',
+    'organisation_id', 'member_id', 'payer_name', 'payer_phone', 'club_id', 'sequence', 'number', 'status',
     'issue_date', 'due_date', 'currency_code', 'total_minor', 'paid_minor', 'notes', 'created_by',
 ])]
 class Invoice extends Model
@@ -45,6 +45,32 @@ class Invoice extends Model
             'sequence' => 'integer',
             'voided_at' => 'datetime',
         ];
+    }
+
+    /**
+     * An invoice for someone who is not a member, addressed by name.
+     */
+    public function isWalkIn(): bool
+    {
+        return $this->member_id === null;
+    }
+
+    /**
+     * Who the invoice is addressed to: the member's current name, or the
+     * name recorded on a walk-in invoice.
+     */
+    public function billedToName(): string
+    {
+        $member = $this->member;
+
+        return $member !== null ? $member->name : (string) $this->payer_name;
+    }
+
+    public function billedToPhone(): ?string
+    {
+        $member = $this->member;
+
+        return $member !== null ? $member->phone : $this->payer_phone;
     }
 
     public function outstandingMinor(): int
