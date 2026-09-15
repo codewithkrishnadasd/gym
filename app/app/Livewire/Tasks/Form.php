@@ -45,6 +45,8 @@ class Form extends Component
     /** @var array<int, int> */
     public array $assigneeIds = [];
 
+    public string $assigneeSearch = '';
+
     public ?int $memberId = null;
 
     public string $memberSearch = '';
@@ -177,6 +179,48 @@ class Form extends Component
         return TaskCategory::query()->where('status', 'active')->orderBy('position')->orderBy('name')->get();
     }
 
+    /**
+     * Adds a colleague to the assignees; picking the same person twice is a
+     * no-op rather than a duplicate.
+     */
+    public function addAssignee(int $organisationUserId): void
+    {
+        if ($this->assigneeCandidates(true)->contains('id', $organisationUserId) && ! in_array($organisationUserId, $this->assigneeIds, true)) {
+            $this->assigneeIds[] = $organisationUserId;
+        }
+
+        $this->assigneeSearch = '';
+    }
+
+    public function removeAssignee(int $organisationUserId): void
+    {
+        $this->assigneeIds = array_values(array_filter($this->assigneeIds, fn (int $id): bool => $id !== $organisationUserId));
+    }
+
+    /**
+     * Active people matching the search, minus those already assigned.
+     *
+     * @return Collection<int, OrganisationUser>
+     */
+    private function assigneeCandidates(bool $ignoreSearchLength = false): Collection
+    {
+        if (! $ignoreSearchLength && mb_strlen($this->assigneeSearch) < 1) {
+            return new Collection;
+        }
+
+        return OrganisationUser::query()
+            ->with('user:id,name,phone')
+            ->where('status', MembershipStatus::Active)
+            ->when(! $ignoreSearchLength, fn ($query) => $query->whereNotIn('id', $this->assigneeIds))
+            ->when($this->assigneeSearch !== '', fn ($query) => $query->whereHas('user', fn ($user) => $user
+                ->where('name', 'ilike', "%{$this->assigneeSearch}%")
+                ->orWhere('phone', 'ilike', '%'.preg_replace('/\D+/', '', $this->assigneeSearch).'%')))
+            ->get()
+            ->sortBy(fn (OrganisationUser $person): string => (string) $person->user?->name)
+            ->values()
+            ->take(8);
+    }
+
     public function selectMember(int $memberId): void
     {
         if ($this->memberCandidates(true)->contains('id', $memberId)) {
@@ -228,8 +272,10 @@ class Form extends Component
             'organisation' => $organisation,
             'categories' => $this->categories(),
             'category' => $this->category(),
-            'people' => OrganisationUser::query()->with('user:id,name')->where('status', MembershipStatus::Active)->get()
-                ->sortBy(fn (OrganisationUser $person): string => (string) $person->user?->name)->values(),
+            'assignees' => OrganisationUser::query()->with('user:id,name,phone')->whereIn('id', $this->assigneeIds)->get()
+                ->sortBy(fn (OrganisationUser $person): int => (int) array_search($person->id, $this->assigneeIds, true))->values(),
+            'assigneeResults' => $this->assigneeCandidates(),
+            'hasPeople' => OrganisationUser::query()->where('status', MembershipStatus::Active)->exists(),
             'selectedMember' => $this->memberId ? Member::query()->with('primaryClub:id,name')->find($this->memberId) : null,
             'memberResults' => $this->memberId === null ? $this->memberCandidates() : new Collection,
             'today' => Carbon::today($organisation->timezone)->toDateString(),

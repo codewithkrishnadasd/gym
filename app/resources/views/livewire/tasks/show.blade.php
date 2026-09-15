@@ -27,7 +27,7 @@
             {{-- The task's own status, as a row of coloured chips. The current
                  one is lifted with a ring; the rest are dimmed until hovered. --}}
             @if ($task->category && $task->category->statuses->isNotEmpty())
-                <x-ui.card title="Status">
+                <x-ui.card title="Status" :description="$items->isNotEmpty() ? (int) round($doneCount / $items->count() * 100).'% of parts done' : null" collapsible>
                     <div class="flex flex-wrap gap-2" role="radiogroup" aria-label="Task status">
                         @foreach ($task->category->statuses as $status)
                             @php $current = $task->task_status_id === $status->id; @endphp
@@ -45,16 +45,25 @@
                     @if ($task->isDone())
                         <p class="mt-3 text-xs text-ink-muted">Completed {{ $task->completed_at?->timezone($organisation->timezone)->format('d M Y, H:i') }}.</p>
                     @endif
+
+            @if ($task->description)
+                <x-ui.card title="Description" collapsible :open="false">
+                    {{-- Rendered server-side with raw HTML stripped (Task::descriptionHtml). --}}
+                    <div class="prose-task text-sm text-ink-soft">{!! $task->descriptionHtml() !!}</div>
+                </x-ui.card>
+            @endif
                 </x-ui.card>
             @endif
 
             @if ($items->isNotEmpty())
-                <x-ui.card :padded="false" title="Parts" :description="$doneCount.' of '.$items->count().' done'">
+                @php $percent = (int) round($doneCount / max(1, $items->count()) * 100); @endphp
+                <x-ui.card :padded="false" title="Parts" :description="$percent.'% complete · '.$doneCount.' of '.$items->count().' done'" collapsible :open="false">
                     <x-slot:actions>
-                        <div class="flex w-28 items-center gap-2">
+                        <div class="flex w-36 items-center gap-2">
                             <div class="h-1.5 flex-1 overflow-hidden rounded-full bg-sunken">
-                                <div class="h-full rounded-full bg-positive transition-all duration-500" style="width: {{ (int) round($doneCount / max(1, $items->count()) * 100) }}%"></div>
+                                <div class="h-full rounded-full bg-positive transition-all duration-500" style="width: {{ $percent }}%"></div>
                             </div>
+                            <span class="numeric text-sm font-semibold text-ink">{{ $percent }}%</span>
                         </div>
                     </x-slot:actions>
 
@@ -118,7 +127,7 @@
                 </x-ui.card>
             @endif
 
-            <x-ui.card title="Activity" :description="$activity->count().' '.($activity->count() === 1 ? 'entry' : 'entries').' — comments and every change, with who made it'">
+            <x-ui.card title="Activity" :description="$activity->count().' '.($activity->count() === 1 ? 'entry' : 'entries').' — comments and every change, with who made it'" collapsible :open="false">
                 @if ($activity->isEmpty())
                     <p class="text-sm text-ink-muted">Nothing yet.</p>
                 @else
@@ -184,16 +193,10 @@
                 @endcan
             </x-ui.card>
 
-            @if ($task->description)
-                <x-ui.card title="Description">
-                    {{-- Rendered server-side with raw HTML stripped (Task::descriptionHtml). --}}
-                    <div class="prose-task text-sm text-ink-soft">{!! $task->descriptionHtml() !!}</div>
-                </x-ui.card>
-            @endif
         </div>
 
         <div class="space-y-5">
-            <x-ui.card title="People">
+            <x-ui.card title="People" collapsible :open="false">
                 <dl class="grid gap-x-6">
                     <x-ui.definition label="Assigned to">
                         @if ($task->assignees->isEmpty())
@@ -222,7 +225,7 @@
                 </dl>
             </x-ui.card>
 
-            <x-ui.card title="Details">
+            <x-ui.card title="Details" collapsible :open="false">
                 <dl class="grid gap-x-6">
                     <x-ui.definition label="Reference" :value="$organisation->reference('task', $task->id)" />
                     <x-ui.definition label="Category" :value="$task->category?->name ?? '—'" />

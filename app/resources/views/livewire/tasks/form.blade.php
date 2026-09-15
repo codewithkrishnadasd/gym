@@ -53,17 +53,54 @@
 
             <x-ui.card title="People" :description="'Who is doing this, and which '.strtolower($organisation->term('member_singular')).' it concerns. Both optional. Assignees and the person who raised it can see the task.'">
                 <div class="grid gap-5 sm:grid-cols-2">
-                    <x-ui.field label="Assigned to" name="assigneeIds">
-                        @if ($people->isEmpty())
+                    <x-ui.field label="Assigned to" name="assigneeIds" :hint="$assignees->isEmpty() ? 'Optional. Add as many people as needed.' : null">
+                        @if (! $hasPeople)
                             <p class="text-sm text-ink-muted">No active {{ strtolower($organisation->term('user_plural')) }} to assign.</p>
                         @else
-                            <div class="max-h-56 space-y-0.5 overflow-y-auto rounded-lg border border-hairline p-1.5">
-                                @foreach ($people as $person)
-                                    <x-ui.checkbox wire:model="assigneeIds" value="{{ $person->id }}"
-                                        :label="$person->user?->name"
-                                        :description="$person->isAdmin() ? 'Administrator' : $organisation->term('user_singular')" />
-                                @endforeach
+                            {{-- Same picker as the member: search, choose, and each
+                                 person drops into the list below with a remove. --}}
+                            <div class="relative">
+                                <x-heroicon-o-magnifying-glass class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-muted" />
+                                <input type="search" wire:model.live.debounce.300ms="assigneeSearch" placeholder="Search by name or phone…"
+                                    class="min-h-[40px] w-full rounded-lg border border-hairline-strong bg-surface py-2 pl-9 pr-3 text-sm text-ink placeholder:text-ink-muted focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25">
+                                <div wire:loading wire:target="assigneeSearch" class="absolute right-3 top-1/2 -translate-y-1/2 text-ink-muted"><x-ui.spinner size="xs" /></div>
                             </div>
+
+                            @if ($assigneeResults->isNotEmpty())
+                                <ul class="mt-1.5 divide-y divide-[var(--c-hairline)] overflow-hidden rounded-lg border border-hairline">
+                                    @foreach ($assigneeResults as $result)
+                                        <li>
+                                            <button type="button" wire:click="addAssignee({{ $result->id }})" class="flex w-full items-center gap-2.5 p-2.5 text-left transition hover:bg-raised">
+                                                <x-ui.avatar :name="$result->user?->name ?? '?'" size="sm" />
+                                                <span class="min-w-0 flex-1">
+                                                    <span class="block truncate text-sm font-medium text-ink">{{ $result->user?->name }}</span>
+                                                    <span class="block truncate text-xs text-ink-muted">{{ $result->isAdmin() ? 'Administrator' : $organisation->term('user_singular') }}{{ $result->user?->phone ? ' · '.$result->user->phone : '' }}</span>
+                                                </span>
+                                                <x-heroicon-o-plus class="h-4 w-4 shrink-0 text-accent" />
+                                            </button>
+                                        </li>
+                                    @endforeach
+                                </ul>
+                            @elseif ($assigneeSearch !== '')
+                                <p class="mt-1.5 text-xs text-ink-muted">No one matches “{{ $assigneeSearch }}”.</p>
+                            @endif
+
+                            @if ($assignees->isNotEmpty())
+                                <ul class="mt-2 space-y-1.5">
+                                    @foreach ($assignees as $person)
+                                        <li class="flex items-center justify-between gap-3 rounded-lg border border-hairline bg-raised p-2.5" wire:key="assignee-{{ $person->id }}">
+                                            <div class="flex min-w-0 items-center gap-2.5">
+                                                <x-ui.avatar :name="$person->user?->name ?? '?'" size="sm" tone="accent" />
+                                                <div class="min-w-0">
+                                                    <p class="truncate text-sm font-medium text-ink">{{ $person->user?->name }}</p>
+                                                    <p class="truncate text-xs text-ink-muted">{{ $organisation->reference('staff', $person->id) }} · {{ $person->isAdmin() ? 'Administrator' : $organisation->term('user_singular') }}</p>
+                                                </div>
+                                            </div>
+                                            <x-ui.button size="sm" variant="ghost" type="button" icon="x-mark" wire:click="removeAssignee({{ $person->id }})" aria-label="Remove {{ $person->user?->name }}">Remove</x-ui.button>
+                                        </li>
+                                    @endforeach
+                                </ul>
+                            @endif
                         @endif
                     </x-ui.field>
 

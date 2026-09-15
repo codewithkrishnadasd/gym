@@ -150,9 +150,9 @@
                                 class="flex items-center gap-3 p-4 transition hover:bg-raised">
                                 <x-ui.avatar :name="$member->name" />
                                 <div class="min-w-0 flex-1">
-                                    <div class="flex items-center gap-1.5">
-                                        <p class="truncate font-medium text-ink">{{ $member->name }}</p>
-                                        <x-ui.reference :value="$organisation->reference('member', $member->id)" />
+                                    <div class="flex min-w-0 items-center gap-1.5">
+                                        <p class="min-w-0 truncate font-medium text-ink">{{ $member->name }}</p>
+                                        <x-ui.reference :value="$organisation->reference('member', $member->id)" class="shrink-0" />
                                     </div>
                                     <p class="numeric truncate text-xs text-ink-muted">
                                         {{ $member->phone }} · {{ $member->primaryClub?->name ?? 'Unassigned' }}

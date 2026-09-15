@@ -12,7 +12,12 @@
         </x-slot:actions>
     </x-ui.page-header>
 
-    <div class="mb-4 grid grid-cols-3 gap-3">
+    {{-- All figures follow the filters below (except open/done), so
+         narrowing to a category or a person shows that slice's progress. --}}
+    <div class="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <x-ui.stat label="Completed" :value="$donePercent.'%'" icon="check-badge"
+            :tone="$totalCount > 0 && $doneCount === $totalCount ? 'positive' : 'accent'"
+            :hint="$doneCount.' of '.$totalCount.' '.($totalCount === 1 ? 'task' : 'tasks').($partsPercent !== null ? ' · parts '.$partsPercent.'% done' : '')" />
         <x-ui.stat label="Open" :value="$openCount" icon="check-circle" tone="neutral" />
         <x-ui.stat label="Due today" :value="$dueTodayCount" icon="calendar" :tone="$dueTodayCount > 0 ? 'caution' : 'neutral'" />
         <x-ui.stat label="Overdue" :value="$overdueCount" icon="exclamation-triangle" :tone="$overdueCount > 0 ? 'critical' : 'positive'" />
@@ -107,12 +112,15 @@
                                 @if ($total > 0)
                                     {{-- Progress of the task's parts, so a list scan shows how
                                          far along each piece of work is without opening it. --}}
-                                    <div class="flex shrink-0 items-center gap-2 sm:w-44">
+                                    @php $percent = (int) round($done / $total * 100); @endphp
+                                    <div class="flex shrink-0 items-center gap-2 sm:w-52">
                                         <div class="h-1.5 flex-1 overflow-hidden rounded-full bg-sunken">
-                                            <div class="h-full rounded-full bg-positive transition-all" style="width: {{ (int) round($done / $total * 100) }}%"></div>
+                                            <div class="h-full rounded-full bg-positive transition-all" style="width: {{ $percent }}%"></div>
                                         </div>
-                                        <span class="numeric text-xs text-ink-muted">{{ $done }}/{{ $total }}</span>
+                                        <span class="numeric w-20 text-right text-xs text-ink-muted"><span class="font-semibold text-ink">{{ $percent }}%</span> · {{ $done }}/{{ $total }}</span>
                                     </div>
+                                @elseif ($task->isDone())
+                                    <span class="numeric shrink-0 text-xs font-semibold text-positive">100%</span>
                                 @endif
                             </a>
                         </li>

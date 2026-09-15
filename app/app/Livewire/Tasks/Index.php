@@ -7,6 +7,7 @@ namespace App\Livewire\Tasks;
 use App\Livewire\Concerns\ResolvesMembership;
 use App\Models\Task;
 use App\Models\TaskCategory;
+use App\Models\TaskItem;
 use App\Models\TaskStatus;
 use App\Support\Search;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
@@ -65,6 +66,18 @@ class Index extends Component
      */
     protected function scope(): Builder
     {
+        return $this->scopeWithoutShow()
+            ->when($this->show === 'open', fn (Builder $query) => $query->whereNull('completed_at'))
+            ->when($this->show === 'done', fn (Builder $query) => $query->whereNotNull('completed_at'));
+    }
+
+    /**
+     * Every filter except the open/done switch.
+     *
+     * @return Builder<Task>
+     */
+    protected function scopeWithoutShow(): Builder
+    {
         $membership = $this->currentMembership();
 
         return Task::query()
@@ -85,9 +98,7 @@ class Index extends Component
                 }
             }))
             ->when($this->category !== '', fn (Builder $query) => $query->where('task_category_id', $this->category))
-            ->when($this->status !== '', fn (Builder $query) => $query->where('task_status_id', $this->status))
-            ->when($this->show === 'open', fn (Builder $query) => $query->whereNull('completed_at'))
-            ->when($this->show === 'done', fn (Builder $query) => $query->whereNotNull('completed_at'));
+            ->when($this->status !== '', fn (Builder $query) => $query->where('task_status_id', $this->status));
     }
 
     /**
@@ -119,9 +130,20 @@ class Index extends Component
     {
         $organisation = $this->organisation();
         $today = Carbon::today($organisation->timezone);
-        $open = Task::query()
-            ->when(! $this->currentMembership()->isAdmin(), fn (Builder $query) => $query->involving($this->currentMembership()))
-            ->whereNull('completed_at');
+
+        // The figures at the top describe exactly the tasks the filters have
+        // selected — ignoring the open/done switch, so "done" is a share of a
+        // whole rather than 0% or 100% of a half.
+        $selected = $this->scopeWithoutShow();
+        $totalCount = $selected->clone()->count();
+        $doneCount = $selected->clone()->whereNotNull('completed_at')->count();
+        $openIds = $selected->clone()->whereNull('completed_at');
+
+        $partsQuery = TaskItem::query()
+            ->whereIn('task_id', $selected->clone()->select('tasks.id'))
+            ->leftJoin('task_statuses', 'task_statuses.id', '=', 'task_items.task_status_id');
+        $partsTotal = (int) $partsQuery->clone()->count();
+        $partsDone = (int) $partsQuery->clone()->where('task_statuses.completes', true)->count();
 
         return view('livewire.tasks.index', [
             'organisation' => $organisation,
@@ -129,9 +151,13 @@ class Index extends Component
             'tasks' => $this->tasks(),
             'categories' => TaskCategory::query()->where('status', 'active')->orderBy('position')->orderBy('name')->get(),
             'statuses' => $this->statusesForFilter(),
-            'openCount' => $open->clone()->count(),
-            'overdueCount' => $open->clone()->whereDate('due_date', '<', $today->toDateString())->count(),
-            'dueTodayCount' => $open->clone()->whereDate('due_date', $today->toDateString())->count(),
+            'totalCount' => $totalCount,
+            'doneCount' => $doneCount,
+            'donePercent' => $totalCount === 0 ? 0 : (int) round($doneCount / $totalCount * 100),
+            'partsPercent' => $partsTotal === 0 ? null : (int) round($partsDone / $partsTotal * 100),
+            'openCount' => $openIds->clone()->count(),
+            'overdueCount' => $openIds->clone()->whereDate('due_date', '<', $today->toDateString())->count(),
+            'dueTodayCount' => $openIds->clone()->whereDate('due_date', $today->toDateString())->count(),
             'canManageCategories' => auth()->user()?->can('manage', TaskCategory::class) ?? false,
         ])->layout('components.layouts.app', ['heading' => 'Tasks']);
     }

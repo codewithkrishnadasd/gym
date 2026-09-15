@@ -209,7 +209,14 @@ it('assigns people and tags a member, and gives every task a reference', functio
     Livewire::test(TaskForm::class)
         ->set('categoryId', $this->category->id)
         ->set('title', 'Call about renewal')
-        ->set('assigneeIds', [$helper->id, $admin->id])
+        // Search-and-add, one person at a time; the same design as the member picker.
+        ->set('assigneeSearch', 'Hari')
+        ->assertSee('Helper Hari')
+        ->call('addAssignee', $helper->id)
+        ->call('addAssignee', $admin->id)
+        ->call('addAssignee', $helper->id)
+        ->assertSet('assigneeIds', [$helper->id, $admin->id])
+        ->assertSee('Remove')
         ->call('selectMember', $member->id)
         ->assertSet('memberId', $member->id)
         ->call('save')
@@ -310,7 +317,7 @@ it('shows who changed what, in order, as activity', function (): void {
     Livewire::test(TaskForm::class, ['task' => $task])
         ->set('title', 'Service rowers and bikes')
         ->set('dueDate', '2026-10-01')
-        ->set('assigneeIds', [$helper->id])
+        ->call('addAssignee', $helper->id)
         ->call('save')
         ->assertHasNoErrors();
 
@@ -359,4 +366,46 @@ it('has a help guide for writing descriptions', function (): void {
         ->assertSee('## Sub title')
         ->assertSee('- [ ] To do')
         ->assertSee('Checkbox, ticked');
+});
+
+it('shows completion as a percentage, overall and per task, following the filters', function (): void {
+    $admin = signIn($this->organisation, admin: true);
+    $other = TaskCategory::factory()->create(['organisation_id' => $this->organisation->id, 'name' => 'Events']);
+    // First status is where new tasks start, so it must be an open one.
+    TaskStatus::factory()->create(['organisation_id' => $this->organisation->id, 'task_category_id' => $other->id, 'name' => 'Planned', 'position' => 0]);
+    TaskStatus::factory()->completes()->create(['organisation_id' => $this->organisation->id, 'task_category_id' => $other->id, 'position' => 1]);
+
+    $done = app(CreateTask::class)->handle($this->category, ['title' => 'Finished one'], $admin);
+    $done->items()->update(['task_status_id' => $this->subDone->id]);
+    $done->moveTo($this->done);
+    $half = app(CreateTask::class)->handle($this->category, ['title' => 'Half way'], $admin);
+    app(CreateTask::class)->handle($other, ['title' => 'Elsewhere'], $admin);
+
+    // Everything: 1 of 3 done.
+    $this->get('http://tasks.test/tasks?show=all')->assertOk()->assertSee('33%')->assertSee('1 of 3 tasks');
+
+    // Filtered to one category: 1 of 2, and its parts are half done.
+    $this->get('http://tasks.test/tasks?category='.$this->category->id.'&show=all')
+        ->assertOk()->assertSee('50%')->assertSee('1 of 2 tasks')->assertSee('parts 50% done')
+        // Per task: the open one shows 0% · 0/1, the finished one 100%.
+        ->assertSee('0%')->assertSee('100%');
+
+    // The open/done switch does not change the share: still 1 of 2.
+    $this->get('http://tasks.test/tasks?category='.$this->category->id.'&show=open')->assertOk()->assertSee('1 of 2 tasks');
+
+    $this->get('http://tasks.test/tasks/'.$half->id)->assertOk()->assertSee('0% complete');
+});
+
+it('removes an assignee from the list before saving', function (): void {
+    signIn($this->organisation, admin: true);
+    $a = OrganisationUser::factory()->create(['organisation_id' => $this->organisation->id, 'user_id' => User::factory()->create(['name' => 'Anu'])->id]);
+    $b = OrganisationUser::factory()->create(['organisation_id' => $this->organisation->id, 'user_id' => User::factory()->create(['name' => 'Bala'])->id]);
+
+    Livewire::test(TaskForm::class)
+        ->call('addAssignee', $a->id)
+        ->call('addAssignee', $b->id)
+        ->call('removeAssignee', $a->id)
+        ->assertSet('assigneeIds', [$b->id])
+        ->assertSee('Bala')
+        ->assertDontSee('Anu');
 });
