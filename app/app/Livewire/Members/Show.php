@@ -149,13 +149,21 @@ class Show extends Component
         $this->reset(['planId', 'planDiscount']);
         $this->dispatch('close-modal', 'start-plan');
 
-        // Straight on to collecting the fee for the term just created, with
-        // the member and the term already chosen. The plan-started WhatsApp
-        // message waits in Messages.
-        session()->flash('status', "\"{$plan->name}\" ".($subscription->start_date->isFuture() ? 'renewed' : 'started')." for {$this->member->name} — collect the fee below.");
+        $verb = $subscription->start_date->isFuture() ? 'renewed' : 'started';
         session()->flash('notification_id', $this->latestSubscriptionNotification($subscription->id));
 
-        $this->redirect(route('tenant.finance.payments.create', ['member' => $this->member->id, 'subscription' => $subscription->id]), navigate: true);
+        // Straight on to collecting the fee for the term just created, with
+        // the member and the term already chosen — where fees are collected
+        // here at all. The plan-started WhatsApp message waits in Messages.
+        if (auth()->user()?->can('create', FeePayment::class)) {
+            session()->flash('status', "\"{$plan->name}\" {$verb} for {$this->member->name} — collect the fee below.");
+            $this->redirect(route('tenant.finance.payments.create', ['member' => $this->member->id, 'subscription' => $subscription->id]), navigate: true);
+
+            return;
+        }
+
+        session()->flash('status', "\"{$plan->name}\" {$verb} for {$this->member->name}.");
+        $this->redirect(route('tenant.members.show', ['member' => $this->member->id, 'tab' => 'plans']), navigate: true);
     }
 
     public function changePlanStatus(int $subscriptionId, string $status): void

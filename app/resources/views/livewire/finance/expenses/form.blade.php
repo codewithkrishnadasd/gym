@@ -48,8 +48,13 @@
                 </div>
             </x-ui.card>
 
+            @if (count($targetTypes) > 1)
             <x-ui.card title="Attribute to"
-                description="Optionally tie this expense to a specific club, member, or staff member for reporting.">
+                :description="'Optionally tie this expense to a specific '.collect($targetTypes)->reject(fn ($type) => $type->value === 'organisation')->map(fn ($type) => match ($type->value) {
+                    'club' => strtolower($organisation->term('club_singular')),
+                    'member' => strtolower($organisation->term('member_singular')),
+                    default => strtolower($organisation->term('user_singular')),
+                })->join(', ', ' or ').' for reporting.'">
                 <div class="grid gap-4 sm:grid-cols-2">
                     <x-ui.select wire:model.live="targetType" name="targetType" label="Target type">
                         <option value="">None</option>
@@ -82,6 +87,7 @@
                     @endif
                 </div>
             </x-ui.card>
+            @endif
         </div>
 
         <div class="space-y-5">

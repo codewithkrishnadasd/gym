@@ -12,7 +12,7 @@
                             <div class="min-w-0">
                                 <p class="truncate text-sm font-medium text-ink">{{ $selectedMember->name }}</p>
                                 <p class="truncate text-xs text-ink-muted">
-                                    {{ $selectedMember->phone }} &middot; {{ $selectedMember->primaryClub?->name ?? 'No club' }}
+                                    {{ $selectedMember->phone }}@if ($organisation->usesClubs()) &middot; {{ $selectedMember->primaryClub?->name ?? 'No club' }}@endif
                                 </p>
                             </div>
                         </div>
@@ -40,7 +40,7 @@
                                         <x-ui.avatar :name="$result->name" size="sm" />
                                         <span class="min-w-0">
                                             <span class="block truncate text-sm font-medium text-ink">{{ $result->name }}</span>
-                                            <span class="block truncate text-xs text-ink-muted">{{ $result->phone }} &middot; {{ $result->primaryClub?->name ?? 'No club' }}</span>
+                                            <span class="block truncate text-xs text-ink-muted">{{ $result->phone }}@if ($organisation->usesClubs()) &middot; {{ $result->primaryClub?->name ?? 'No club' }}@endif</span>
                                         </span>
                                     </button>
                                 </li>

@@ -150,7 +150,8 @@ final class Navigation
         }
 
         $insightItems = array_values(array_filter([
-            $has(Feature::Reports) && ($isAdmin || $can('reports.view_assigned')) ? [
+            // Reports need something to report on.
+            $has(Feature::Reports) && ($has(Feature::Members) || $has(Feature::Payments) || $has(Feature::Expenses)) && ($isAdmin || $can('reports.view_assigned')) ? [
                 'label' => 'Reports',
                 'route' => 'tenant.reports.index',
                 'icon' => 'chart-bar',

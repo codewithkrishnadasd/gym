@@ -232,6 +232,26 @@ it('runs members, plans, and fees without the Clubs module', function (): void {
     $this->get('http://features.test/finance/payments/'.$payment->id.'/receipt')->assertOk();
 });
 
+it('saves a new member when clubs exist but the Clubs module is off', function (): void {
+    // The one club would otherwise be preselected and then fail validation on
+    // a field the form no longer shows — the member silently never saved.
+    Club::factory()->create(['organisation_id' => $this->organisation->id, 'admission_fee_minor' => 50000]);
+
+    enableOnly([Feature::Members]);
+
+    Livewire::test(MemberForm::class)
+        ->assertSet('primaryClubId', null)
+        ->set('name', 'Lone Lee')
+        ->set('phone', '9876512345')
+        ->call('save')
+        ->assertHasNoErrors()
+        ->assertRedirect();
+
+    $member = Member::query()->where('name', 'Lone Lee')->firstOrFail();
+    expect($member->primary_club_id)->toBeNull()
+        ->and($member->admission_fee_minor)->toBe(0);
+});
+
 it('marks member attendance organisation-wide without the Clubs module', function (): void {
     enableOnly([Feature::Members, Feature::Attendance]);
 

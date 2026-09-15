@@ -2,7 +2,7 @@
     <x-ui.flash />
 
     <x-ui.page-header :title="$invoice->number" :back="route('tenant.billing.index')" back-label="Invoices"
-        :description="'Issued '.$invoice->issue_date->format('d M Y').' · '.$invoice->club?->name">
+        :description="collect(['Issued '.$invoice->issue_date->format('d M Y'), $organisation->usesClubs() ? $invoice->club?->name : null])->filter()->join(' · ')">
         <x-slot:actions>
             <x-ui.download-button icon="arrow-down-tray" :what="'invoice '.$invoice->number.' as a PDF'" :href="route('tenant.billing.pdf', $invoice)">PDF</x-ui.download-button>
 

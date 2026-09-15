@@ -135,7 +135,7 @@
                     </x-ui.card>
                 @endcan
 
-                @if ($history->isNotEmpty())
+                @if ($history->isNotEmpty() && $organisation->usesClubs())
                     <x-ui.card :padded="false" :title="$organisation->term('club_singular').' history'">
                         <ol class="divide-y divide-[var(--c-hairline)]">
                             @foreach ($history as $entry)

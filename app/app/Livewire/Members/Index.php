@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Livewire\Members;
 
+use App\Enums\Feature;
 use App\Enums\MemberStatus;
 use App\Enums\SubscriptionHealth;
 use App\Enums\SubscriptionStatus;
@@ -96,6 +97,19 @@ class Index extends Component
     public function mount(): void
     {
         $this->authorize('viewAny', Member::class);
+
+        // Filters for modules that are off cannot be set on screen; a stale
+        // link carrying one is ignored rather than quietly narrowing the list.
+        if (! $this->organisation()->usesClubs()) {
+            $this->club = '';
+        }
+
+        if (! $this->organisation()->hasFeature(Feature::Plans)) {
+            $this->plan = '';
+            $this->planId = '';
+            $this->balance = '';
+            $this->endingBy = '';
+        }
     }
 
     public function updated(string $property): void

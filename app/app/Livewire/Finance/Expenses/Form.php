@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Livewire\Finance\Expenses;
 
 use App\Enums\ExpenseTargetType;
+use App\Enums\Feature;
 use App\Enums\FinancialAccountStatus;
 use App\Livewire\Concerns\ResolvesMembership;
 use App\Models\AuditEvent;
@@ -103,7 +104,7 @@ class Form extends Component
             'payee' => ['nullable', 'string', 'max:255'],
             // MEP.md 10: an expense needs a description or a payee.
             'description' => ['required_without:payee', 'nullable', 'string', 'max:1000'],
-            'targetType' => ['nullable', Rule::enum(ExpenseTargetType::class)],
+            'targetType' => ['nullable', Rule::in(array_map(fn (ExpenseTargetType $type): string => $type->value, $this->availableTargetTypes()))],
             'targetId' => ['nullable', 'integer'],
             'receipt' => ['nullable', 'file', 'mimes:jpg,jpeg,png,webp,pdf', 'max:5120'],
         ], [
@@ -193,6 +194,24 @@ class Form extends Component
         }
     }
 
+    /**
+     * What an expense can be attributed to: the organisation, and the people
+     * and places of whichever modules are on.
+     *
+     * @return array<int, ExpenseTargetType>
+     */
+    private function availableTargetTypes(): array
+    {
+        $organisation = $this->organisation();
+
+        return array_values(array_filter(ExpenseTargetType::cases(), fn (ExpenseTargetType $type): bool => match ($type) {
+            ExpenseTargetType::Club => $organisation->usesClubs(),
+            ExpenseTargetType::Member => $organisation->hasFeature(Feature::Members),
+            ExpenseTargetType::User => $organisation->hasFeature(Feature::Staff),
+            ExpenseTargetType::Organisation => true,
+        }));
+    }
+
     public function render(): View
     {
         $organisation = $this->organisation();
@@ -202,7 +221,7 @@ class Form extends Component
             'clubs' => $this->accessibleClubs(true),
             'accounts' => FinancialAccount::query()->where('status', FinancialAccountStatus::Active)->orderBy('name')->get(),
             'categories' => Expense::categoriesForEntry($organisation),
-            'targetTypes' => ExpenseTargetType::cases(),
+            'targetTypes' => $this->availableTargetTypes(),
             'members' => $this->targetType === ExpenseTargetType::Member->value
                 ? Member::query()->orderBy('name')->limit(200)->get()
                 : collect(),

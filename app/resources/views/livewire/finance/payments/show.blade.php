@@ -2,7 +2,7 @@
     <x-ui.flash />
 
     <x-ui.page-header :title="'Payment '.$organisation->reference('payment', $payment->id)" :back="route('tenant.finance.payments.index')" back-label="Payments"
-        :description="collect([$payment->member->name, $payment->club?->name])->filter()->join(' · ')">
+        :description="collect([$payment->member->name, $organisation->usesClubs() ? $payment->club?->name : null])->filter()->join(' · ')">
         <x-slot:actions>
             @can('notify', $payment)
                 <x-ui.download-button icon="document-arrow-down" what="the receipt for this payment as a PDF" :href="route('tenant.finance.payments.receipt', $payment)">Receipt PDF</x-ui.download-button>

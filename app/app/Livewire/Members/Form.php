@@ -87,7 +87,7 @@ class Form extends Component
         } else {
             $this->joinedAt = now($this->organisation()->timezone)->toDateString();
             $this->planStartDate = $this->joinedAt;
-            $this->primaryClubId = $this->presetClubId();
+            $this->primaryClubId = $this->organisation()->usesClubs() ? $this->presetClubId() : null;
         }
     }
 
@@ -113,6 +113,12 @@ class Form extends Component
     {
         $this->authorize($this->member ? 'update' : 'create', $this->member ?? Member::class);
 
+        // Without the Clubs module nothing is chosen and nothing is stored,
+        // whatever clubs may still exist from before it was switched off.
+        if (! $this->organisation()->usesClubs()) {
+            $this->primaryClubId = null;
+        }
+
         $validated = $this->validate([
             'name' => ['required', 'string', 'max:255'],
             'phone' => ['required', 'string', 'max:50'],
@@ -123,7 +129,7 @@ class Form extends Component
             // the Clubs module there is no club to choose and none is stored.
             'primaryClubId' => $this->organisation()->usesClubs()
                 ? ['required', Rule::in($this->accessibleClubs()->pluck('id')->all())]
-                : ['nullable', Rule::in([])],
+                : ['nullable', 'prohibited'],
             'addressLine' => ['nullable', 'string', 'max:255'],
             'joinedAt' => ['required', 'date'],
             'status' => ['required', Rule::enum(MemberStatus::class)],

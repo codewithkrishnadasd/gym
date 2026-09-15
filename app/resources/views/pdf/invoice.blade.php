@@ -63,7 +63,7 @@
             <td>
                 <strong>{{ $invoice->member->name }}</strong>
                 @if ($invoice->member->phone) <span class="muted">· {{ $invoice->member->phone }}</span> @endif
-                @if ($invoice->club)<div class="muted">{{ $invoice->club->name }}</div>@endif
+                @if ($invoice->club && $organisation->usesClubs())<div class="muted">{{ $invoice->club->name }}</div>@endif
             </td>
             <td class="label">Issued</td>
             <td>{{ $invoice->issue_date->format('d M Y') }}</td>

@@ -114,7 +114,7 @@
                                     <x-ui.avatar :name="$selectedMember->name" size="sm" tone="accent" />
                                     <div class="min-w-0">
                                         <p class="truncate text-sm font-medium text-ink">{{ $selectedMember->name }}</p>
-                                        <p class="truncate text-xs text-ink-muted">{{ $organisation->reference('member', $selectedMember->id) }} · {{ $selectedMember->primaryClub?->name ?? 'No club' }}</p>
+                                        <p class="truncate text-xs text-ink-muted">{{ collect([$organisation->reference('member', $selectedMember->id), $organisation->usesClubs() ? ($selectedMember->primaryClub?->name ?? 'No club') : null])->filter()->join(' · ') }}</p>
                                     </div>
                                 </div>
                                 <x-ui.button size="sm" variant="ghost" type="button" wire:click="clearMember">Change</x-ui.button>
@@ -133,7 +133,7 @@
                                                 <x-ui.avatar :name="$result->name" size="sm" />
                                                 <span class="min-w-0">
                                                     <span class="block truncate text-sm font-medium text-ink">{{ $result->name }}</span>
-                                                    <span class="block truncate text-xs text-ink-muted">{{ $result->phone }} · {{ $result->primaryClub?->name ?? 'No club' }}</span>
+                                                    <span class="block truncate text-xs text-ink-muted">{{ collect([$result->phone, $organisation->usesClubs() ? ($result->primaryClub?->name ?? 'No club') : null])->filter()->join(' · ') }}</span>
                                                 </span>
                                             </button>
                                         </li>

@@ -1,7 +1,7 @@
 <div>
     <x-ui.flash />
 
-    <x-ui.page-header title="Expenses" description="Money going out, by club, category, target, and funding account.">
+    <x-ui.page-header title="Expenses" :description="$organisation->usesClubs() ? 'Money going out, by club, category, target, and funding account.' : 'Money going out, by category, target, and funding account.'">
         <x-slot:actions>
             <x-ui.download-button icon="arrow-down-tray" what="a CSV of the expenses shown" note="It uses the filters currently applied." :href="route('tenant.finance.expenses.export', request()->query())">Export CSV</x-ui.download-button>
             @can('create', \App\Models\Expense::class)
@@ -84,7 +84,9 @@
                     <x-ui.th>Date</x-ui.th>
                     <x-ui.th>Category</x-ui.th>
                     <x-ui.th>Description</x-ui.th>
-                    <x-ui.th>{{ $organisation->term('club_singular') }}</x-ui.th>
+                    @if ($organisation->usesClubs())
+                        <x-ui.th>{{ $organisation->term('club_singular') }}</x-ui.th>
+                    @endif
                     <x-ui.th>Paid from</x-ui.th>
                     <x-ui.th align="right">Amount</x-ui.th>
                     <x-ui.th>Status</x-ui.th>
@@ -102,7 +104,9 @@
                                 <p class="text-xs text-ink-muted">to {{ $expense->payee }}</p>
                             @endif
                         </x-ui.td>
-                        <x-ui.td>{{ $expense->club?->name ?? 'Organisation-wide' }}</x-ui.td>
+                        @if ($organisation->usesClubs())
+                            <x-ui.td>{{ $expense->club?->name ?? 'Organisation-wide' }}</x-ui.td>
+                        @endif
                         <x-ui.td>{{ $expense->fundingAccount?->name ?? '—' }}</x-ui.td>
                         <x-ui.td align="right" numeric class="font-medium text-ink">{{ $organisation->money($expense->amount_minor) }}</x-ui.td>
                         <x-ui.td><x-ui.badge :tone="$expense->status->tone()">{{ $expense->status->label() }}</x-ui.badge></x-ui.td>
@@ -132,8 +136,8 @@
                                 <p class="font-medium text-ink">{{ $expense->category }}
                                     <x-ui.reference :value="$organisation->reference('expense', $expense->id)" class="ml-1" /></p>
                                 <p class="mt-0.5 truncate text-xs text-ink-muted">
-                                    {{ $expense->expense_date->format('d M Y') }} &middot;
-                                    {{ $expense->club?->name ?? 'Organisation-wide' }}
+                                    {{ $expense->expense_date->format('d M Y') }}
+                                    @if ($organisation->usesClubs()) &middot; {{ $expense->club?->name ?? 'Organisation-wide' }} @endif
                                 </p>
                                 @if ($expense->description)
                                     <p class="mt-1 line-clamp-2 text-sm text-ink-soft">{{ $expense->description }}</p>

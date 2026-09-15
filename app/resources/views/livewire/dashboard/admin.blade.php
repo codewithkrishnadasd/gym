@@ -19,9 +19,9 @@
     <x-ui.page-header :title="'Good '.(now($organisation->timezone)->hour < 12 ? 'morning' : (now($organisation->timezone)->hour < 17 ? 'afternoon' : 'evening')).', '.\Illuminate\Support\Str::before($membership->user?->name ?? '', ' ')"
         :description="$organisation->name.' · '.$period->label()">
         <x-slot:actions>
-            @feature('reports')
+            @if ($organisation->hasFeature('reports') && ($organisation->hasFeature('members') || $organisation->hasFeature('payments') || $organisation->hasFeature('expenses')))
                 <x-ui.button icon="chart-bar" :href="route('tenant.reports.index')" wire:navigate>Reports</x-ui.button>
-            @endfeature
+            @endif
             @can('create', \App\Models\FeePayment::class)
                 <x-ui.button variant="primary" icon="plus" :href="route('tenant.finance.payments.create')" wire:navigate>Collect fee</x-ui.button>
             @elsecan('create', \App\Models\Member::class)

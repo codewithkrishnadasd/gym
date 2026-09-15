@@ -65,7 +65,7 @@
                     <tr class="transition hover:bg-raised">
                         <x-ui.td>
                             <a href="{{ route('tenant.billing.show', $invoice) }}" wire:navigate class="font-mono text-sm font-medium text-ink hover:text-accent">{{ $invoice->number }}</a>
-                            <p class="text-xs text-ink-muted">{{ $invoice->issue_date->format('d M Y') }} · {{ $invoice->club?->name }}</p>
+                            <p class="text-xs text-ink-muted">{{ collect([$invoice->issue_date->format('d M Y'), $organisation->usesClubs() ? $invoice->club?->name : null])->filter()->join(' · ') }}</p>
                         </x-ui.td>
                         <x-ui.td>
                             <a href="{{ route('tenant.members.show', $invoice->member_id) }}" wire:navigate class="text-ink hover:text-accent">{{ $invoice->member?->name }}</a>
