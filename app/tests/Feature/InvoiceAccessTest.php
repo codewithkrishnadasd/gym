@@ -137,19 +137,23 @@ it('lets staff with billing.create raise an invoice for their own club only', fu
         ->assertSet('memberId', null);
 });
 
-it('bumps the quantity when the same catalogue item is added twice', function (): void {
+it('adds a line the moment an item is picked, and bumps the quantity when it is picked again', function (): void {
     staffOn(['billing.create' => true], [$this->clubA]);
 
     $item = BillableItem::factory()->create(['organisation_id' => $this->organisation->id, 'unit_price_minor' => 150000]);
 
     Livewire::test(InvoiceForm::class)
         ->set('pickedItemId', $item->id)
-        ->call('addItem')
+        ->assertCount('lines', 1)
+        // The picker resets so the next choice is a fresh gesture.
+        ->assertSet('pickedItemId', null)
         ->set('pickedItemId', $item->id)
-        ->call('addItem')
         ->assertSet('lines.0.quantity', 2)
         ->assertSet('lines.0.price', '1500')
-        ->assertCount('lines', 1);
+        ->assertCount('lines', 1)
+        ->call('addCustomLine')
+        ->assertCount('lines', 2)
+        ->assertSet('lines.1.billable_item_id', null);
 });
 
 it('refuses a payment larger than what is still owed on the invoice', function (): void {

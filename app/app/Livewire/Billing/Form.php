@@ -79,12 +79,23 @@ class Form extends Component
     }
 
     /**
+     * Choosing an item in the picker is the whole gesture: the line is added
+     * and the picker resets, ready for the next one.
+     */
+    public function updatedPickedItemId(): void
+    {
+        $this->addItem();
+    }
+
+    /**
      * Adds a line from the price list, pre-filled with its current price. The
      * same item picked twice bumps the quantity rather than repeating a row.
      */
     public function addItem(): void
     {
-        if ($this->pickedItemId === null) {
+        if ($this->pickedItemId === null || $this->pickedItemId === 0) {
+            $this->pickedItemId = null;
+
             return;
         }
 

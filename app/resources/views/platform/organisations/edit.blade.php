@@ -106,13 +106,97 @@
             </x-ui.card>
 
             @php
-                $accent = old('accent_color', $organisation->accent_color) ?: \App\Support\Theme\AccentPalette::DEFAULT_ACCENT;
+                $enabledFeatures = \App\Enums\Feature::expand((array) old('features', $organisation->enabledFeatures()));
+                $featureRequirements = collect(\App\Enums\Feature::cases())
+                    ->mapWithKeys(fn ($feature) => [$feature->value => array_map(fn ($required) => $required->value, $feature->requires())])
+                    ->all();
+                $featureLabels = collect(\App\Enums\Feature::cases())
+                    ->mapWithKeys(fn ($feature) => [$feature->value => $feature->label()])
+                    ->all();
+            @endphp
+
+            <x-ui.card title="Features"
+                description="Which parts of the application this organisation can use. Anything unticked is absent for them — no menu entry, no pages, no data shown elsewhere. Ticking a module ticks what it cannot work without.">
+                {{-- State lives on a plain div: @js() inside an x-component
+                     attribute is not compiled by Livewire's Blade pass. --}}
+                <div x-data="{
+                    enabled: @js($enabledFeatures),
+                    requires: @js($featureRequirements),
+                    labels: @js($featureLabels),
+                    has(key) {
+                        return this.enabled.includes(key);
+                    },
+                    neededBy(key) {
+                        return Object.entries(this.requires)
+                            .filter(([dependent, needs]) => needs.includes(key) && this.has(dependent))
+                            .map(([dependent]) => dependent);
+                    },
+                    toggle(key) {
+                        if (this.has(key)) {
+                            if (this.neededBy(key).length) return;
+                            this.enabled = this.enabled.filter((k) => k !== key);
+                            return;
+                        }
+                        const add = (k) => {
+                            if (this.enabled.includes(k)) return;
+                            this.enabled.push(k);
+                            (this.requires[k] ?? []).forEach(add);
+                        };
+                        add(key);
+                    },
+                }" class="space-y-5">
+                    @foreach (\App\Enums\Feature::grouped() as $group => $features)
+                        <div>
+                            <p class="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-muted">{{ $group }}</p>
+                            <div class="grid gap-2 sm:grid-cols-2">
+                                @foreach ($features as $feature)
+                                    <label class="flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition"
+                                        :class="has('{{ $feature->value }}') ? 'border-accent/40 bg-accent-soft/40' : 'border-hairline bg-surface hover:bg-raised'">
+                                        <input type="checkbox" name="features[]" value="{{ $feature->value }}"
+                                            :checked="has('{{ $feature->value }}')"
+                                            x-on:click.prevent="toggle('{{ $feature->value }}')"
+                                            class="mt-0.5 h-4 w-4 shrink-0 rounded border-hairline-strong text-accent focus:ring-accent/25">
+                                        <span class="min-w-0 flex-1">
+                                            <span class="flex items-center gap-1.5 text-sm font-medium text-ink">
+                                                <x-dynamic-component :component="'heroicon-o-'.$feature->icon()" class="h-4 w-4 text-ink-muted" />
+                                                {{ $feature->label() }}
+                                            </span>
+                                            <span class="mt-0.5 block text-xs text-ink-muted">{{ $feature->description() }}</span>
+                                            @if ($feature->requires() !== [])
+                                                <span class="mt-1 block text-[11px] text-ink-soft">
+                                                    Needs {{ collect($feature->requires())->map(fn ($required) => $required->label())->join(' and ') }}
+                                                </span>
+                                            @endif
+                                            <span x-show="has('{{ $feature->value }}') && neededBy('{{ $feature->value }}').length" x-cloak class="mt-1 block text-[11px] text-caution"
+                                                x-text="'Kept on for ' + neededBy('{{ $feature->value }}').map((k) => labels[k]).join(', ')"></span>
+                                        </span>
+                                    </label>
+                                @endforeach
+                            </div>
+                        </div>
+                    @endforeach
+
+                    <p class="text-xs text-ink-muted">
+                        Switching a module off hides it; nothing already recorded is deleted, and switching it back on
+                        brings the data back.
+                    </p>
+                </div>
+            </x-ui.card>
+
+            @php
+                // The accent is the palette's light "Primary" colour. An
+                // organisation that set an accent before the palette existed
+                // sees it here as that colour and keeps it on save.
                 $overrides = \App\Support\Theme\ThemeTokens::sanitize(old('theme', $organisation->theme_colors ?? []));
-                $derived = \App\Support\Theme\ThemeTokens::derivedFromAccent($accent);
+
+                if (! isset($overrides['light']['accent']) && $organisation->accent_color) {
+                    $overrides['light']['accent'] = $organisation->accent_color;
+                }
+
+                $accent = $overrides['light']['accent'] ?? \App\Support\Theme\AccentPalette::DEFAULT_ACCENT;
                 $themeState = [
-                    'accent' => $accent,
                     'defaults' => \App\Support\Theme\ThemeTokens::DEFAULTS,
-                    'derived' => $derived,
+                    'derived' => \App\Support\Theme\ThemeTokens::derivedFromAccent($accent),
                     'theme' => [
                         'light' => $overrides['light'] ?? [],
                         'dark' => $overrides['dark'] ?? [],
@@ -123,14 +207,12 @@
             @endphp
 
             <x-ui.card title="Appearance"
-                description="How the application looks on this organisation's domains. Start from one accent colour; open the full palette to set any colour for the light and dark themes separately.">
+                description="Every colour the application uses on this organisation's domains, for the light and dark themes separately. The light theme's primary colour is the brand accent: tints and the text on it are derived from it on save unless set here.">
 
                 {{-- State lives on a plain div: @js() inside an x-component
                      attribute is not compiled by Livewire's Blade pass. --}}
                 <div x-data="{
                     ...@js($themeState),
-                    mode: 'light',
-                    advanced: {{ $overrides === [] ? 'false' : 'true' }},
                     value(theme, key) {
                         return this.theme[theme][key] || this.derived[theme][key] || this.defaults[theme][key];
                     },
@@ -163,52 +245,6 @@
                             .filter((pair) => pair.ratio < 4.5);
                     },
                 }" class="space-y-5">
-
-                    <div class="flex flex-col gap-4 sm:flex-row sm:items-start">
-                        <div class="shrink-0">
-                            <x-ui.field label="Accent colour" for="accent_color" name="accent_color">
-                                <div class="flex items-center gap-2">
-                                    <input type="color" id="accent_color" name="accent_color" x-model="accent"
-                                        class="h-10 w-14 cursor-pointer rounded-lg border border-hairline-strong bg-surface p-1">
-                                    <input type="text" x-model="accent" aria-label="Accent colour hex"
-                                        class="numeric min-h-[40px] w-28 rounded-lg border border-hairline-strong bg-surface px-3 py-2 font-mono text-sm uppercase text-ink focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25">
-                                </div>
-                            </x-ui.field>
-                        </div>
-
-                        <div class="flex-1 space-y-2">
-                            <div class="flex flex-wrap items-center gap-2 rounded-lg border border-hairline bg-surface p-3">
-                                <span class="text-xs font-medium uppercase tracking-wide text-ink-muted">Light</span>
-                                <span class="rounded-lg px-3 py-1.5 text-sm font-medium"
-                                    :style="`background:${accent};color:{{ $derived['light']['on-accent'] ?? '#ffffff' }}`">Button</span>
-                                <span class="rounded-md px-2 py-0.5 text-xs font-medium"
-                                    style="background: {{ $derived['light']['accent-soft'] ?? '#ecfdff' }}; color: {{ $derived['light']['accent-ink'] ?? '#0e7490' }}">Badge</span>
-                            </div>
-
-                            <div class="flex flex-wrap items-center gap-2 rounded-lg border border-hairline p-3" style="background:#080d18">
-                                <span class="text-xs font-medium uppercase tracking-wide" style="color:#6f7f99">Dark</span>
-                                <span class="rounded-lg px-3 py-1.5 text-sm font-medium"
-                                    style="background: {{ $derived['dark']['accent'] ?? '#22d3ee' }}; color: {{ $derived['dark']['on-accent'] ?? '#04212b' }}">Button</span>
-                                <span class="rounded-md px-2 py-0.5 text-xs font-medium"
-                                    style="background: {{ $derived['dark']['accent-soft'] ?? '#0c3441' }}; color: {{ $derived['dark']['accent-ink'] ?? '#67e8f9' }}">Badge</span>
-                            </div>
-
-                            <p class="text-xs text-ink-muted">
-                                Buttons, links, and active navigation. Tints and the text colour on the accent are derived
-                                automatically for both themes and refresh on save; anything set in the full palette below
-                                overrides the derived value.
-                            </p>
-                        </div>
-                    </div>
-
-                    <div class="border-t border-hairline pt-4">
-                        <button type="button" x-on:click="advanced = !advanced"
-                            class="inline-flex items-center gap-1.5 text-sm font-medium text-accent hover:underline">
-                            <x-heroicon-o-chevron-right class="h-4 w-4 transition" x-bind:class="advanced && 'rotate-90'" />
-                            <span x-text="advanced ? 'Hide full palette' : 'Full palette — every colour, light and dark'"></span>
-                        </button>
-
-                        <div x-show="advanced" x-cloak class="mt-4 space-y-5">
                             {{-- Previews come first: the operator judges the change
                                  where it lands, not in a list of hex codes. --}}
                             <div class="grid gap-3 lg:grid-cols-2">
@@ -300,8 +336,6 @@
                                 Grey values follow the built-in palette or the accent; dark values are ones set here. Status
                                 colours carry meaning across the app — change them only if the defaults clash with the brand.
                             </p>
-                        </div>
-                    </div>
                 </div>
             </x-ui.card>
 
@@ -319,84 +353,6 @@
                         <x-ui.input :name="$field" :id="$field" :label="$label" required
                             value="{{ old($field, $organisation->$field) }}" />
                     @endforeach
-                </div>
-            </x-ui.card>
-
-            @php
-                $enabledFeatures = \App\Enums\Feature::expand((array) old('features', $organisation->enabledFeatures()));
-                $featureRequirements = collect(\App\Enums\Feature::cases())
-                    ->mapWithKeys(fn ($feature) => [$feature->value => array_map(fn ($required) => $required->value, $feature->requires())])
-                    ->all();
-                $featureLabels = collect(\App\Enums\Feature::cases())
-                    ->mapWithKeys(fn ($feature) => [$feature->value => $feature->label()])
-                    ->all();
-            @endphp
-
-            <x-ui.card title="Features"
-                description="Which parts of the application this organisation can use. Anything unticked is absent for them — no menu entry, no pages, no data shown elsewhere. Ticking a module ticks what it cannot work without.">
-                {{-- State lives on a plain div: @js() inside an x-component
-                     attribute is not compiled by Livewire's Blade pass. --}}
-                <div x-data="{
-                    enabled: @js($enabledFeatures),
-                    requires: @js($featureRequirements),
-                    labels: @js($featureLabels),
-                    has(key) {
-                        return this.enabled.includes(key);
-                    },
-                    neededBy(key) {
-                        return Object.entries(this.requires)
-                            .filter(([dependent, needs]) => needs.includes(key) && this.has(dependent))
-                            .map(([dependent]) => dependent);
-                    },
-                    toggle(key) {
-                        if (this.has(key)) {
-                            if (this.neededBy(key).length) return;
-                            this.enabled = this.enabled.filter((k) => k !== key);
-                            return;
-                        }
-                        const add = (k) => {
-                            if (this.enabled.includes(k)) return;
-                            this.enabled.push(k);
-                            (this.requires[k] ?? []).forEach(add);
-                        };
-                        add(key);
-                    },
-                }" class="space-y-5">
-                    @foreach (\App\Enums\Feature::grouped() as $group => $features)
-                        <div>
-                            <p class="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-muted">{{ $group }}</p>
-                            <div class="grid gap-2 sm:grid-cols-2">
-                                @foreach ($features as $feature)
-                                    <label class="flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition"
-                                        :class="has('{{ $feature->value }}') ? 'border-accent/40 bg-accent-soft/40' : 'border-hairline bg-surface hover:bg-raised'">
-                                        <input type="checkbox" name="features[]" value="{{ $feature->value }}"
-                                            :checked="has('{{ $feature->value }}')"
-                                            x-on:click.prevent="toggle('{{ $feature->value }}')"
-                                            class="mt-0.5 h-4 w-4 shrink-0 rounded border-hairline-strong text-accent focus:ring-accent/25">
-                                        <span class="min-w-0 flex-1">
-                                            <span class="flex items-center gap-1.5 text-sm font-medium text-ink">
-                                                <x-dynamic-component :component="'heroicon-o-'.$feature->icon()" class="h-4 w-4 text-ink-muted" />
-                                                {{ $feature->label() }}
-                                            </span>
-                                            <span class="mt-0.5 block text-xs text-ink-muted">{{ $feature->description() }}</span>
-                                            @if ($feature->requires() !== [])
-                                                <span class="mt-1 block text-[11px] text-ink-soft">
-                                                    Needs {{ collect($feature->requires())->map(fn ($required) => $required->label())->join(' and ') }}
-                                                </span>
-                                            @endif
-                                            <span x-show="has('{{ $feature->value }}') && neededBy('{{ $feature->value }}').length" x-cloak class="mt-1 block text-[11px] text-caution"
-                                                x-text="'Kept on for ' + neededBy('{{ $feature->value }}').map((k) => labels[k]).join(', ')"></span>
-                                        </span>
-                                    </label>
-                                @endforeach
-                            </div>
-                        </div>
-                    @endforeach
-
-                    <p class="text-xs text-ink-muted">
-                        Switching a module off hides it; nothing already recorded is deleted, and switching it back on
-                        brings the data back.
-                    </p>
                 </div>
             </x-ui.card>
 

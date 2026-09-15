@@ -55,16 +55,16 @@
             <x-ui.card title="Lines" :padded="false">
                 <div class="flex flex-col gap-2 border-b border-hairline p-4 sm:flex-row sm:items-end">
                     <div class="min-w-0 flex-1">
-                        <x-ui.select wire:model="pickedItemId" name="pickedItemId" label="From the price list">
-                            <option value="">Choose an item…</option>
+                        {{-- Picking an item adds it straight away; no second click. --}}
+                        <x-ui.select wire:model.live="pickedItemId" name="pickedItemId" label="From the price list" :disabled="$catalogue->isEmpty()">
+                            <option value="">Choose an item to add…</option>
                             @foreach ($catalogue as $item)
                                 <option value="{{ $item->id }}">{{ $item->name }} — {{ $organisation->money($item->unit_price_minor) }}</option>
                             @endforeach
                         </x-ui.select>
                     </div>
                     <div class="flex gap-2">
-                        <x-ui.button type="button" icon="plus" wire:click="addItem" :disabled="$catalogue->isEmpty()">Add</x-ui.button>
-                        <x-ui.button type="button" variant="ghost" icon="pencil" wire:click="addCustomLine">Custom line</x-ui.button>
+                        <x-ui.button type="button" icon="plus" wire:click="addCustomLine">Add custom</x-ui.button>
                     </div>
                 </div>
 
@@ -76,7 +76,7 @@
                         @else
                             Settings → Billing,
                         @endcan
-                        or use a custom line.
+                        or add a custom line.
                     </p>
                 @endif
 

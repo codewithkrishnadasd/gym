@@ -178,7 +178,6 @@ class OrganisationController extends Controller
             'locale' => ['required', 'string', 'max:10'],
             // Branding is a platform-admin decision: it is the one visual
             // setting a gym cannot change for itself.
-            'accent_color' => ['nullable', 'string', 'regex:/^#[0-9a-fA-F]{6}$/'],
             'theme' => ['nullable', 'array'],
             'theme.*' => ['nullable', 'array'],
             'theme.*.*' => ['nullable', 'string', 'regex:/^#[0-9a-fA-F]{6}$/'],
@@ -206,6 +205,10 @@ class OrganisationController extends Controller
         $theme = ThemeTokens::sanitize($validated['theme'] ?? []);
         unset($validated['theme']);
         $validated['theme_colors'] = $theme === [] ? null : $theme;
+
+        // The brand accent is the palette's light primary colour: tints, the
+        // dark-theme lift, and the installed-app icon all derive from it.
+        $validated['accent_color'] = $theme['light']['accent'] ?? null;
 
         // Closed over what each module needs, so a stored list never names a
         // module without the ones it cannot work without.

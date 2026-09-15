@@ -86,7 +86,7 @@ it('is set by the platform admin, not the organisation', function (): void {
             'timezone' => 'UTC',
             'currency_code' => 'INR',
             'locale' => 'en',
-            'accent_color' => '#7c3aed',
+            'theme' => ['light' => ['accent' => '#7c3aed']],
             'terminology_member_singular' => 'Member',
             'terminology_member_plural' => 'Members',
             'terminology_user_singular' => 'Staff',
@@ -112,7 +112,7 @@ it('rejects anything that is not a hex colour', function (): void {
             'currency_code' => 'INR',
             'locale' => 'en',
             // A CSS injection attempt, since this value lands inside a <style>.
-            'accent_color' => '#fff;} body{display:none',
+            'theme' => ['light' => ['accent' => '#fff;} body{display:none']],
             'terminology_member_singular' => 'Member',
             'terminology_member_plural' => 'Members',
             'terminology_user_singular' => 'Staff',
@@ -120,7 +120,7 @@ it('rejects anything that is not a hex colour', function (): void {
             'terminology_club_singular' => 'Club',
             'terminology_club_plural' => 'Clubs',
         ])
-        ->assertSessionHasErrors('accent_color');
+        ->assertSessionHasErrors('theme.light.accent');
 
     expect($this->organisation->fresh()?->accent_color)->toBe('#b91c1c');
 });

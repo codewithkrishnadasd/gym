@@ -38,7 +38,6 @@ function platformUpdate(Organisation $organisation, array $extra): TestResponse
             'timezone' => 'UTC',
             'currency_code' => 'INR',
             'locale' => 'en',
-            'accent_color' => '#b91c1c',
             'terminology_member_singular' => 'Member',
             'terminology_member_plural' => 'Members',
             'terminology_user_singular' => 'Staff',
@@ -131,10 +130,32 @@ it('is saved by the platform admin, keeping only deliberate valid choices', func
 it('clears the palette when every colour is put back to default', function (): void {
     $this->organisation->update(['theme_colors' => ['light' => ['app' => '#faf7f2']]]);
 
-    platformUpdate($this->organisation, ['theme' => ['light' => ['app' => ''], 'dark' => []]])->assertRedirect();
+    platformUpdate($this->organisation, ['theme' => ['light' => ['app' => '', 'accent' => '#b91c1c'], 'dark' => []]])->assertRedirect();
 
-    expect($this->organisation->fresh()?->theme_colors)->toBeNull()
+    expect($this->organisation->fresh()?->theme_colors)->toBe(['light' => ['accent' => '#b91c1c']])
+        ->and($this->organisation->fresh()?->accent_color)->toBe('#b91c1c')
         ->and($this->organisation->fresh()?->themeCss())->toContain('--c-accent:#b91c1c;');
+});
+
+it('takes the brand accent from the palette\'s light primary, and shows an older accent there', function (): void {
+    // Set before the palette existed: the form offers it as the light primary
+    // so saving without changes keeps it.
+    $this->actingAs(PlatformAdmin::factory()->create(), 'platform')
+        ->get('http://'.config('platform.hostname').'/organisations/'.$this->organisation->id.'/edit')
+        ->assertOk()
+        ->assertSee('accent\u0022:\u0022#b91c1c', false)
+        ->assertDontSee('name="accent_color"', false)
+        ->assertDontSee('Hide full palette');
+
+    platformUpdate($this->organisation, ['theme' => ['light' => ['accent' => '#00695c'], 'dark' => []]])->assertRedirect();
+
+    expect($this->organisation->fresh()?->accent_color)->toBe('#00695c')
+        ->and($this->organisation->fresh()?->brandColor())->toBe('#00695c');
+
+    // Reset to default clears the accent too.
+    platformUpdate($this->organisation, ['theme' => []])->assertRedirect();
+
+    expect($this->organisation->fresh()?->accent_color)->toBeNull();
 });
 
 it('rejects a colour that is not a hex value', function (): void {
@@ -149,7 +170,7 @@ it('shows every token for both themes in the platform editor', function (): void
     $response = $this->actingAs(PlatformAdmin::factory()->create(), 'platform')
         ->get('http://'.config('platform.hostname').'/organisations/'.$this->organisation->id.'/edit')
         ->assertOk()
-        ->assertSee('Full palette', false)
+        ->assertSee('Appearance')
         ->assertSee('Secondary button')
         ->assertSee('Text on primary button');
 
