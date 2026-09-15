@@ -10,6 +10,7 @@ use App\Livewire\Concerns\ResolvesMembership;
 use App\Models\FeePayment;
 use App\Models\FinancialAccount;
 use App\Models\OrganisationUser;
+use App\Support\Search;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
@@ -96,12 +97,21 @@ class Index extends Component
             ->when($this->method !== '', fn (Builder $query) => $query->where('payment_method', $this->method))
             ->when($this->collector !== '', fn (Builder $query) => $query->where('collected_by', $this->collector))
             ->when($this->account !== '', fn (Builder $query) => $query->where('financial_account_id', $this->account))
+            // Member name or phone, the payment reference (PMT-17), or a
+            // transaction reference.
             ->when($this->search !== '', fn (Builder $query) => $query->where(function (Builder $inner): void {
+                $digits = Search::phoneDigits($this->search, $this->organisation(), 'payment');
+                $id = Search::referenceId($this->organisation(), 'payment', $this->search);
+
                 $inner->where('payer_name', 'ilike', "%{$this->search}%")
                     ->orWhere('transaction_reference', 'ilike', "%{$this->search}%")
                     ->orWhereHas('member', fn (Builder $member) => $member
                         ->where('name', 'ilike', "%{$this->search}%")
-                        ->orWhere('phone', 'ilike', "%{$this->search}%"));
+                        ->when($digits !== null, fn (Builder $q) => $q->orWhere('phone', 'ilike', '%'.$digits.'%')));
+
+                if ($id !== null) {
+                    $inner->orWhere('fee_payments.id', $id);
+                }
             }));
     }
 

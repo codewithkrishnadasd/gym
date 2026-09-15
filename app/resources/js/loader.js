@@ -78,9 +78,60 @@ export function finish() {
     }
 }
 
+/**
+ * Actions that only re-query a list. Filtering, searching, paging and the
+ * date/preset controls keep the page in place and the table shows its own
+ * skeleton while it reloads (`wire:loading` blocks in every index view), so
+ * blurring the whole screen for them would be noise. Everything else — saves,
+ * confirmations, status changes — gets the veil.
+ */
+const QUIET_ACTIONS = new Set([
+    '$set',
+    '$refresh',
+    '$commit',
+    '__lazyLoad',
+    'gotoPage',
+    'nextPage',
+    'previousPage',
+    'setPage',
+    'resetPage',
+    'clearFilters',
+    'clearNarrowing',
+    'applyPreset',
+    'shiftDate',
+    'goToToday',
+    'select',
+    'refreshList',
+]);
+
+function isQuiet(payload) {
+    let body;
+
+    try {
+        body = typeof payload === 'string' ? JSON.parse(payload) : payload;
+    } catch {
+        return false;
+    }
+
+    const components = body?.components ?? [];
+
+    if (components.length === 0) {
+        return false;
+    }
+
+    // A request is quiet when every component in it is either syncing
+    // properties (a wire:model change: updates, no calls) or calling only
+    // list-navigation actions.
+    return components.every((component) => (component.calls ?? []).every((call) => QUIET_ACTIONS.has(call.method)));
+}
+
 // Livewire: every request, whether from wire:click, wire:model, or polling.
 document.addEventListener('livewire:init', () => {
-    window.Livewire.hook('request', ({ succeed, fail }) => {
+    window.Livewire.hook('request', ({ payload, succeed, fail }) => {
+        if (isQuiet(payload)) {
+            return;
+        }
+
         start();
         succeed(() => finish());
         fail(() => finish());

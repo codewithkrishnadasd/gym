@@ -8,6 +8,7 @@ use App\Enums\NotificationActionType;
 use App\Enums\NotificationStatus;
 use App\Livewire\Concerns\ResolvesMembership;
 use App\Models\WhatsappActionNotification;
+use App\Support\Search;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\View\View;
@@ -89,10 +90,7 @@ class Index extends Component
     {
         return WhatsappActionNotification::query()
             ->where('status', NotificationStatus::Ready)
-            ->when($this->search !== '', fn (Builder $query) => $query->where(
-                fn (Builder $inner) => $inner->where('recipient_name', 'ilike', "%{$this->search}%")
-                    ->orWhere('recipient_phone', 'ilike', "%{$this->search}%")
-            ))
+            ->when($this->search !== '', fn (Builder $query) => Search::apply($query, $this->organisation(), 'message', $this->search, ['recipient_name'], 'recipient_phone'))
             ->when($this->action !== '', fn (Builder $query) => $query->where('action_type', $this->action));
     }
 
@@ -103,10 +101,7 @@ class Index extends Component
     {
         return WhatsappActionNotification::query()
             ->with(['createdBy.user:id,name', 'openedBy.user:id,name'])
-            ->when($this->search !== '', fn (Builder $query) => $query->where(
-                fn (Builder $inner) => $inner->where('recipient_name', 'ilike', "%{$this->search}%")
-                    ->orWhere('recipient_phone', 'ilike', "%{$this->search}%")
-            ))
+            ->when($this->search !== '', fn (Builder $query) => Search::apply($query, $this->organisation(), 'message', $this->search, ['recipient_name'], 'recipient_phone'))
             // The default view is the work still to do: anything sent or
             // deliberately skipped is a decision already taken. Both stay
             // reachable by picking that status explicitly.

@@ -10,7 +10,7 @@ use App\Enums\SubscriptionHealth;
 use App\Enums\SubscriptionStatus;
 use App\Livewire\Concerns\ResolvesMembership;
 use App\Models\Member;
-use App\Support\PhoneNumber;
+use App\Support\Search;
 use Carbon\CarbonInterface;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
@@ -130,10 +130,8 @@ class Index extends Component
                 'primary_club_id',
                 $membership->clubAssignments()->where('status', ClubAssignmentStatus::Active)->pluck('club_id')
             ))
-            ->when($this->search !== '', fn ($query) => $query->where(
-                fn ($query) => $query->where('name', 'ilike', "%{$this->search}%")
-                    ->orWhere('phone', 'ilike', '%'.PhoneNumber::searchable($this->search).'%')
-            ))
+            // Name, phone, or reference (MEM-42) — see App\Support\Search.
+            ->when($this->search !== '', fn ($query) => Search::apply($query, $this->organisation(), 'member', $this->search))
             // Removed rows are only ever listed when they are asked for by
             // name. Leaving them in the default view makes the list grow
             // forever and puts dead records next to live ones.

@@ -22,6 +22,9 @@
             </x-ui.filter-select>
         </x-ui.filters>
 
+        <div wire:loading.delay class="w-full"><x-ui.skeleton :rows="4" /></div>
+
+        <div wire:loading.remove>
         @if ($accounts->isEmpty())
             <x-ui.empty icon="credit-card" title="No accounts yet"
                 description="Add the bank, UPI, or cash accounts you receive payments into.">
@@ -94,5 +97,6 @@
                 @endforeach
             </ul>
         @endif
+        </div>
     </x-ui.card>
 </div>

@@ -11,6 +11,7 @@ use App\Enums\ConfirmationStatus;
 use App\Enums\MemberStatus;
 use App\Livewire\Concerns\ResolvesMembership;
 use App\Models\Club;
+use App\Support\Search;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Carbon;
 use Illuminate\View\View;
@@ -77,10 +78,7 @@ class Index extends Component
                 fn ($assignment) => $assignment->where('organisation_user_id', $membership->id)
                     ->where('status', ClubAssignmentStatus::Active)
             ))
-            ->when($this->search !== '', fn ($query) => $query->where(
-                fn ($query) => $query->where('name', 'ilike', "%{$this->search}%")
-                    ->orWhere('code', 'ilike', "%{$this->search}%")
-            ))
+            ->when($this->search !== '', fn ($query) => Search::apply($query, $this->organisation(), 'club', $this->search, ['name', 'code'], 'phone'))
             // Removed rows only appear when explicitly filtered for.
             ->when(
                 $this->status !== '',

@@ -15,6 +15,7 @@ use App\Models\Club;
 use App\Models\Member;
 use App\Models\OrganisationUser;
 use App\Support\RosterEntry;
+use App\Support\Search;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\View\View;
@@ -191,10 +192,7 @@ class Roster extends Component
             return Member::query()
                 ->where('primary_club_id', $this->clubId)
                 ->whereIn('status', [MemberStatus::Active, MemberStatus::Paused])
-                ->when($this->search !== '', fn ($query) => $query->where(
-                    fn ($inner) => $inner->where('name', 'ilike', "%{$this->search}%")
-                        ->orWhere('phone', 'ilike', "%{$this->search}%")
-                ))
+                ->when($this->search !== '', fn ($query) => Search::apply($query, $this->organisation(), 'member', $this->search))
                 ->orderBy('name')
                 ->get()
                 ->map(fn (Member $member): RosterEntry => new RosterEntry(

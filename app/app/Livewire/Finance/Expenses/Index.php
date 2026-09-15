@@ -10,6 +10,7 @@ use App\Exceptions\LifecycleViolation;
 use App\Livewire\Concerns\ResolvesMembership;
 use App\Models\Expense;
 use App\Models\FinancialAccount;
+use App\Support\Search;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
@@ -116,9 +117,7 @@ class Index extends Component
             ->when($this->category !== '', fn (Builder $query) => $query->where('category', $this->category))
             ->when($this->status !== '', fn (Builder $query) => $query->where('status', $this->status))
             ->when($this->account !== '', fn (Builder $query) => $query->where('paid_from_financial_account_id', $this->account))
-            ->when($this->search !== '', fn (Builder $query) => $query->where(fn (Builder $inner) => $inner
-                ->where('description', 'ilike', "%{$this->search}%")
-                ->orWhere('payee', 'ilike', "%{$this->search}%")));
+            ->when($this->search !== '', fn (Builder $query) => Search::apply($query, $this->organisation(), 'expense', $this->search, ['description', 'payee', 'category'], null));
     }
 
     /**

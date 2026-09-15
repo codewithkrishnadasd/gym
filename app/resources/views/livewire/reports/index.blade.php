@@ -31,6 +31,11 @@
 
     <x-ui.period-filter :presets="$presets" :range="$range" :clubs="$clubs" :club-label="$organisation->term('club_plural')" />
 
+    {{-- Changing the period or club re-queries every figure below; the
+         skeleton stands in for them while that happens. --}}
+    <div wire:loading.delay class="w-full"><x-ui.card><x-ui.skeleton :rows="8" /></x-ui.card></div>
+
+    <div wire:loading.remove>
     @if ($tab === 'finance')
         <div class="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
             <x-ui.stat label="Confirmed revenue" :value="$organisation->money($revenue)" icon="banknotes" tone="positive" />
@@ -271,4 +276,5 @@
             @endif
         </x-ui.card>
     @endif
+    </div>
 </div>

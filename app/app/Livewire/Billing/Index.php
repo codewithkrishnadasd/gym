@@ -7,6 +7,7 @@ namespace App\Livewire\Billing;
 use App\Enums\InvoiceStatus;
 use App\Livewire\Concerns\ResolvesMembership;
 use App\Models\Invoice;
+use App\Support\Search;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
@@ -61,10 +62,15 @@ class Index extends Component
     {
         return $this->scope()
             ->with(['member:id,name,phone', 'club:id,name'])
-            ->when($this->search !== '', fn (Builder $query) => $query->where(
-                fn (Builder $inner) => $inner->where('number', 'ilike', "%{$this->search}%")
-                    ->orWhereHas('member', fn (Builder $member) => $member->where('name', 'ilike', "%{$this->search}%"))
-            ))
+            // Invoice number, or the member's name or phone.
+            ->when($this->search !== '', fn (Builder $query) => $query->where(function (Builder $inner): void {
+                $digits = Search::phoneDigits($this->search, $this->organisation(), 'invoice');
+
+                $inner->where('number', 'ilike', "%{$this->search}%")
+                    ->orWhereHas('member', fn (Builder $member) => $member
+                        ->where('name', 'ilike', "%{$this->search}%")
+                        ->when($digits !== null, fn (Builder $q) => $q->orWhere('phone', 'ilike', '%'.$digits.'%')));
+            }))
             // Void invoices are out of the way unless asked for, the same rule
             // removed records follow everywhere else.
             ->when(

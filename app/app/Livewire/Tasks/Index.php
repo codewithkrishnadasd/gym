@@ -8,6 +8,7 @@ use App\Livewire\Concerns\ResolvesMembership;
 use App\Models\Task;
 use App\Models\TaskCategory;
 use App\Models\TaskStatus;
+use App\Support\Search;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
@@ -72,9 +73,17 @@ class Index extends Component
             ->when($this->who === 'mine', fn (Builder $query) => $query->whereHas('assignees', fn (Builder $assignees) => $assignees->where('organisation_users.id', $membership->id)))
             ->when($this->who === 'reported', fn (Builder $query) => $query->where('created_by', $membership->id))
             ->when($this->who === 'mentioned', fn (Builder $query) => $query->whereHas('mentions', fn (Builder $mentions) => $mentions->where('organisation_user_id', $membership->id)))
-            ->when($this->search !== '', fn (Builder $query) => $query->where(fn (Builder $inner) => $inner
-                ->where('title', 'ilike', '%'.$this->search.'%')
-                ->orWhereHas('member', fn (Builder $member) => $member->where('name', 'ilike', '%'.$this->search.'%'))))
+            // Title, the task reference (TSK-12), or the member it concerns.
+            ->when($this->search !== '', fn (Builder $query) => $query->where(function (Builder $inner): void {
+                $id = Search::referenceId($this->organisation(), 'task', $this->search);
+
+                $inner->where('title', 'ilike', '%'.$this->search.'%')
+                    ->orWhereHas('member', fn (Builder $member) => $member->where('name', 'ilike', '%'.$this->search.'%'));
+
+                if ($id !== null) {
+                    $inner->orWhere('tasks.id', $id);
+                }
+            }))
             ->when($this->category !== '', fn (Builder $query) => $query->where('task_category_id', $this->category))
             ->when($this->status !== '', fn (Builder $query) => $query->where('task_status_id', $this->status))
             ->when($this->show === 'open', fn (Builder $query) => $query->whereNull('completed_at'))

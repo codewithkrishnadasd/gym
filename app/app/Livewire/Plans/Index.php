@@ -8,6 +8,7 @@ use App\Enums\PlanStatus;
 use App\Enums\SubscriptionStatus;
 use App\Livewire\Concerns\ResolvesMembership;
 use App\Models\Plan;
+use App\Support\Search;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\View\View;
 use Livewire\Attributes\Url;
@@ -59,7 +60,7 @@ class Index extends Component
     {
         return Plan::query()
             ->withCount(['subscriptions as active_subscriptions_count' => fn ($query) => $query->where('status', SubscriptionStatus::Active)])
-            ->when($this->search !== '', fn ($query) => $query->where('name', 'ilike', "%{$this->search}%"))
+            ->when($this->search !== '', fn ($query) => Search::apply($query, $this->organisation(), 'plan', $this->search, ['name'], null))
             // Removed rows only appear when explicitly filtered for.
             ->when(
                 $this->status !== '',

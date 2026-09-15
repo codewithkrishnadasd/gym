@@ -16,7 +16,7 @@ use App\Livewire\Concerns\ResolvesMembership;
 use App\Models\AuditEvent;
 use App\Models\OrganisationUser;
 use App\Models\User;
-use App\Support\PhoneNumber;
+use App\Support\Search;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\View\View;
@@ -140,11 +140,20 @@ class Index extends Component
                     ->where('status', ClubAssignmentStatus::Active)
                     ->with('club:id,name'),
             ])
-            ->when($this->search !== '', fn (Builder $query) => $query->whereHas(
-                'user',
-                fn (Builder $user) => $user->where('name', 'ilike', "%{$this->search}%")
-                    ->orWhere('phone', 'ilike', '%'.PhoneNumber::searchable($this->search).'%')
-            ))
+            // Name, phone, or reference (STF-7). The name and phone live on the
+            // user row, the reference on the membership.
+            ->when($this->search !== '', fn (Builder $query) => $query->where(function (Builder $inner): void {
+                $digits = Search::phoneDigits($this->search, $this->organisation(), 'staff');
+                $id = Search::referenceId($this->organisation(), 'staff', $this->search);
+
+                $inner->whereHas('user', fn (Builder $user) => $user
+                    ->where('name', 'ilike', "%{$this->search}%")
+                    ->when($digits !== null, fn (Builder $q) => $q->orWhere('phone', 'ilike', '%'.$digits.'%')));
+
+                if ($id !== null) {
+                    $inner->orWhere('organisation_users.id', $id);
+                }
+            }))
             // Removed staff only appear when explicitly filtered for, the same
             // rule every other listing follows.
             ->when(
