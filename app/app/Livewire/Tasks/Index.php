@@ -107,7 +107,7 @@ class Index extends Component
     protected function tasks(): LengthAwarePaginator
     {
         return $this->scope()
-            ->with(['category:id,name', 'status', 'items.status', 'member:id,name', 'assignees.user:id,name'])
+            ->with(['category:id,name', 'status', 'items.status', 'items.subCategory:id,name', 'member:id,name', 'assignees.user:id,name'])
             // Dated work first, soonest due at the top; undated after.
             ->orderByRaw('due_date ASC NULLS LAST')
             ->orderByDesc('id')

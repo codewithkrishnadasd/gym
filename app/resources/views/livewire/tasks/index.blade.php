@@ -109,12 +109,17 @@
                             </div>
 
                             @if ($total > 0)
-                                {{-- Progress of the task's parts, so a list scan shows how
-                                     far along each piece of work is without opening it. --}}
+                                {{-- One segment per part, in order, in the colour of the
+                                     part's current status — the whole task's state readable
+                                     as a strip without opening it. --}}
                                 @php $percent = (int) round($done / $total * 100); @endphp
-                                <div class="flex shrink-0 items-center gap-2 sm:w-52">
-                                    <div class="h-1.5 flex-1 overflow-hidden rounded-full bg-sunken">
-                                        <div class="h-full rounded-full bg-positive transition-all" style="width: {{ $percent }}%"></div>
+                                <div class="flex shrink-0 items-center gap-2 sm:w-56">
+                                    <div class="flex h-2 flex-1 gap-px overflow-hidden rounded-full bg-sunken" role="img"
+                                        aria-label="{{ $task->items->map(fn ($item) => ($item->subCategory?->name ?? 'Part').': '.($item->status?->name ?? 'no status'))->join(', ') }}">
+                                        @foreach ($task->items as $item)
+                                            <span class="h-full flex-1 transition-colors" title="{{ $item->subCategory?->name }} — {{ $item->status?->name ?? 'No status' }}"
+                                                style="background: {{ $item->status?->color ?? 'var(--c-hairline-strong)' }}; opacity: {{ $item->isDone() ? '1' : '0.75' }}"></span>
+                                        @endforeach
                                     </div>
                                     <span class="numeric w-20 text-right text-xs text-ink-muted"><span class="font-semibold text-ink">{{ $percent }}%</span> · {{ $done }}/{{ $total }}</span>
                                 </div>

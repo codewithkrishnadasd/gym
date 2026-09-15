@@ -409,3 +409,24 @@ it('removes an assignee from the list before saving', function (): void {
         ->assertSee('Bala')
         ->assertDontSee('Anu');
 });
+
+it('draws one coloured segment per part in the list, and keeps commenting outside the folded activity', function (): void {
+    $admin = signIn($this->organisation, admin: true);
+    $second = TaskSubCategory::factory()->create(['organisation_id' => $this->organisation->id, 'task_category_id' => $this->category->id, 'name' => 'Rower chains']);
+    TaskStatus::factory()->create(['organisation_id' => $this->organisation->id, 'task_category_id' => null, 'task_sub_category_id' => $second->id, 'name' => 'Waiting', 'color' => '#b45309', 'position' => 0]);
+
+    $task = app(CreateTask::class)->handle($this->category, ['title' => 'Segmented'], $admin);
+    $task->items()->where('task_sub_category_id', $this->sub->id)->update(['task_status_id' => $this->subDone->id]);
+
+    $this->get('http://tasks.test/tasks')
+        ->assertOk()
+        // First part done (green from the factory's completes state), second waiting (amber), in order.
+        ->assertSeeInOrder(['background: #047857', 'background: #b45309'])
+        ->assertSee('Treadmill belt: Done, Rower chains: Waiting');
+
+    // The comment box is its own card, outside the folded Activity history.
+    $html = $this->get('http://tasks.test/tasks/'.$task->id)->assertOk()->getContent();
+
+    expect(strpos($html, 'Write a comment'))->toBeGreaterThan((int) strpos($html, 'comments and every change'))
+        ->and($html)->toContain('Type @ to mention a colleague');
+});

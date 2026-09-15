@@ -157,41 +157,47 @@
                     </ol>
                 @endif
 
-                @can('view', $task)
-                    <form wire:submit="addComment" class="mt-5 border-t border-hairline pt-4">
-                        {{-- "@" opens the colleague picker; see resources/js/mention-box.js.
-                             State lives on a plain div: @js() inside an x-component
-                             attribute is not compiled by Livewire's Blade pass. --}}
-                        <div x-data="mentionBox({ people: @js($mentionable) })" class="relative">
-                            <x-ui.field label="Add a comment" name="comment" hint="Type @ to mention a colleague — mentioned people see this task on their list.">
-                                <textarea x-ref="box" wire:model="comment" rows="3" placeholder="Write a comment… use @ to mention someone"
-                                    x-on:input="onInput" x-on:keydown="onKeydown" x-on:blur="setTimeout(() => close(), 150)"
-                                    class="min-h-[80px] w-full rounded-lg border border-hairline-strong bg-surface px-3 py-2 text-sm text-ink placeholder:text-ink-muted focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25"></textarea>
-                            </x-ui.field>
-
-                            <ul x-show="open" x-cloak class="absolute left-0 z-20 mt-1 w-72 overflow-hidden rounded-lg border border-hairline bg-surface py-1 elevate-lg" role="listbox">
-                                <template x-for="(person, i) in matches" :key="person.id">
-                                    <li>
-                                        <button type="button" x-on:mousedown.prevent="pick(person)" role="option" :aria-selected="i === index"
-                                            :class="i === index ? 'bg-accent-soft text-accent-ink' : 'text-ink hover:bg-raised'"
-                                            class="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm">
-                                            <span class="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-sunken text-[10px] font-semibold uppercase text-ink-soft" x-text="person.name.slice(0, 1)"></span>
-                                            <span x-text="person.name"></span>
-                                        </button>
-                                    </li>
-                                </template>
-                            </ul>
-                        </div>
-
-                        <div class="mt-2 flex justify-end">
-                            <x-ui.button type="submit" variant="primary" size="sm" icon="chat-bubble-left" wire:loading.attr="disabled" wire:target="addComment">
-                                <span wire:loading.remove wire:target="addComment">Comment</span>
-                                <span wire:loading wire:target="addComment" class="inline-flex items-center gap-1.5"><x-ui.spinner size="xs" /> Posting…</span>
-                            </x-ui.button>
-                        </div>
-                    </form>
-                @endcan
             </x-ui.card>
+
+            {{-- Commenting stays in reach even while the history above is
+                 folded away. --}}
+            <x-ui.card title="Comment" description="Type @ to mention a colleague — mentioned people see this task on their list.">
+            @can('view', $task)
+                <form wire:submit="addComment">
+                    {{-- "@" opens the colleague picker; see resources/js/mention-box.js.
+                         State lives on a plain div: @js() inside an x-component
+                         attribute is not compiled by Livewire's Blade pass. --}}
+                    <div x-data="mentionBox({ people: @js($mentionable) })" class="relative">
+                        <x-ui.field name="comment">
+                            <textarea x-ref="box" wire:model="comment" rows="3" placeholder="Write a comment… use @ to mention someone"
+                                x-on:input="onInput" x-on:keydown="onKeydown" x-on:blur="setTimeout(() => close(), 150)"
+                                class="min-h-[80px] w-full rounded-lg border border-hairline-strong bg-surface px-3 py-2 text-sm text-ink placeholder:text-ink-muted focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25"></textarea>
+                        </x-ui.field>
+
+                        <ul x-show="open" x-cloak class="absolute left-0 z-20 mt-1 w-72 overflow-hidden rounded-lg border border-hairline bg-surface py-1 elevate-lg" role="listbox">
+                            <template x-for="(person, i) in matches" :key="person.id">
+                                <li>
+                                    <button type="button" x-on:mousedown.prevent="pick(person)" role="option" :aria-selected="i === index"
+                                        :class="i === index ? 'bg-accent-soft text-accent-ink' : 'text-ink hover:bg-raised'"
+                                        class="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm">
+                                        <span class="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-sunken text-[10px] font-semibold uppercase text-ink-soft" x-text="person.name.slice(0, 1)"></span>
+                                        <span x-text="person.name"></span>
+                                    </button>
+                                </li>
+                            </template>
+                        </ul>
+                    </div>
+
+                    <div class="mt-2 flex justify-end">
+                        <x-ui.button type="submit" variant="primary" size="sm" icon="chat-bubble-left" wire:loading.attr="disabled" wire:target="addComment">
+                            <span wire:loading.remove wire:target="addComment">Comment</span>
+                            <span wire:loading wire:target="addComment" class="inline-flex items-center gap-1.5"><x-ui.spinner size="xs" /> Posting…</span>
+                        </x-ui.button>
+                    </div>
+                </form>
+            @endcan
+            </x-ui.card>
+
 
         </div>
 
