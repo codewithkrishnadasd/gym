@@ -72,7 +72,7 @@
                             </x-ui.select>
 
                             @if ($planId)
-                                <x-ui.input wire:model="planStartDate" name="planStartDate" label="Plan starts on" type="date"
+                                <x-ui.input wire:model="planStartDate" name="planStartDate" label="Plan start date" type="date"
                                     hint="Defaults to the joining date." />
 
                                 <x-ui.input wire:model="planDiscount" name="planDiscount" label="Discount" inputmode="decimal"

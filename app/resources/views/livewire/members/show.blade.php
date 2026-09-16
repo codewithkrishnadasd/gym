@@ -522,7 +522,7 @@
                 </x-ui.select>
 
                 <div>
-                    <x-ui.input wire:model.live="planStartDate" name="planStartDate" label="Start date" type="date"
+                    <x-ui.input wire:model.live="planStartDate" name="planStartDate" label="Plan start date" type="date"
                         :hint="$currentSubscription
                             ? 'Prefilled for the day after the current term ends, so consecutive terms never overlap.'
                             : 'The day the plan begins.'" />

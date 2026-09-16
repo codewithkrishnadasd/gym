@@ -176,7 +176,7 @@
                 </x-ui.select>
 
                 <div>
-                    <x-ui.input wire:model.live="planStartDate" name="planStartDate" label="Start date" type="date"
+                    <x-ui.input wire:model.live="planStartDate" name="planStartDate" label="Plan start date" type="date"
                         :hint="$planSituation === 'lapsed' ? 'Prefilled for the day after the last term ended.' : 'The day the plan begins.'" />
                     @if ($planStartDate !== '' && $planStartDate !== $today->toDateString())
                         <button type="button" wire:click="startPlanToday"
