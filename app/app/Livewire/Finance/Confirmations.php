@@ -8,16 +8,16 @@ use App\Actions\Payments\ConfirmFeePayment;
 use App\Actions\Payments\RejectFeePayment;
 use App\Enums\ConfirmationStatus;
 use App\Exceptions\LifecycleViolation;
+use App\Livewire\Concerns\LoadsMore;
 use App\Livewire\Concerns\RemembersFilters;
 use App\Livewire\Concerns\ResolvesMembership;
 use App\Models\FeePayment;
 use App\Models\OrganisationUser;
-use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use App\Support\Listing\Slice;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\View\View;
 use Livewire\Attributes\Url;
 use Livewire\Component;
-use Livewire\WithPagination;
 
 /**
  * The admin queue for staff-submitted payments (MEP.md 6.8).
@@ -28,7 +28,12 @@ use Livewire\WithPagination;
  */
 class Confirmations extends Component
 {
-    use RemembersFilters, ResolvesMembership, WithPagination;
+    use LoadsMore, RemembersFilters, ResolvesMembership;
+
+    protected function pageSize(): int
+    {
+        return 15;
+    }
 
     #[Url]
     public string $club = '';
@@ -130,11 +135,11 @@ class Confirmations extends Component
     }
 
     /**
-     * @return LengthAwarePaginator<int, FeePayment>
+     * @return Slice<FeePayment>
      */
-    protected function queue(): LengthAwarePaginator
+    protected function queue(): Slice
     {
-        return FeePayment::query()
+        return $this->slice(FeePayment::query()
             // financialAccount is eager-loaded because the queue names the
             // receiving account on every row — an admin confirming a payment
             // is signing off that the money reached that account.
@@ -151,7 +156,7 @@ class Confirmations extends Component
             ->when($this->collector !== '', fn (Builder $query) => $query->where('collected_by', $this->collector))
             // Oldest first: ageing submissions are the ones that need action.
             ->orderBy('created_at')
-            ->paginate(15);
+        );
     }
 
     public function render(): View

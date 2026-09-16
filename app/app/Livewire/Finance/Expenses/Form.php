@@ -32,11 +32,16 @@ use Livewire\WithFileUploads;
  */
 class Form extends Component
 {
+    public const OTHER_CATEGORY = '__other__';
+
     use ResolvesMembership, WithFileUploads;
 
     public ?Expense $expense = null;
 
     public string $category = '';
+
+    /** The category typed when the list has no fitting one ("Other…"). */
+    public string $customCategory = '';
 
     public string $amount = '';
 
@@ -64,7 +69,14 @@ class Form extends Component
         $this->expenseDate = Carbon::today($this->organisation()->timezone)->toDateString();
 
         if ($expense) {
-            $this->category = $expense->category;
+            // A category that is not on the list — free-typed, or since
+            // deactivated — is shown as "Other" with its wording kept.
+            if (in_array($expense->category, Expense::categoriesForEntry($this->organisation()), true)) {
+                $this->category = $expense->category;
+            } else {
+                $this->category = self::OTHER_CATEGORY;
+                $this->customCategory = $expense->category;
+            }
             $this->amount = (string) Money::ofMinor($expense->amount_minor, $expense->currency_code)->major();
             $this->expenseDate = $expense->expense_date->toDateString();
             $this->clubId = $expense->club_id;
@@ -91,6 +103,11 @@ class Form extends Component
         // are read, so it has to be rejected here explicitly — the picker
         // hides it, but the field accepts typed values.
         $retired = array_diff($organisation->allExpenseCategories(), $organisation->expenseCategories());
+
+        // "Other" means the typed wording is the category.
+        if ($this->category === self::OTHER_CATEGORY) {
+            $this->category = trim($this->customCategory);
+        }
 
         $validated = $this->validate([
             'category' => [

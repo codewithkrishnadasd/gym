@@ -6,6 +6,7 @@ namespace App\Livewire\Tasks;
 
 use App\Enums\Feature;
 use App\Enums\MembershipStatus;
+use App\Livewire\Concerns\LoadsMore;
 use App\Livewire\Concerns\RemembersFilters;
 use App\Livewire\Concerns\ResolvesMembership;
 use App\Models\Member;
@@ -14,22 +15,26 @@ use App\Models\Task;
 use App\Models\TaskCategory;
 use App\Models\TaskItem;
 use App\Models\TaskStatus;
+use App\Support\Listing\Slice;
 use App\Support\Search;
-use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Carbon;
 use Illuminate\View\View;
 use Livewire\Attributes\Url;
 use Livewire\Component;
-use Livewire\WithPagination;
 
 /**
  * The team's task list. Open work first; done tasks hidden until asked for.
  */
 class Index extends Component
 {
-    use RemembersFilters, ResolvesMembership, WithPagination;
+    use LoadsMore, RemembersFilters, ResolvesMembership;
+
+    protected function pageSize(): int
+    {
+        return 20;
+    }
 
     #[Url]
     public string $search = '';
@@ -160,16 +165,16 @@ class Index extends Component
     }
 
     /**
-     * @return LengthAwarePaginator<int, Task>
+     * @return Slice<Task>
      */
-    protected function tasks(): LengthAwarePaginator
+    protected function tasks(): Slice
     {
-        return $this->scope()
+        return $this->slice($this->scope()
             ->with(['category:id,name', 'status', 'items.status', 'items.subCategory:id,name', 'items.assignee.user:id,name', 'member:id,name', 'club:id,name', 'assignees.user:id,name'])
             // Dated work first, soonest due at the top; undated after.
             ->orderByRaw('due_date ASC NULLS LAST')
             ->orderByDesc('id')
-            ->paginate(20);
+        );
     }
 
     /**

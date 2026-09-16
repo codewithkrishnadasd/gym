@@ -11,10 +11,14 @@
 
 <x-ui.field :label="$label" :for="$id" :hint="$hint" :name="$name" :required="$required">
     <div class="relative">
+        {{-- A required choice with exactly one real option is no choice: it is
+             picked on load, and the change is sent so a Livewire-bound
+             property follows (see select-default.js). --}}
         <select
             @if ($name) name="{{ $name }}" @endif
             @if ($id) id="{{ $id }}" @endif
             @if ($invalid) aria-invalid="true" @endif
+            @if ($required) data-select-only-option @endif
             {{ $attributes->class([
                 'w-full appearance-none rounded-lg border bg-surface py-2 pl-3 pr-9 text-sm text-ink transition',
                 'min-h-[40px] max-lg:min-h-[44px]',

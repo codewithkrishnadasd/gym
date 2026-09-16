@@ -124,7 +124,7 @@
                 @endforeach
             </ul>
 
-            {{ $invoices->links() }}
+            <x-ui.load-more :list="$invoices" noun="invoices" />
         @endif
     </x-ui.card>
 </div>

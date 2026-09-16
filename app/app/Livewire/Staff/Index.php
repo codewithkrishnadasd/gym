@@ -12,22 +12,27 @@ use App\Enums\MembershipStatus;
 use App\Enums\NotificationActionType;
 use App\Enums\NotificationEntityType;
 use App\Enums\NotificationRecipientType;
+use App\Livewire\Concerns\LoadsMore;
 use App\Livewire\Concerns\RemembersFilters;
 use App\Livewire\Concerns\ResolvesMembership;
 use App\Models\AuditEvent;
 use App\Models\OrganisationUser;
 use App\Models\User;
+use App\Support\Listing\Slice;
 use App\Support\Search;
-use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\View\View;
 use Livewire\Attributes\Url;
 use Livewire\Component;
-use Livewire\WithPagination;
 
 class Index extends Component
 {
-    use RemembersFilters, ResolvesMembership, WithPagination;
+    use LoadsMore, RemembersFilters, ResolvesMembership;
+
+    protected function pageSize(): int
+    {
+        return 15;
+    }
 
     #[Url]
     public string $search = '';
@@ -130,9 +135,9 @@ class Index extends Component
     }
 
     /**
-     * @return LengthAwarePaginator<int, OrganisationUser>
+     * @return Slice<OrganisationUser>
      */
-    protected function members(): LengthAwarePaginator
+    protected function members(): Slice
     {
         $query = OrganisationUser::query()
             ->with([
@@ -171,7 +176,7 @@ class Index extends Component
             ))
             ->latest();
 
-        return $query->paginate(15);
+        return $this->slice($query);
     }
 
     public function render(): View

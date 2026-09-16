@@ -6,17 +6,17 @@ namespace App\Livewire\Notifications;
 
 use App\Enums\NotificationActionType;
 use App\Enums\NotificationStatus;
+use App\Livewire\Concerns\LoadsMore;
 use App\Livewire\Concerns\RemembersFilters;
 use App\Livewire\Concerns\ResolvesMembership;
 use App\Models\WhatsappActionNotification;
+use App\Support\Listing\Slice;
 use App\Support\Search;
-use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\View\View;
 use Livewire\Attributes\On;
 use Livewire\Attributes\Url;
 use Livewire\Component;
-use Livewire\WithPagination;
 
 /**
  * The outbox of messages waiting to be sent on WhatsApp (MEP.md 5.14).
@@ -32,7 +32,7 @@ use Livewire\WithPagination;
  */
 class Index extends Component
 {
-    use RemembersFilters, ResolvesMembership, WithPagination;
+    use LoadsMore, RemembersFilters, ResolvesMembership;
 
     #[Url]
     public string $search = '';
@@ -96,11 +96,11 @@ class Index extends Component
     }
 
     /**
-     * @return LengthAwarePaginator<int, WhatsappActionNotification>
+     * @return Slice<WhatsappActionNotification>
      */
-    protected function messages(): LengthAwarePaginator
+    protected function messages(): Slice
     {
-        return WhatsappActionNotification::query()
+        return $this->slice(WhatsappActionNotification::query()
             ->with(['createdBy.user:id,name', 'openedBy.user:id,name'])
             ->when($this->search !== '', fn (Builder $query) => Search::apply($query, $this->organisation(), 'message', $this->search, ['recipient_name'], 'recipient_phone'))
             // The default view is the work still to do: anything sent or
@@ -119,7 +119,7 @@ class Index extends Component
             // still needs doing, not to be a chronological archive.
             ->orderByRaw('CASE WHEN status = ? THEN 0 ELSE 1 END', [NotificationStatus::Ready->value])
             ->orderByDesc('created_at')
-            ->paginate(10);
+        );
     }
 
     /**

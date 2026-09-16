@@ -5,24 +5,29 @@ declare(strict_types=1);
 namespace App\Livewire\Billing;
 
 use App\Enums\InvoiceStatus;
+use App\Livewire\Concerns\LoadsMore;
 use App\Livewire\Concerns\RemembersFilters;
 use App\Livewire\Concerns\ResolvesMembership;
 use App\Models\Invoice;
+use App\Support\Listing\Slice;
 use App\Support\Search;
-use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
 use Illuminate\View\View;
 use Livewire\Attributes\Url;
 use Livewire\Component;
-use Livewire\WithPagination;
 
 /**
  * Every invoice the viewer is allowed to see, outstanding first.
  */
 class Index extends Component
 {
-    use RemembersFilters, ResolvesMembership, WithPagination;
+    use LoadsMore, RemembersFilters, ResolvesMembership;
+
+    protected function pageSize(): int
+    {
+        return 15;
+    }
 
     #[Url]
     public string $search = '';
@@ -54,11 +59,11 @@ class Index extends Component
     }
 
     /**
-     * @return LengthAwarePaginator<int, Invoice>
+     * @return Slice<Invoice>
      */
-    protected function invoices(): LengthAwarePaginator
+    protected function invoices(): Slice
     {
-        return $this->scope()
+        return $this->slice($this->scope()
             ->with(['member:id,name,phone', 'club:id,name'])
             // Invoice number, or the member's name or phone.
             ->when($this->search !== '', fn (Builder $query) => $query->where(function (Builder $inner): void {
@@ -86,7 +91,7 @@ class Index extends Component
             ])
             ->orderBy('due_date')
             ->orderByDesc('id')
-            ->paginate(15);
+        );
     }
 
     public function render(): View

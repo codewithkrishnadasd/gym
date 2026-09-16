@@ -6,19 +6,24 @@ namespace App\Livewire\Plans;
 
 use App\Enums\PlanStatus;
 use App\Enums\SubscriptionStatus;
+use App\Livewire\Concerns\LoadsMore;
 use App\Livewire\Concerns\RemembersFilters;
 use App\Livewire\Concerns\ResolvesMembership;
 use App\Models\Plan;
+use App\Support\Listing\Slice;
 use App\Support\Search;
-use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\View\View;
 use Livewire\Attributes\Url;
 use Livewire\Component;
-use Livewire\WithPagination;
 
 class Index extends Component
 {
-    use RemembersFilters, ResolvesMembership, WithPagination;
+    use LoadsMore, RemembersFilters, ResolvesMembership;
+
+    protected function pageSize(): int
+    {
+        return 15;
+    }
 
     #[Url]
     public string $search = '';
@@ -55,11 +60,11 @@ class Index extends Component
     }
 
     /**
-     * @return LengthAwarePaginator<int, Plan>
+     * @return Slice<Plan>
      */
-    protected function plans(): LengthAwarePaginator
+    protected function plans(): Slice
     {
-        return Plan::query()
+        return $this->slice(Plan::query()
             ->withCount(['subscriptions as active_subscriptions_count' => fn ($query) => $query->where('status', SubscriptionStatus::Active)])
             ->when($this->search !== '', fn ($query) => Search::apply($query, $this->organisation(), 'plan', $this->search, ['name'], null))
             // Removed rows only appear when explicitly filtered for.
@@ -70,7 +75,7 @@ class Index extends Component
             )
             ->orderBy('status')
             ->orderBy('price_minor')
-            ->paginate(15);
+        );
     }
 
     public function render(): View

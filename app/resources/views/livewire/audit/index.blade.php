@@ -92,7 +92,7 @@
                 @endforeach
             </ol>
 
-            {{ $events->links() }}
+            <x-ui.load-more :list="$events" noun="entries" />
         @endif
     </x-ui.card>
 </div>

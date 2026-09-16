@@ -2,8 +2,11 @@
 
 declare(strict_types=1);
 
+use App\Enums\ConfirmationStatus;
+use App\Livewire\Dashboard\Index;
 use App\Models\Club;
 use App\Models\Domain;
+use App\Models\FeePayment;
 use App\Models\Member;
 use App\Models\MemberSubscription;
 use App\Models\Organisation;
@@ -112,7 +115,7 @@ it('offers presets as chips, a custom range picker only when Custom is chosen, a
     $header = substr($html, strpos($html, '<main'), strpos($html, 'Date range preset') - strpos($html, '<main'));
     expect($header)->not->toContain('Reports');
 
-    Livewire::test(\App\Livewire\Dashboard\Index::class)
+    Livewire::test(Index::class)
         ->call('startCustom')
         ->assertSet('range', 'custom')
         ->assertSee('dateRange({', false)
@@ -123,4 +126,28 @@ it('offers presets as chips, a custom range picker only when Custom is chosen, a
         ->assertSet('range', 'custom')
         ->call('applyPreset', 'today')
         ->assertSet('range', 'today');
+});
+
+it('folds alerts into one attention button that opens a list, coloured for the most serious', function (): void {
+    // A staff collection awaiting confirmation is a caution-level alert.
+    $member = Member::factory()->create(['organisation_id' => $this->organisation->id, 'primary_club_id' => $this->club->id]);
+    $collector = OrganisationUser::factory()->create(['organisation_id' => $this->organisation->id, 'user_id' => User::factory()->create()->id]);
+    FeePayment::factory()->create([
+        'organisation_id' => $this->organisation->id,
+        'member_id' => $member->id,
+        'club_id' => $this->club->id,
+        'collected_by' => $collector->id,
+        'confirmation_status' => ConfirmationStatus::PendingAdminConfirmation,
+        'payment_date' => now()->toDateString(),
+    ]);
+
+    $this->get('http://kpi.test/dashboard')
+        ->assertOk()
+        ->assertSee('open-modal\', \'alerts\'', false)
+        ->assertSee('bg-caution text-white')
+        ->assertSee('Needs attention')
+        ->assertSee('awaiting confirmation')
+        ->assertSee('/finance/confirmations', false)
+        // Alerts no longer sit inline above the cards.
+        ->assertDontSee('md:grid-cols-2 empty:hidden', false);
 });

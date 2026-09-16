@@ -4,16 +4,16 @@ declare(strict_types=1);
 
 namespace App\Livewire\Audit;
 
+use App\Livewire\Concerns\LoadsMore;
 use App\Livewire\Concerns\RemembersFilters;
 use App\Livewire\Concerns\ResolvesMembership;
 use App\Models\AuditEvent;
 use App\Models\OrganisationUser;
-use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use App\Support\Listing\Slice;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\View\View;
 use Livewire\Attributes\Url;
 use Livewire\Component;
-use Livewire\WithPagination;
 
 /**
  * The append-only audit trail (MEP.md 5.13).
@@ -23,7 +23,12 @@ use Livewire\WithPagination;
  */
 class Index extends Component
 {
-    use RemembersFilters, ResolvesMembership, WithPagination;
+    use LoadsMore, RemembersFilters, ResolvesMembership;
+
+    protected function pageSize(): int
+    {
+        return 25;
+    }
 
     #[Url]
     public string $search = '';
@@ -53,11 +58,11 @@ class Index extends Component
     }
 
     /**
-     * @return LengthAwarePaginator<int, AuditEvent>
+     * @return Slice<AuditEvent>
      */
-    protected function events(): LengthAwarePaginator
+    protected function events(): Slice
     {
-        return AuditEvent::query()
+        return $this->slice(AuditEvent::query()
             ->with('actor.user:id,name')
             ->when($this->entityType !== '', fn (Builder $query) => $query->where('entity_type', $this->entityType))
             ->when($this->actor !== '', fn (Builder $query) => $query->where('actor_user_id', $this->actor))
@@ -65,7 +70,7 @@ class Index extends Component
             ->when($this->to !== '', fn (Builder $query) => $query->whereDate('created_at', '<=', $this->to))
             ->when($this->search !== '', fn (Builder $query) => $query->where('action', 'ilike', "%{$this->search}%"))
             ->orderByDesc('id')
-            ->paginate(25);
+        );
     }
 
     public function render(): View

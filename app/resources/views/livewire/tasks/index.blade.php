@@ -173,7 +173,7 @@
                 @endforeach
             </ul>
 
-            <div class="border-t border-hairline p-3">{{ $tasks->links() }}</div>
+            <x-ui.load-more :list="$tasks" noun="tasks" />
         @endif
     </x-ui.card>
 </div>

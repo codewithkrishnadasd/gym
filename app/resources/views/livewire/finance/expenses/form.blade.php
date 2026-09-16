@@ -7,17 +7,22 @@
         <div class="space-y-5 lg:col-span-2">
             <x-ui.card title="Expense details">
                 <div class="grid gap-4 sm:grid-cols-2">
-                    <x-ui.field label="Category" name="category" for="f-category" required
-                        hint="Pick one of your organisation's categories, or type a one-off.">
-                        <input list="expense-categories" id="f-category" wire:model="category"
-                            class="min-h-[40px] w-full rounded-lg border border-hairline-strong bg-surface px-3 py-2 text-sm text-ink placeholder:text-ink-muted focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25 max-lg:min-h-[44px]"
-                            placeholder="e.g. Equipment">
-                        <datalist id="expense-categories">
-                            @foreach ($categories as $option)
-                                <option value="{{ $option }}"></option>
-                            @endforeach
-                        </datalist>
-                    </x-ui.field>
+                    {{-- A real list rather than a datalist: browsers only suggest
+                         datalist entries that match what has been typed, so the
+                         categories looked incomplete. "Other" takes a one-off. --}}
+                    <x-ui.select wire:model.live="category" name="category" label="Category" required
+                        :hint="$category === \App\Livewire\Finance\Expenses\Form::OTHER_CATEGORY ? null : 'One of your organisation\'s categories, or Other for a one-off.'">
+                        <option value="">Select a category…</option>
+                        @foreach ($categories as $option)
+                            <option value="{{ $option }}">{{ $option }}</option>
+                        @endforeach
+                        <option value="{{ \App\Livewire\Finance\Expenses\Form::OTHER_CATEGORY }}">Other…</option>
+                    </x-ui.select>
+
+                    @if ($category === \App\Livewire\Finance\Expenses\Form::OTHER_CATEGORY)
+                        <x-ui.input wire:model="customCategory" name="customCategory" label="Other category" required
+                            placeholder="e.g. Trainer commission" hint="Recorded as typed; add it under Settings → Expense categories to reuse it." />
+                    @endif
 
                     <x-ui.input wire:model="amount" name="amount" label="Amount" required inputmode="decimal"
                         :prefix="$organisation->currencySymbol()" placeholder="0.00" />

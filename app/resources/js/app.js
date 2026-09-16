@@ -5,6 +5,7 @@ import './date-range';
 import './filters-bar';
 import './markdown-editor';
 import './mention-box';
+import './select-default';
 
 /**
  * Charts are declared entirely in Blade: a <canvas data-chart="{...}"> holds

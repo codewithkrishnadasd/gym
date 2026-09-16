@@ -59,7 +59,7 @@
                         context="queue" :key="'queue-'.$message->id" />
                 @endforeach
 
-                {{ $messages->links() }}
+                <x-ui.load-more :list="$messages" noun="messages" />
             </div>
         @endif
     </x-ui.card>

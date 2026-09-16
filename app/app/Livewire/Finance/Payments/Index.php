@@ -6,19 +6,19 @@ namespace App\Livewire\Finance\Payments;
 
 use App\Enums\ConfirmationStatus;
 use App\Enums\PaymentMethod;
+use App\Livewire\Concerns\LoadsMore;
 use App\Livewire\Concerns\RemembersFilters;
 use App\Livewire\Concerns\ResolvesMembership;
 use App\Models\FeePayment;
 use App\Models\FinancialAccount;
 use App\Models\OrganisationUser;
+use App\Support\Listing\Slice;
 use App\Support\Search;
-use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
 use Illuminate\View\View;
 use Livewire\Attributes\Url;
 use Livewire\Component;
-use Livewire\WithPagination;
 
 /**
  * The organisation-wide payment ledger (MEP.md 6.8).
@@ -29,7 +29,12 @@ use Livewire\WithPagination;
  */
 class Index extends Component
 {
-    use RemembersFilters, ResolvesMembership, WithPagination;
+    use LoadsMore, RemembersFilters, ResolvesMembership;
+
+    protected function pageSize(): int
+    {
+        return 20;
+    }
 
     #[Url]
     public string $search = '';
@@ -118,15 +123,15 @@ class Index extends Component
     }
 
     /**
-     * @return LengthAwarePaginator<int, FeePayment>
+     * @return Slice<FeePayment>
      */
-    protected function payments(): LengthAwarePaginator
+    protected function payments(): Slice
     {
-        return $this->baseQuery()
+        return $this->slice($this->baseQuery()
             ->with(['member:id,name,phone', 'club:id,name', 'collectedBy.user:id,name', 'financialAccount:id,name', 'invoice:id,number'])
             ->orderByDesc('payment_date')
             ->orderByDesc('id')
-            ->paginate(20);
+        );
     }
 
     /**

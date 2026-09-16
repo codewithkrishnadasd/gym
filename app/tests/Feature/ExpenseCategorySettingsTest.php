@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Livewire\Finance\Expenses\Form;
 use App\Livewire\Settings\OrganisationSettings;
 use App\Models\Club;
+use App\Models\Domain;
 use App\Models\Expense;
 use App\Models\Organisation;
 use App\Models\OrganisationUser;
@@ -168,4 +169,42 @@ it('rejects a deactivated category typed straight into the expense form', functi
         ->assertHasErrors(['category' => 'not_in']);
 
     expect(Expense::query()->count())->toBe(0);
+});
+
+it('lists every active category in the picker and takes a one-off under Other', function (): void {
+    $this->organisation->update(['expense_categories' => [
+        ['name' => 'Rent', 'active' => true],
+        ['name' => 'Utilities', 'active' => true],
+        ['name' => 'Salaries', 'active' => true],
+        ['name' => 'Old thing', 'active' => false],
+    ]]);
+
+    Domain::factory()->create(['organisation_id' => $this->organisation->id, 'hostname' => 'expenses.test', 'status' => 'active', 'is_primary' => true]);
+
+    $this->get('http://expenses.test/finance/expenses/create')
+        ->assertOk()
+        ->assertSee('<option value="Rent">Rent</option>', false)
+        ->assertSee('<option value="Utilities">Utilities</option>', false)
+        ->assertSee('<option value="Salaries">Salaries</option>', false)
+        ->assertDontSee('<option value="Old thing">', false)
+        ->assertSee('Other…')
+        // Required selects mark themselves for the lone-option default.
+        ->assertSee('data-select-only-option', false);
+
+    Livewire::test(Form::class)
+        ->set('category', Form::OTHER_CATEGORY)
+        ->assertSee('Other category')
+        ->set('customCategory', 'Trainer commission')
+        ->set('amount', '500')
+        ->set('payee', 'Coach')
+        ->call('save')
+        ->assertHasNoErrors();
+
+    $expense = Expense::query()->latest('id')->firstOrFail();
+    expect($expense->category)->toBe('Trainer commission');
+
+    // Reopened, the one-off shows as Other with its wording kept.
+    Livewire::test(Form::class, ['expense' => $expense])
+        ->assertSet('category', Form::OTHER_CATEGORY)
+        ->assertSet('customCategory', 'Trainer commission');
 });

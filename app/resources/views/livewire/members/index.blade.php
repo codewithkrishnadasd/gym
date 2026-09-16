@@ -185,7 +185,7 @@
                 @endforeach
             </ul>
 
-            {{ $members->links() }}
+            <x-ui.load-more :list="$members" noun="members" />
         @endif
     </x-ui.card>
 </div>

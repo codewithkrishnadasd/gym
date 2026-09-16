@@ -8,23 +8,28 @@ use App\Enums\Feature;
 use App\Enums\MemberStatus;
 use App\Enums\SubscriptionHealth;
 use App\Enums\SubscriptionStatus;
+use App\Livewire\Concerns\LoadsMore;
 use App\Livewire\Concerns\RemembersFilters;
 use App\Livewire\Concerns\ResolvesMembership;
 use App\Models\Member;
 use App\Models\Plan;
+use App\Support\Listing\Slice;
 use App\Support\Search;
 use Carbon\CarbonInterface;
-use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
 use Illuminate\View\View;
 use Livewire\Attributes\Url;
 use Livewire\Component;
-use Livewire\WithPagination;
 
 class Index extends Component
 {
-    use RemembersFilters, ResolvesMembership, WithPagination;
+    use LoadsMore, RemembersFilters, ResolvesMembership;
+
+    protected function pageSize(): int
+    {
+        return 15;
+    }
 
     #[Url]
     public string $search = '';
@@ -135,9 +140,9 @@ class Index extends Component
     }
 
     /**
-     * @return LengthAwarePaginator<int, Member>
+     * @return Slice<Member>
      */
-    protected function members(): LengthAwarePaginator
+    protected function members(): Slice
     {
         $query = $this->restrictToClubs(Member::query(), 'primary_club_id')
             ->with('primaryClub:id,name')
@@ -178,7 +183,7 @@ class Index extends Component
                 ->where('plan_id', $this->planId)))
             ->orderBy('name');
 
-        return $query->paginate(15);
+        return $this->slice($query);
     }
 
     /**
