@@ -12,14 +12,16 @@
         apply: (from, to) => $wire.setRange(from, to),
     })"
     x-on:keydown.escape.window="close()"
+    x-on:open-range-picker.window="open = true; hover = null"
     {{ $attributes->class('relative') }}>
 
+    {{-- The chosen range, as text rather than a control: the dates are the
+         point, and tapping them is how to change them. --}}
     <button type="button" x-on:click="toggle()" :aria-expanded="open"
-        class="inline-flex min-h-[36px] items-center gap-2 rounded-lg border border-hairline-strong bg-surface px-3 text-[13px] font-medium text-ink transition hover:bg-raised max-lg:min-h-[44px]">
-        <x-heroicon-o-calendar-days class="h-4 w-4 text-ink-muted" />
-        <span x-text="label()">{{ $from && $to ? \Illuminate\Support\Carbon::parse($from)->format('j M Y').' – '.\Illuminate\Support\Carbon::parse($to)->format('j M Y') : 'Pick a date range' }}</span>
-        <span x-show="days() > 0" x-cloak class="numeric rounded-md bg-sunken px-1.5 py-0.5 text-[11px] text-ink-muted" x-text="days() + (days() === 1 ? ' day' : ' days')"></span>
-        <x-heroicon-o-chevron-down class="h-3.5 w-3.5 text-ink-muted transition" x-bind:class="open && 'rotate-180'" />
+        class="group inline-flex min-h-[36px] items-baseline gap-2 rounded-lg px-1 text-left transition hover:text-accent max-lg:min-h-[44px]">
+        <span class="numeric font-[family-name:var(--font-display)] text-base font-semibold tracking-tight text-ink group-hover:text-accent" x-text="label()">{{ $from && $to ? \Illuminate\Support\Carbon::parse($from)->format('j M Y').' – '.\Illuminate\Support\Carbon::parse($to)->format('j M Y') : 'Pick a date range' }}</span>
+        <span x-show="days() > 0" x-cloak class="numeric text-xs text-ink-muted" x-text="days() + (days() === 1 ? ' day' : ' days')"></span>
+        <x-heroicon-o-pencil-square class="h-3.5 w-3.5 self-center text-ink-muted opacity-70 transition group-hover:opacity-100" />
     </button>
 
     {{-- Phone: dim the page behind the sheet. --}}
