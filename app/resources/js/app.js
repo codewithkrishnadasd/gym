@@ -1,4 +1,5 @@
 import Chart from 'chart.js/auto';
+import './back-button';
 import './date-field';
 import './filters-bar';
 import './markdown-editor';

@@ -14,6 +14,7 @@ use App\Models\Invoice;
 use App\Models\Member;
 use App\Support\Money;
 use App\Support\PhoneNumber;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Validation\Rule;
@@ -79,7 +80,9 @@ class Form extends Component
             return;
         }
 
-        $member = $this->searchableMembers(true)->firstWhere('id', $memberId);
+        // Looked up directly, not through the search list, which is capped
+        // and would miss a member further down the alphabet.
+        $member = $this->selectableMembers()->find($memberId);
 
         if (! $member) {
             return;
@@ -283,6 +286,16 @@ class Form extends Component
     }
 
     /**
+     * @return Builder<Member>
+     */
+    protected function selectableMembers(): Builder
+    {
+        return $this->restrictToClubs(Member::query(), 'primary_club_id')
+            ->with('primaryClub:id,name')
+            ->whereIn('status', [MemberStatus::Active, MemberStatus::Paused]);
+    }
+
+    /**
      * @return Collection<int, Member>
      */
     protected function searchableMembers(bool $ignoreSearchLength = false): Collection
@@ -291,9 +304,7 @@ class Form extends Component
             return collect();
         }
 
-        return $this->restrictToClubs(Member::query(), 'primary_club_id')
-            ->with('primaryClub:id,name')
-            ->whereIn('status', [MemberStatus::Active, MemberStatus::Paused])
+        return $this->selectableMembers()
             ->when($this->memberSearch !== '', fn ($query) => $query->where(
                 fn ($inner) => $inner->where('name', 'ilike', "%{$this->memberSearch}%")
                     ->orWhere('phone', 'ilike', "%{$this->memberSearch}%")

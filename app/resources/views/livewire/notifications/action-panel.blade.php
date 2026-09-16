@@ -1,5 +1,14 @@
 <div>
     @if ($notification)
+        {{-- Freshly shown after an action further down the page, the panel
+             brings itself into view: on a phone it would otherwise sit above
+             the fold, unseen. Nothing moves when it is already visible. --}}
+        <div x-data x-init="$nextTick(() => {
+                const rect = $el.getBoundingClientRect();
+                if (rect.top < 0 || rect.bottom > window.innerHeight) {
+                    $el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+            })" class="scroll-mt-20" wire:key="panel-scroll-{{ $notification->id }}"></div>
         {{--
             Editing and the deep link both live in Alpine so the URL always
             reflects what is on screen right now. Building the href server-side

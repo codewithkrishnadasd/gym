@@ -3,7 +3,9 @@
 <div class="mb-5 flex flex-wrap items-start justify-between gap-3">
     <div class="min-w-0">
         @if ($back)
-            <a href="{{ $back }}" class="mb-1.5 inline-flex items-center gap-1 text-xs font-medium text-ink-muted transition hover:text-ink">
+            {{-- Returns to the page the person came from when it was one of
+                 ours (see back-button.js); the href is the fallback. --}}
+            <a href="{{ $back }}" data-back wire:navigate class="mb-1.5 inline-flex items-center gap-1 text-xs font-medium text-ink-muted transition hover:text-ink">
                 <x-heroicon-o-arrow-left class="h-3.5 w-3.5" />
                 {{ $backLabel }}
             </a>

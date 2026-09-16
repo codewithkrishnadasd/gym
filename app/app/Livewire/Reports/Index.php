@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Livewire\Reports;
 
 use App\Enums\Feature;
+use App\Livewire\Concerns\RemembersFilters;
 use App\Livewire\Concerns\ResolvesMembership;
 use App\Support\Reporting\OrganisationMetrics;
 use App\Support\Reporting\ReportPeriod;
@@ -22,7 +23,7 @@ use Livewire\Component;
  */
 class Index extends Component
 {
-    use ResolvesMembership;
+    use RemembersFilters, ResolvesMembership;
 
     #[Url]
     public string $tab = 'finance';

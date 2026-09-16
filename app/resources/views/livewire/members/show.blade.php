@@ -25,6 +25,10 @@
         $tabs['documents'] = 'Documents';
     }
 
+    if (auth()->user()?->can('viewAny', \App\Models\Task::class)) {
+        $tabs['tasks'] = 'Tasks';
+    }
+
     if (! isset($tabs[$tab])) {
         $tab = 'overview';
     }
@@ -447,6 +451,61 @@
 
     @if ($tab === 'documents')
         <livewire:documents.panel subject-type="member" :subject-id="$member->id" :key="'documents-member-'.$member->id" />
+    @endif
+
+    @if ($tab === 'tasks')
+        {{-- Work about this member: everything the viewer may see that names
+             them, open first. A new task from here starts already about them. --}}
+        <x-ui.card :padded="false" title="Tasks" :description="$memberTasks->count().' about '.$member->name">
+            <x-slot:actions>
+                @can('create', \App\Models\Task::class)
+                    <x-ui.button size="sm" variant="primary" icon="plus" :href="route('tenant.tasks.create', ['member' => $member->id])" wire:navigate>New task</x-ui.button>
+                @endcan
+            </x-slot:actions>
+
+            @if ($memberTasks->isEmpty())
+                <x-ui.empty icon="check-circle" title="No tasks yet" :description="'Nothing has been raised about '.$member->name.'.'">
+                    <x-slot:actions>
+                        @can('create', \App\Models\Task::class)
+                            <x-ui.button size="sm" variant="primary" :href="route('tenant.tasks.create', ['member' => $member->id])" wire:navigate>New task</x-ui.button>
+                        @endcan
+                    </x-slot:actions>
+                </x-ui.empty>
+            @else
+                <ul class="divide-y divide-[var(--c-hairline)]">
+                    @foreach ($memberTasks as $task)
+                        @php $overdue = $task->isOverdue($today); @endphp
+                        <li>
+                            <a href="{{ route('tenant.tasks.show', $task) }}" wire:navigate
+                                class="flex flex-col gap-1.5 p-4 transition hover:bg-raised sm:flex-row sm:items-center sm:justify-between">
+                                <div class="min-w-0">
+                                    <div class="flex flex-wrap items-center gap-2">
+                                        <x-ui.reference :value="$organisation->reference('task', $task->id)" />
+                                        <p @class(['truncate font-medium', 'text-ink' => ! $task->isDone(), 'text-ink-muted line-through' => $task->isDone()])>{{ $task->title }}</p>
+                                        <x-tasks.status-chip :status="$task->status" />
+                                    </div>
+                                    <p class="mt-0.5 text-xs text-ink-muted">
+                                        {{ $task->category?->name }}
+                                        @if ($task->due_date)
+                                            · <span @class(['font-medium text-critical' => $overdue])>{{ $overdue ? 'Overdue' : 'Due' }} {{ $task->due_date->format('d M Y') }}</span>
+                                        @endif
+                                        @php $everyone = $task->people(); @endphp
+                                        @if ($everyone->isNotEmpty())
+                                            · {{ $everyone->map(fn ($person) => $person->user?->name)->filter()->join(', ') }}
+                                        @endif
+                                    </p>
+                                </div>
+                                <x-heroicon-o-chevron-right class="hidden h-4 w-4 shrink-0 text-ink-muted sm:block" />
+                            </a>
+                        </li>
+                    @endforeach
+                </ul>
+
+                <div class="border-t border-hairline px-4 py-3">
+                    <x-ui.button size="sm" variant="ghost" :href="route('tenant.tasks.index', ['member' => $member->id, 'show' => 'all'])" wire:navigate>Open in the task list</x-ui.button>
+                </div>
+            @endif
+        </x-ui.card>
     @endif
 
     @can('createFor', [\App\Models\MemberSubscription::class, $member])

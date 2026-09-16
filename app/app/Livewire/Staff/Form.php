@@ -151,6 +151,7 @@ class Form extends Component
         $isInvite = $this->organisationUser === null;
         $previousStatus = $this->organisationUser?->status->value;
         $previousClubIds = $isInvite ? [] : $this->organisationUser->activeClubIds();
+        $previousAccess = $isInvite ? null : [$this->organisationUser->role->value, $this->organisationUser->permissions ?? []];
 
         $saved = DB::transaction(function () use ($validated, $existingUser, $permissions, $invitedBy, $normalisedPhone): OrganisationUser {
             // A brand-new account gets an unguessable placeholder nobody ever
@@ -190,7 +191,7 @@ class Form extends Component
         // welcome they cannot act on would be worse than sending nothing.
         $notification = $existingUser === null && $isInvite
             ? $this->sendPasswordSetupLink($saved)
-            : $this->notify($saved, $isInvite, $previousStatus, $previousClubIds);
+            : $this->notify($saved, $isInvite, $previousStatus, $previousClubIds, $previousAccess);
 
         session()->flash('status', "\"{$validated['name']}\" was saved.");
         session()->flash('notification_id', $notification?->id);
@@ -240,12 +241,14 @@ class Form extends Component
      * never a password or a raw token.
      *
      * @param  array<int, int>  $previousClubIds
+     * @param  array{0: string, 1: array<string, bool>}|null  $previousAccess  Role and permission map before the save.
      */
     private function notify(
         OrganisationUser $organisationUser,
         bool $isInvite,
         ?string $previousStatus,
         array $previousClubIds,
+        ?array $previousAccess = null,
     ): ?WhatsappActionNotification {
         $organisationUser->refresh();
 
@@ -263,10 +266,19 @@ class Form extends Component
             && array_diff($previousClubIds, $organisationUser->activeClubIds()) !== []
             || array_diff($organisationUser->activeClubIds(), $previousClubIds) !== [];
 
+        // Access is the role plus the granted keys: a promotion to admin or a
+        // changed permission set is told to the person as such.
+        $currentGranted = array_keys(array_filter($organisationUser->permissions ?? []));
+        $accessChanged = ! $isInvite && $previousAccess !== null && (
+            $previousAccess[0] !== $organisationUser->role->value
+            || array_keys(array_filter($previousAccess[1])) != $currentGranted
+        );
+
         $type = match (true) {
             $isInvite => NotificationActionType::UserInvited,
             $statusChanged => NotificationActionType::UserStatusChanged,
             $clubsChanged => NotificationActionType::UserClubAssignmentChanged,
+            $accessChanged => NotificationActionType::UserPermissionsChanged,
             default => NotificationActionType::UserProfileUpdated,
         };
 

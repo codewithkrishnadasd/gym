@@ -48,6 +48,16 @@
 
                     <x-ui.input wire:model="startDate" name="startDate" label="Start date" type="date" hint="Optional." />
                     <x-ui.input wire:model="dueDate" name="dueDate" label="Due date" type="date" hint="Optional." />
+
+                    @if ($organisation->usesClubs() && $clubs->isNotEmpty())
+                        <x-ui.select wire:model="clubId" name="clubId" :label="$organisation->term('club_singular')"
+                            hint="Optional. Where this task belongs, so the list can be narrowed to a location.">
+                            <option value="">Not tied to one {{ strtolower($organisation->term('club_singular')) }}</option>
+                            @foreach ($clubs as $club)
+                                <option value="{{ $club->id }}">{{ $club->name }}</option>
+                            @endforeach
+                        </x-ui.select>
+                    @endif
                 </div>
             </x-ui.card>
 

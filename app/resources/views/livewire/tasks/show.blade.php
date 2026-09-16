@@ -45,13 +45,13 @@
                     @if ($task->isDone())
                         <p class="mt-3 text-xs text-ink-muted">Completed {{ $task->completed_at?->timezone($organisation->timezone)->format('d M Y, H:i') }}.</p>
                     @endif
+                </x-ui.card>
+            @endif
 
             @if ($task->description)
                 <x-ui.card title="Description" collapsible :open="false">
                     {{-- Rendered server-side with raw HTML stripped (Task::descriptionHtml). --}}
                     <div class="prose-task text-sm text-ink-soft">{!! $task->descriptionHtml() !!}</div>
-                </x-ui.card>
-            @endif
                 </x-ui.card>
             @endif
 
@@ -309,6 +309,9 @@
                         @endif
                     </x-ui.definition>
                     @endfeature
+                    @if ($organisation->usesClubs())
+                        <x-ui.definition :label="$organisation->term('club_singular')" :value="$task->club?->name ?? 'Not tied to one'" />
+                    @endif
                     <x-ui.definition label="Reported by" :value="$task->createdBy?->user?->name ?? '—'" />
                 </dl>
             </x-ui.card>

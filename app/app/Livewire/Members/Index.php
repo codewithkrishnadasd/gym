@@ -8,6 +8,7 @@ use App\Enums\Feature;
 use App\Enums\MemberStatus;
 use App\Enums\SubscriptionHealth;
 use App\Enums\SubscriptionStatus;
+use App\Livewire\Concerns\RemembersFilters;
 use App\Livewire\Concerns\ResolvesMembership;
 use App\Models\Member;
 use App\Models\Plan;
@@ -23,7 +24,7 @@ use Livewire\WithPagination;
 
 class Index extends Component
 {
-    use ResolvesMembership, WithPagination;
+    use RemembersFilters, ResolvesMembership, WithPagination;
 
     #[Url]
     public string $search = '';

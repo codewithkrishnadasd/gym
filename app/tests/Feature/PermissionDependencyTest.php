@@ -50,15 +50,15 @@ it('grants the prerequisites of a permission that cannot work without them', fun
     'edit members' => fn () => ['members.edit', ['members.view']],
     'transfer members' => fn () => ['members.transfer', ['members.view']],
     'collect fees' => fn () => ['fees.collect', ['fees.view_own']],
-    'send messages' => fn () => ['notifications.send', ['members.view']],
 ]);
 
-it('does not drag staff visibility in with messaging', function (): void {
-    // Staff-facing messages (invitations, reset links) are admin-only actions,
-    // so a staff member who can message members has no need to see colleagues.
+it('lets messaging stand on its own', function (): void {
+    // Messages go to whoever an action concerned — a member, a walk-in payer —
+    // so sending them implies neither the member list nor the staff list.
     $staff = staffWith(['notifications.send']);
 
-    expect($staff->hasPermission('members.view'))->toBeTrue()
+    expect($staff->hasPermission('notifications.send'))->toBeTrue()
+        ->and($staff->hasPermission('members.view'))->toBeFalse()
         ->and($staff->hasPermission('staff.view'))->toBeFalse();
 });
 
@@ -84,8 +84,8 @@ it('expands a set stored before the dependency existed', function (): void {
 
 it('ticks the prerequisites in the form as soon as a dependent is ticked', function (): void {
     Livewire::test(StaffForm::class)
-        ->set('permissions', ['notifications.send'])
-        ->assertSet('permissions', ['members.view', 'notifications.send']);
+        ->set('permissions', ['members.edit'])
+        ->assertSet('permissions', ['members.view', 'members.edit']);
 });
 
 it('expands the set on save rather than trusting what the form submitted', function (): void {
@@ -94,7 +94,6 @@ it('expands the set on save rather than trusting what the form submitted', funct
     // through the component cannot prove the server would catch a request
     // that skipped it.
     expect(Permission::map(['members.edit'])['members.view'])->toBeTrue()
-        ->and(Permission::map(['notifications.send'])['members.view'])->toBeTrue()
         ->and(Permission::map(['fees.collect'])['fees.view_own'])->toBeTrue();
 });
 
@@ -126,10 +125,10 @@ it('stores no permission keys for an administrator', function (): void {
 });
 
 it('reports which granted permissions depend on a given one', function (): void {
-    $dependents = Permission::MembersView->requiredBy(['members.edit', 'notifications.send', 'fees.collect']);
+    $dependents = Permission::MembersView->requiredBy(['members.edit', 'billing.create', 'fees.collect']);
 
     expect(collect($dependents)->map(fn (Permission $p): string => $p->value)->all())
-        ->toBe(['members.edit', 'notifications.send']);
+        ->toBe(['members.edit', 'billing.create']);
 });
 
 it('drops a stored key that is no longer a real permission', function (): void {

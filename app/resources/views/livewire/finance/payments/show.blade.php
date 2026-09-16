@@ -28,6 +28,12 @@
         <x-ui.alert tone="critical" title="This payment changed">{{ $lifecycleError }}</x-ui.alert>
     @endif
 
+    {{-- The receipt message, first thing on the page: after a collection or
+         a confirmation it is the next action, on a phone as much as a desk. --}}
+    @if ($canNotify)
+        <livewire:notifications.action-panel :notification-id="$notificationId" :key="'panel-'.$payment->id" />
+    @endif
+
     @if ($payment->confirmation_status->value === 'pending_admin_confirmation')
         <x-ui.alert tone="caution" title="Awaiting confirmation">
             This payment does not count towards revenue and has not been applied to any plan yet.
@@ -157,11 +163,6 @@
         </div>
 
         <div class="space-y-5">
-            @if ($canNotify)
-                <livewire:notifications.action-panel :notification-id="$notificationId"
-                    :key="'panel-'.$payment->id" />
-            @endif
-
             <x-ui.card :title="$payment->member ? $organisation->term('member_singular') : 'Paid by'"
                 :description="$payment->member ? null : 'Not a '.strtolower($organisation->term('member_singular')).' — recorded by name.'">
                 <div class="flex items-center gap-3">

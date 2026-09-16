@@ -1,8 +1,3 @@
-@php
-    $actionLabel = fn (string $value): string => \Illuminate\Support\Str::of($value)->replace('_', ' ')->ucfirst();
-
-    $groups = collect($actionTypes)->groupBy(fn ($type) => str_starts_with($type->value, 'user_') ? 'Staff actions' : 'Member actions');
-@endphp
 
 <div>
     <x-ui.flash />
@@ -355,7 +350,7 @@
                     <div class="space-y-4">
                         <x-ui.select wire:model.live="templateAction" name="templateAction" label="Action">
                             @foreach ($actionTypes as $type)
-                                <option value="{{ $type->value }}">{{ $actionLabel($type->value) }}</option>
+                                <option value="{{ $type->value }}">{{ $type->label() }}</option>
                             @endforeach
                         </x-ui.select>
 
@@ -416,27 +411,35 @@
             <div class="space-y-5 lg:col-span-2">
                 <x-ui.card title="WhatsApp action notifications"
                     description="After an admin action succeeds, the app prepares a message you can review and send. It never sends anything on its own.">
-                    <div class="space-y-1 rounded-lg border border-hairline bg-raised p-1">
+                    <div class="rounded-lg border border-hairline bg-raised p-1">
                         <x-ui.checkbox wire:model.live="notificationsEnabled" label="Enable action notifications"
-                            description="Turn this off to stop preparing messages entirely." />
-                        <x-ui.checkbox wire:model="requirePreview" label="Always preview before opening WhatsApp"
-                            description="Recommended. The message is shown for review before the link is available." />
+                            description="Turn this off to stop preparing messages entirely. Every message is shown for review before it is sent." />
                     </div>
                 </x-ui.card>
 
-                @foreach ($groups as $groupName => $types)
+                {{-- One card per area, only for the modules this organisation
+                     has. The password link is not listed: it is a handover an
+                     admin must be able to pass on, so it cannot be switched off. --}}
+                @foreach ($actionGroups as $groupName => $types)
                     <x-ui.card :title="$groupName" :padded="false">
                         <div @class(['divide-y divide-[var(--c-hairline)]', 'pointer-events-none opacity-50' => ! $notificationsEnabled])>
                             @foreach ($types as $type)
                                 <div class="px-3 py-1">
                                     <x-ui.checkbox wire:model="enabledActions" value="{{ $type->value }}"
-                                        :label="$actionLabel($type->value)"
-                                        :description="str_contains($type->value, 'attendance') ? 'Off by default — daily marking can generate very high message volume.' : null" />
+                                        :label="$type->label()" :description="$type->description()" />
                                 </div>
                             @endforeach
                         </div>
                     </x-ui.card>
                 @endforeach
+
+                @feature('staff')
+                    <x-ui.alert tone="info" title="Password links">
+                        The one-time sign-in link an admin issues to a staff member is always prepared — it is how
+                        they get in, not an announcement — so it has no switch here. Its wording can still be
+                        changed under Message templates.
+                    </x-ui.alert>
+                @endfeature
             </div>
 
             <div class="space-y-5">

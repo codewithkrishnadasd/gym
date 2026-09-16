@@ -5,9 +5,11 @@
          this page has a listener to reach. Rendered with no notification it
          draws nothing; keyed to the page, not the message, so the component
          survives from one action to the next. --}}
-    <div class="mb-4">
-        <livewire:notifications.action-panel :notification-id="session('notification_id')" key="staff-panel" />
-    </div>
+    @can('sendNotifications', $organisation)
+        <div class="mb-4">
+            <livewire:notifications.action-panel :notification-id="session('notification_id')" key="staff-panel" />
+        </div>
+    @endcan
 
     <x-ui.page-header :title="$organisation->term('user_plural')"
         :description="'People who can sign in to '.$organisation->name.($organisation->usesClubs() ? '. Each can be assigned to several '.strtolower($organisation->term('club_plural')).'.' : '.')">

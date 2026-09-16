@@ -7,6 +7,7 @@ namespace App\Livewire\Finance\Expenses;
 use App\Actions\Expenses\ReverseExpense;
 use App\Enums\ExpenseStatus;
 use App\Exceptions\LifecycleViolation;
+use App\Livewire\Concerns\RemembersFilters;
 use App\Livewire\Concerns\ResolvesMembership;
 use App\Models\Expense;
 use App\Models\FinancialAccount;
@@ -21,7 +22,7 @@ use Livewire\WithPagination;
 
 class Index extends Component
 {
-    use ResolvesMembership, WithPagination;
+    use RemembersFilters, ResolvesMembership, WithPagination;
 
     #[Url]
     public string $search = '';

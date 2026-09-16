@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Livewire\Audit;
 
+use App\Livewire\Concerns\RemembersFilters;
 use App\Livewire\Concerns\ResolvesMembership;
 use App\Models\AuditEvent;
 use App\Models\OrganisationUser;
@@ -22,7 +23,7 @@ use Livewire\WithPagination;
  */
 class Index extends Component
 {
-    use ResolvesMembership, WithPagination;
+    use RemembersFilters, ResolvesMembership, WithPagination;
 
     #[Url]
     public string $search = '';

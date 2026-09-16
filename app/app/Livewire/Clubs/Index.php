@@ -9,6 +9,7 @@ use App\Enums\ClubAssignmentStatus;
 use App\Enums\ClubStatus;
 use App\Enums\ConfirmationStatus;
 use App\Enums\MemberStatus;
+use App\Livewire\Concerns\RemembersFilters;
 use App\Livewire\Concerns\ResolvesMembership;
 use App\Models\Club;
 use App\Support\Search;
@@ -21,7 +22,7 @@ use Livewire\WithPagination;
 
 class Index extends Component
 {
-    use ResolvesMembership, WithPagination;
+    use RemembersFilters, ResolvesMembership, WithPagination;
 
     #[Url]
     public string $search = '';

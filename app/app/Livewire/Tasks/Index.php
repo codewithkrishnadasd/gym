@@ -5,8 +5,11 @@ declare(strict_types=1);
 namespace App\Livewire\Tasks;
 
 use App\Enums\Feature;
+use App\Enums\MembershipStatus;
+use App\Livewire\Concerns\RemembersFilters;
 use App\Livewire\Concerns\ResolvesMembership;
 use App\Models\Member;
+use App\Models\OrganisationUser;
 use App\Models\Task;
 use App\Models\TaskCategory;
 use App\Models\TaskItem;
@@ -26,7 +29,7 @@ use Livewire\WithPagination;
  */
 class Index extends Component
 {
-    use ResolvesMembership, WithPagination;
+    use RemembersFilters, ResolvesMembership, WithPagination;
 
     #[Url]
     public string $search = '';
@@ -45,13 +48,38 @@ class Index extends Component
     #[Url]
     public string $member = '';
 
-    /** '' (everything visible), 'mine' (assigned to me), 'reported' (raised by me), 'mentioned' (named in a comment). */
+    #[Url]
+    public string $club = '';
+
+    /**
+     * '' (everything visible), 'mine' (assigned to me), 'reported' (raised by
+     * me), 'mentioned' (named in a comment), 'unassigned' (nobody holds it or
+     * any of its parts), or 'staff:{id}' (held by that person).
+     */
     #[Url]
     public string $who = '';
 
     public function mount(): void
     {
         $this->authorize('viewAny', Task::class);
+
+        // Without a view of the team there is no people filter: the list is
+        // simply the tasks this person is involved in.
+        if (! $this->canFilterByPeople()) {
+            $this->who = '';
+        }
+    }
+
+    /**
+     * Admins, and staff allowed to see their colleagues, can slice the list
+     * by person; everyone else only ever sees their own involvement anyway.
+     */
+    private function canFilterByPeople(): bool
+    {
+        $membership = $this->currentMembership();
+
+        return $membership->isAdmin()
+            || ($this->organisation()->hasFeature(Feature::Staff) && $membership->hasPermission('staff.view'));
     }
 
     public function updated(string $property): void
@@ -78,6 +106,20 @@ class Index extends Component
     }
 
     /**
+     * The staff member the People filter names, when it names one.
+     */
+    private function filteredStaffId(): ?int
+    {
+        if (! str_starts_with($this->who, 'staff:')) {
+            return null;
+        }
+
+        $id = (int) substr($this->who, 6);
+
+        return $id > 0 ? $id : null;
+    }
+
+    /**
      * Every filter except the open/done switch.
      *
      * @return Builder<Task>
@@ -91,7 +133,16 @@ class Index extends Component
             ->when(! $membership->isAdmin(), fn (Builder $query) => $query->involving($membership))
             ->when($this->who === 'mine', fn (Builder $query) => $query->whereHas('assignees', fn (Builder $assignees) => $assignees->where('organisation_users.id', $membership->id)))
             ->when($this->who === 'reported', fn (Builder $query) => $query->where('created_by', $membership->id))
+            ->when($this->club !== '' && $this->organisation()->usesClubs(), fn (Builder $query) => $query->where('club_id', (int) $this->club))
             ->when($this->who === 'mentioned', fn (Builder $query) => $query->whereHas('mentions', fn (Builder $mentions) => $mentions->where('organisation_user_id', $membership->id)))
+            // Nobody on the task and nobody on any of its parts.
+            ->when($this->who === 'unassigned', fn (Builder $query) => $query
+                ->whereDoesntHave('assignees')
+                ->whereDoesntHave('items', fn (Builder $items) => $items->whereNotNull('assignee_id')))
+            // Held by one person, either the whole task or one of its parts.
+            ->when($this->filteredStaffId() !== null, fn (Builder $query) => $query->where(fn (Builder $inner) => $inner
+                ->whereHas('assignees', fn (Builder $assignees) => $assignees->where('organisation_users.id', $this->filteredStaffId()))
+                ->orWhereHas('items', fn (Builder $items) => $items->where('assignee_id', $this->filteredStaffId()))))
             // Title, the task reference (TSK-12), or the member it concerns.
             ->when($this->search !== '', fn (Builder $query) => $query->where(function (Builder $inner): void {
                 $id = Search::referenceId($this->organisation(), 'task', $this->search);
@@ -114,7 +165,7 @@ class Index extends Component
     protected function tasks(): LengthAwarePaginator
     {
         return $this->scope()
-            ->with(['category:id,name', 'status', 'items.status', 'items.subCategory:id,name', 'items.assignee.user:id,name', 'member:id,name', 'assignees.user:id,name'])
+            ->with(['category:id,name', 'status', 'items.status', 'items.subCategory:id,name', 'items.assignee.user:id,name', 'member:id,name', 'club:id,name', 'assignees.user:id,name'])
             // Dated work first, soonest due at the top; undated after.
             ->orderByRaw('due_date ASC NULLS LAST')
             ->orderByDesc('id')
@@ -165,6 +216,18 @@ class Index extends Component
                     ->get(['id', 'name'])
                 : new Collection,
             'statuses' => $this->statusesForFilter(),
+            // Everyone active, for "assigned to …": tasks are shared work, so
+            // the whole team is offered rather than only people already on one.
+            'clubs' => $this->organisation()->usesClubs() ? $this->accessibleClubs() : new Collection,
+            'canFilterByPeople' => $this->canFilterByPeople(),
+            'staff' => $this->canFilterByPeople()
+                ? OrganisationUser::query()
+                    ->with('user:id,name')
+                    ->where('status', MembershipStatus::Active)
+                    ->get()
+                    ->sortBy(fn (OrganisationUser $person): string => (string) $person->user?->name)
+                    ->values()
+                : new Collection,
             'totalCount' => $totalCount,
             'doneCount' => $doneCount,
             'donePercent' => $totalCount === 0 ? 0 : (int) round($doneCount / $totalCount * 100),

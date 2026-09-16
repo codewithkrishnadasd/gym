@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Livewire\Billing;
 
 use App\Enums\InvoiceStatus;
+use App\Livewire\Concerns\RemembersFilters;
 use App\Livewire\Concerns\ResolvesMembership;
 use App\Models\Invoice;
 use App\Support\Search;
@@ -21,7 +22,7 @@ use Livewire\WithPagination;
  */
 class Index extends Component
 {
-    use ResolvesMembership, WithPagination;
+    use RemembersFilters, ResolvesMembership, WithPagination;
 
     #[Url]
     public string $search = '';

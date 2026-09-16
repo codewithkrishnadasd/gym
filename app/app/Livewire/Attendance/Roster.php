@@ -9,11 +9,13 @@ use App\Enums\AttendanceAction;
 use App\Enums\AttendanceSubjectType;
 use App\Enums\MembershipStatus;
 use App\Enums\MemberStatus;
+use App\Enums\NotificationEntityType;
 use App\Livewire\Concerns\ResolvesMembership;
 use App\Models\Attendance;
 use App\Models\Club;
 use App\Models\Member;
 use App\Models\OrganisationUser;
+use App\Models\WhatsappActionNotification;
 use App\Support\RosterEntry;
 use App\Support\Search;
 use Illuminate\Support\Carbon;
@@ -51,6 +53,9 @@ class Roster extends Component
 
     /** Set after a bulk action so the UI can confirm what happened. */
     public ?string $bulkResult = null;
+
+    /** The attendance message composed by the last mark, when messages are on. */
+    public ?int $notificationId = null;
 
     public function mount(string $subject = 'members'): void
     {
@@ -117,7 +122,7 @@ class Roster extends Component
         $this->authorize('mark', [Attendance::class, $this->subjectType, $club?->id]);
         $this->assertSubjectOnRoster($subjectId, $club);
 
-        app(MarkAttendance::class)->handle(
+        $attendance = app(MarkAttendance::class)->handle(
             organisation: $this->organisation(),
             club: $club,
             subjectType: $this->subjectType,
@@ -128,6 +133,19 @@ class Roster extends Component
         );
 
         $this->bulkResult = null;
+
+        // Where attendance messages are switched on, the one just composed
+        // is offered straight away rather than left for the queue.
+        $notificationId = WhatsappActionNotification::query()
+            ->where('entity_type', NotificationEntityType::Attendance)
+            ->where('entity_id', $attendance->id)
+            ->latest('id')
+            ->value('id');
+
+        if ($notificationId !== null) {
+            $this->notificationId = (int) $notificationId;
+            $this->dispatch('notification-created', notificationId: $this->notificationId);
+        }
     }
 
     /**

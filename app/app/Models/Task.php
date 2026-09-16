@@ -23,7 +23,7 @@ use Illuminate\Support\Str;
  * own.
  */
 #[Fillable([
-    'organisation_id', 'task_category_id', 'task_status_id', 'member_id', 'title', 'description',
+    'organisation_id', 'task_category_id', 'task_status_id', 'member_id', 'club_id', 'title', 'description',
     'start_date', 'due_date', 'created_by', 'completed_at',
 ])]
 class Task extends Model
@@ -112,6 +112,14 @@ class Task extends Model
     public function member(): BelongsTo
     {
         return $this->belongsTo(Member::class);
+    }
+
+    /**
+     * @return BelongsTo<Club, $this>
+     */
+    public function club(): BelongsTo
+    {
+        return $this->belongsTo(Club::class);
     }
 
     /**

@@ -55,7 +55,7 @@ enum Permission: string
             self::DocumentsManage => 'Upload and remove documents',
             self::ClubsViewAssigned => 'View assigned clubs',
             self::ReportsViewAssigned => 'View reports for assigned clubs',
-            self::NotificationsSend => 'Send WhatsApp messages to members',
+            self::NotificationsSend => 'Send WhatsApp messages (see the message preview after an action)',
         };
     }
 
@@ -88,12 +88,6 @@ enum Permission: string
             // afterwards, so creating one needs both the member list and the
             // invoice list.
             self::BillingCreate => [self::BillingView, self::MembersView],
-
-            // Messages a staff member can send are addressed to members, so
-            // sending means being able to look the member up. Staff-facing
-            // messages (invitations, reset links) are admin-only actions and
-            // need no key here.
-            self::NotificationsSend => [self::MembersView],
 
             default => [],
         };

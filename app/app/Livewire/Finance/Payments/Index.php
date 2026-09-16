@@ -6,6 +6,7 @@ namespace App\Livewire\Finance\Payments;
 
 use App\Enums\ConfirmationStatus;
 use App\Enums\PaymentMethod;
+use App\Livewire\Concerns\RemembersFilters;
 use App\Livewire\Concerns\ResolvesMembership;
 use App\Models\FeePayment;
 use App\Models\FinancialAccount;
@@ -28,7 +29,7 @@ use Livewire\WithPagination;
  */
 class Index extends Component
 {
-    use ResolvesMembership, WithPagination;
+    use RemembersFilters, ResolvesMembership, WithPagination;
 
     #[Url]
     public string $search = '';

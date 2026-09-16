@@ -77,8 +77,6 @@ class OrganisationSettings extends Component
     // Notifications
     public bool $notificationsEnabled = true;
 
-    public bool $requirePreview = true;
-
     /** @var array<int, string> */
     public array $enabledActions = [];
 
@@ -123,7 +121,6 @@ class OrganisationSettings extends Component
 
         $settings = $organisation->notification_settings ?? [];
         $this->notificationsEnabled = (bool) ($settings['enabled'] ?? true);
-        $this->requirePreview = (bool) ($settings['require_preview'] ?? true);
         $this->enabledActions = collect(NotificationActionType::cases())
             ->filter(fn (NotificationActionType $type): bool => $organisation->notificationsEnabled($type))
             ->map(fn (NotificationActionType $type): string => $type->value)
@@ -131,6 +128,13 @@ class OrganisationSettings extends Component
             ->all();
 
         $this->expenseCategories = $organisation->expenseCategoryList();
+
+        // The editor opens on a message this organisation actually sends.
+        $editable = NotificationActionType::editableFor($organisation);
+
+        if ($editable !== [] && ! in_array(NotificationActionType::from($this->templateAction), $editable, true)) {
+            $this->templateAction = $editable[0]->value;
+        }
 
         $this->loadTemplate();
     }
@@ -475,6 +479,43 @@ class OrganisationSettings extends Component
      * Saves the labels and the reference prefixes together: one screen, one
      * button. Both are validated before either is written.
      */
+    /**
+     * Which actions prepare a WhatsApp message afterwards, and whether the
+     * message is always previewed first. Nothing is ever sent by itself.
+     */
+    public function saveNotifications(): void
+    {
+        $organisation = $this->organisation();
+        $this->authorize('manageSettings', $organisation);
+
+        // Only the switches on screen are written; an action of a module that
+        // is off keeps its stored setting for when the module returns.
+        $shown = collect(NotificationActionType::configurableFor($organisation))->flatten();
+        $stored = ($organisation->notification_settings ?? [])['actions'] ?? [];
+
+        $actions = collect(NotificationActionType::cases())
+            ->filter(fn (NotificationActionType $type): bool => $type->isOptional())
+            ->mapWithKeys(fn (NotificationActionType $type): array => [
+                $type->value => $shown->contains($type)
+                    ? in_array($type->value, $this->enabledActions, true)
+                    : (bool) ($stored[$type->value] ?? $organisation->notificationsEnabled($type)),
+            ])
+            ->all();
+
+        $settings = [
+            'enabled' => $this->notificationsEnabled,
+            'actions' => $actions,
+        ];
+
+        $this->persist(
+            ['notification_settings' => $settings],
+            ['notification_settings' => $organisation->notification_settings],
+            'organisation.notification_settings_updated',
+        );
+
+        session()->flash('status', 'Notification settings saved.');
+    }
+
     public function saveTerminology(): void
     {
         $organisation = $this->organisation();
@@ -568,7 +609,8 @@ class OrganisationSettings extends Component
             'organisation' => $organisation,
             'timezones' => \DateTimeZone::listIdentifiers(),
             'countries' => PhoneNumber::countries(),
-            'actionTypes' => NotificationActionType::cases(),
+            'actionTypes' => NotificationActionType::editableFor($organisation),
+            'actionGroups' => NotificationActionType::configurableFor($organisation),
             'templateVariables' => MessageComposer::variablesFor(NotificationActionType::from($this->templateAction)),
             'templatePreview' => MessageComposer::preview(
                 $organisation,

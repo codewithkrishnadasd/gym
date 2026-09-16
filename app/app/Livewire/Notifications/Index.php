@@ -6,6 +6,7 @@ namespace App\Livewire\Notifications;
 
 use App\Enums\NotificationActionType;
 use App\Enums\NotificationStatus;
+use App\Livewire\Concerns\RemembersFilters;
 use App\Livewire\Concerns\ResolvesMembership;
 use App\Models\WhatsappActionNotification;
 use App\Support\Search;
@@ -31,7 +32,7 @@ use Livewire\WithPagination;
  */
 class Index extends Component
 {
-    use ResolvesMembership, WithPagination;
+    use RemembersFilters, ResolvesMembership, WithPagination;
 
     #[Url]
     public string $search = '';

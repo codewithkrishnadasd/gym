@@ -240,6 +240,11 @@ it('shows staff only the tasks they reported or were assigned', function (): voi
     $other = app(CreateTask::class)->handle($this->category, ['title' => 'Somebody else’s'], $admin);
 
     $this->get('http://tasks.test/tasks')->assertOk()->assertSee('Handed to Priya')->assertSee('Opened by Priya')->assertDontSee('Somebody else’s');
+
+    // The people filter needs a view of the team; the list stays theirs either way.
+    $me->update(['permissions' => ['staff.view' => true]]);
+    app()->forgetInstance('membership');
+
     $this->get('http://tasks.test/tasks?who=mine')->assertOk()->assertSee('Handed to Priya')->assertDontSee('Opened by Priya');
     $this->get('http://tasks.test/tasks?who=reported')->assertOk()->assertSee('Opened by Priya')->assertDontSee('Handed to Priya');
 
@@ -526,4 +531,122 @@ it('lets one person hold each part, shows everyone on the ticket, and makes the 
     // And it can be handed back.
     Livewire::test(TaskShow::class, ['task' => $task])->call('setItemAssignee', $item->id, null);
     expect($item->fresh()?->assignee_id)->toBeNull();
+});
+
+it('filters the list to unassigned tasks or to one person\'s tasks', function (): void {
+    $admin = signIn($this->organisation, true);
+    $holder = OrganisationUser::factory()->create(['organisation_id' => $this->organisation->id, 'user_id' => User::factory()->create(['name' => 'Holder Hana'])->id]);
+
+    $make = fn (string $title): Task => Task::factory()->create([
+        'organisation_id' => $this->organisation->id,
+        'task_category_id' => $this->category->id,
+        'task_status_id' => $this->todo->id,
+        'created_by' => $admin->id,
+        'title' => $title,
+    ]);
+
+    $nobody = $make('Nobody has this');
+    $whole = $make('Hana holds the whole thing');
+    $whole->assignees()->attach($holder->id);
+    $part = $make('Hana holds one part');
+    $part->items()->create(['task_sub_category_id' => $this->sub->id, 'task_status_id' => $this->subPending->id, 'assignee_id' => $holder->id, 'position' => 0]);
+
+    $page = fn (string $who) => test()->get('http://tasks.test/tasks?who='.$who)->assertOk();
+
+    $page('unassigned')->assertSee('Nobody has this')->assertDontSee('Hana holds the whole thing')->assertDontSee('Hana holds one part');
+    $page('staff:'.$holder->id)->assertSee('Hana holds the whole thing')->assertSee('Hana holds one part')->assertDontSee('Nobody has this');
+    $page('')->assertSee('Nobody has this')->assertSee('Hana holds one part');
+
+    // The people filter offers every active team member by name.
+    $page('')->assertSee('value="staff:'.$holder->id.'"', false)->assertSee('Holder Hana')->assertSee('value="unassigned"', false);
+});
+
+it('hides the people filter from staff who cannot see the team, and lists only their own work', function (): void {
+    $admin = OrganisationUser::factory()->admin()->create(['organisation_id' => $this->organisation->id, 'user_id' => User::factory()->create()->id]);
+    $staff = signIn($this->organisation, false);
+
+    Task::factory()->create(['organisation_id' => $this->organisation->id, 'task_category_id' => $this->category->id, 'task_status_id' => $this->todo->id, 'created_by' => $admin->id, 'title' => 'Not theirs']);
+    $mine = Task::factory()->create(['organisation_id' => $this->organisation->id, 'task_category_id' => $this->category->id, 'task_status_id' => $this->todo->id, 'created_by' => $admin->id, 'title' => 'Handed to them']);
+    $mine->assignees()->attach($staff->id);
+
+    // A people filter in the link is ignored rather than widening the list.
+    $this->get('http://tasks.test/tasks?who=staff:'.$admin->id)
+        ->assertOk()
+        ->assertSee('Handed to them')
+        ->assertDontSee('Not theirs')
+        ->assertDontSee('value="unassigned"', false)
+        ->assertDontSee('Assigned to me');
+
+    // With a view of the team, the filter is offered.
+    $staff->update(['permissions' => ['staff.view' => true]]);
+    app()->forgetInstance('membership');
+
+    $this->get('http://tasks.test/tasks')->assertOk()->assertSee('value="unassigned"', false);
+});
+
+it('files a task under a club and filters the list by it', function (): void {
+    $admin = signIn($this->organisation, true);
+    $north = Club::factory()->create(['organisation_id' => $this->organisation->id, 'name' => 'North']);
+    $south = Club::factory()->create(['organisation_id' => $this->organisation->id, 'name' => 'South']);
+
+    Livewire::test(TaskForm::class)
+        ->set('categoryId', $this->category->id)
+        ->set('title', 'Fix North treadmill')
+        ->set('clubId', $north->id)
+        ->call('save')
+        ->assertHasNoErrors();
+
+    $task = Task::query()->where('title', 'Fix North treadmill')->firstOrFail();
+    expect($task->club_id)->toBe($north->id);
+
+    Task::factory()->create(['organisation_id' => $this->organisation->id, 'task_category_id' => $this->category->id, 'task_status_id' => $this->todo->id, 'created_by' => $admin->id, 'title' => 'South open day', 'club_id' => $south->id]);
+
+    // The save above flashed its title; the list itself is what is asserted.
+    session()->forget('status');
+
+    $this->get('http://tasks.test/tasks?club='.$north->id)->assertOk()->assertSee('Fix North treadmill')->assertDontSee('South open day');
+    $this->get('http://tasks.test/tasks?club='.$south->id)->assertOk()->assertSee('South open day')->assertDontSee('Fix North treadmill');
+    $this->get('http://tasks.test/tasks')->assertOk()->assertSee('Fix North treadmill')->assertSee('South open day')->assertSee('· North');
+    $this->get('http://tasks.test/tasks/'.$task->id)->assertOk()->assertSee('North');
+
+    // Without the Clubs module there is no club to choose and none is stored.
+    $this->organisation->update(['features' => ['tasks', 'members']]);
+    app()->instance('tenant', $this->organisation->fresh());
+
+    Livewire::test(TaskForm::class)
+        ->set('categoryId', $this->category->id)
+        ->set('title', 'Clubless chore')
+        ->call('save')
+        ->assertHasNoErrors();
+
+    expect(Task::query()->where('title', 'Clubless chore')->value('club_id'))->toBeNull();
+    $this->get('http://tasks.test/tasks/create')->assertOk()->assertDontSee('name="clubId"', false);
+});
+
+it('lists a member\'s tasks on their page and starts a new one already about them, at their club', function (): void {
+    $admin = signIn($this->organisation, true);
+    $north = Club::factory()->create(['organisation_id' => $this->organisation->id, 'name' => 'North']);
+    Club::factory()->create(['organisation_id' => $this->organisation->id, 'name' => 'South']);
+    $member = Member::factory()->create(['organisation_id' => $this->organisation->id, 'primary_club_id' => $north->id, 'name' => 'Tasked Tom']);
+    $other = Member::factory()->create(['organisation_id' => $this->organisation->id, 'primary_club_id' => $north->id, 'name' => 'Other Olga']);
+
+    Task::factory()->create(['organisation_id' => $this->organisation->id, 'task_category_id' => $this->category->id, 'task_status_id' => $this->todo->id, 'created_by' => $admin->id, 'title' => 'Renew Tom locker', 'member_id' => $member->id]);
+    Task::factory()->create(['organisation_id' => $this->organisation->id, 'task_category_id' => $this->category->id, 'task_status_id' => $this->todo->id, 'created_by' => $admin->id, 'title' => 'Olga induction', 'member_id' => $other->id]);
+
+    $this->get('http://tasks.test/members/'.$member->id.'?tab=tasks')
+        ->assertOk()
+        ->assertSee('Renew Tom locker')
+        ->assertDontSee('Olga induction')
+        ->assertSee('/tasks/create?member='.$member->id, false);
+
+    // The new-task form arrives already about Tom, at Tom's club.
+    Livewire::withQueryParams(['member' => $member->id])->test(TaskForm::class)
+        ->assertSet('memberId', $member->id)
+        ->assertSet('clubId', $north->id);
+
+    // Without the Tasks module the tab is gone.
+    $this->organisation->update(['features' => ['members', 'clubs']]);
+    app()->instance('tenant', $this->organisation->fresh());
+
+    $this->get('http://tasks.test/members/'.$member->id)->assertOk()->assertDontSee('tab=tasks');
 });

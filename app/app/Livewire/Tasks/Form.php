@@ -9,11 +9,13 @@ use App\Enums\MembershipStatus;
 use App\Enums\MemberStatus;
 use App\Livewire\Concerns\ResolvesMembership;
 use App\Models\AuditEvent;
+use App\Models\Club;
 use App\Models\Member;
 use App\Models\OrganisationUser;
 use App\Models\Task;
 use App\Models\TaskCategory;
 use App\Models\TaskStatus;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Carbon;
 use Illuminate\Validation\Rule;
@@ -49,6 +51,9 @@ class Form extends Component
 
     public ?int $memberId = null;
 
+    /** The club the task belongs to, when the organisation has clubs. */
+    public ?int $clubId = null;
+
     public string $memberSearch = '';
 
     public function mount(?Task $task = null): void
@@ -66,15 +71,26 @@ class Form extends Component
             $this->dueDate = $task->due_date?->toDateString() ?? '';
             $this->assigneeIds = $task->assignees()->pluck('organisation_users.id')->all();
             $this->memberId = $task->member_id;
+            $this->clubId = $task->club_id;
 
             return;
         }
 
-        // Opened from a member's page: the task is about them.
+        // Opened from a member's page: the task is about them, at their club.
         $member = request()->integer('member') ?: null;
 
-        if ($member !== null && $this->memberCandidates(true)->contains('id', $member)) {
-            $this->memberId = $member;
+        if ($member !== null) {
+            $this->selectMember($member);
+        }
+
+        // Or from a club, or where the user only has the one.
+        $club = request()->integer('club') ?: null;
+        $clubs = $this->selectableClubs();
+
+        if ($this->clubId === null) {
+            $this->clubId = $club !== null && $clubs->contains('id', $club)
+                ? $club
+                : ($clubs->count() === 1 ? $clubs->first()?->id : null);
         }
 
         $requested = request()->integer('category') ?: null;
@@ -116,16 +132,19 @@ class Form extends Component
                 Rule::exists('organisation_users', 'id')->where('organisation_id', app('tenant')->id)->where('status', 'active'),
             ],
             'memberId' => ['nullable', Rule::exists('members', 'id')->where('organisation_id', app('tenant')->id)],
+            'clubId' => $this->organisation()->usesClubs()
+                ? ['nullable', Rule::in($this->selectableClubs()->pluck('id')->all())]
+                : ['nullable', 'prohibited'],
         ], [
             'dueDate.after_or_equal' => 'The due date cannot be before the start date.',
             'statusId.exists' => 'Pick a status that belongs to the chosen category.',
-        ], ['categoryId' => 'category', 'statusId' => 'status']);
+        ], ['categoryId' => 'category', 'statusId' => 'status', 'clubId' => strtolower($this->organisation()->term('club_singular'))]);
 
         $actor = $this->currentMembership();
 
         if ($this->task) {
             $before = [
-                ...$this->task->only(['title', 'description', 'start_date', 'due_date', 'task_status_id', 'member_id']),
+                ...$this->task->only(['title', 'description', 'start_date', 'due_date', 'task_status_id', 'member_id', 'club_id']),
                 'assignee_ids' => $this->task->assignees()->pluck('organisation_users.id')->all(),
             ];
 
@@ -135,6 +154,7 @@ class Form extends Component
                 'start_date' => $validated['startDate'] ?: null,
                 'due_date' => $validated['dueDate'] ?: null,
                 'member_id' => $validated['memberId'] !== null ? (int) $validated['memberId'] : null,
+                'club_id' => $validated['clubId'] !== null ? (int) $validated['clubId'] : null,
             ])->save();
 
             $this->task->assignees()->sync(array_map('intval', $validated['assigneeIds']));
@@ -146,7 +166,7 @@ class Form extends Component
             }
 
             AuditEvent::record($this->task, 'task.updated', $actor, $before, [
-                ...$this->task->only(['title', 'description', 'start_date', 'due_date', 'task_status_id', 'member_id']),
+                ...$this->task->only(['title', 'description', 'start_date', 'due_date', 'task_status_id', 'member_id', 'club_id']),
                 'assignee_ids' => array_values(array_map('intval', $validated['assigneeIds'])),
             ]);
 
@@ -162,6 +182,7 @@ class Form extends Component
                 'due_date' => $validated['dueDate'] ?: null,
                 'task_status_id' => $validated['statusId'] !== null ? (int) $validated['statusId'] : null,
                 'member_id' => $validated['memberId'] !== null ? (int) $validated['memberId'] : null,
+                'club_id' => $validated['clubId'] !== null ? (int) $validated['clubId'] : null,
                 'assignee_ids' => array_map('intval', $validated['assigneeIds']),
             ], $actor);
         }
@@ -223,8 +244,15 @@ class Form extends Component
 
     public function selectMember(int $memberId): void
     {
-        if ($this->memberCandidates(true)->contains('id', $memberId)) {
-            $this->memberId = $memberId;
+        $member = $this->selectableMembers()->find($memberId);
+
+        if ($member) {
+            $this->memberId = $member->id;
+
+            // The task is most likely about their club, unless one was chosen.
+            if ($this->clubId === null && $member->primary_club_id !== null && $this->selectableClubs()->contains('id', $member->primary_club_id)) {
+                $this->clubId = $member->primary_club_id;
+            }
             $this->memberSearch = '';
         }
     }
@@ -239,15 +267,36 @@ class Form extends Component
      *
      * @return Collection<int, Member>
      */
+    /**
+     * The clubs a task can be filed under: none without the Clubs module.
+     *
+     * @return Collection<int, Club>
+     */
+    private function selectableClubs(): Collection
+    {
+        return $this->organisation()->usesClubs() ? $this->accessibleClubs() : new Collection;
+    }
+
+    /**
+     * @return Builder<Member>
+     */
+    private function selectableMembers(): Builder
+    {
+        return $this->restrictToClubs(Member::query(), 'primary_club_id')
+            ->with('primaryClub:id,name')
+            ->where('status', '!=', MemberStatus::Archived);
+    }
+
+    /**
+     * @return Collection<int, Member>
+     */
     private function memberCandidates(bool $ignoreSearchLength = false): Collection
     {
         if (! $ignoreSearchLength && mb_strlen($this->memberSearch) < 2) {
             return new Collection;
         }
 
-        return $this->restrictToClubs(Member::query(), 'primary_club_id')
-            ->with('primaryClub:id,name')
-            ->where('status', '!=', MemberStatus::Archived)
+        return $this->selectableMembers()
             ->when($this->memberSearch !== '', fn ($query) => $query->where(
                 fn ($inner) => $inner->where('name', 'ilike', "%{$this->memberSearch}%")
                     ->orWhere('phone', 'ilike', "%{$this->memberSearch}%")
@@ -276,6 +325,7 @@ class Form extends Component
             'assigneeResults' => $this->assigneeCandidates(),
             'hasPeople' => OrganisationUser::query()->where('status', MembershipStatus::Active)->exists(),
             'selectedMember' => $this->memberId ? Member::query()->with('primaryClub:id,name')->find($this->memberId) : null,
+            'clubs' => $this->selectableClubs(),
             'memberResults' => $this->memberId === null ? $this->memberCandidates() : new Collection,
             'today' => Carbon::today($organisation->timezone)->toDateString(),
         ])->layout('components.layouts.app', ['heading' => $this->task ? 'Edit task' : 'New task']);

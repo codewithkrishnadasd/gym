@@ -13,6 +13,12 @@
 <div>
     <x-ui.flash />
 
+    @can('sendNotifications', $organisation)
+        <div class="mb-4">
+            <livewire:notifications.action-panel :notification-id="$notificationId" key="roster-panel" />
+        </div>
+    @endcan
+
     <x-ui.page-header title="Attendance" :description="$isStaffRoster
         ? 'Mark who is in for the day. '.$organisation->term('user_plural').' are marked once per day'.($organisation->usesClubs() ? ', whichever '.strtolower($organisation->term('club_plural')).' they work across.' : '.')
         : ($organisation->usesClubs() ? 'Mark the daily roster for one '.strtolower($organisation->term('club_singular')).' at a time.' : 'Mark the daily roster.')" />

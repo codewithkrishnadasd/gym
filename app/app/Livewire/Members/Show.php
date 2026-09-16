@@ -4,13 +4,17 @@ declare(strict_types=1);
 
 namespace App\Livewire\Members;
 
+use App\Actions\Notifications\CreateActionNotification;
 use App\Actions\Subscriptions\ChangeSubscriptionStatus;
 use App\Actions\Subscriptions\CreateSubscription;
 use App\Enums\AttendanceAction;
 use App\Enums\AttendanceSubjectType;
 use App\Enums\ConfirmationStatus;
+use App\Enums\Feature;
 use App\Enums\MemberStatus;
+use App\Enums\NotificationActionType;
 use App\Enums\NotificationEntityType;
+use App\Enums\NotificationRecipientType;
 use App\Enums\PlanStatus;
 use App\Enums\SubscriptionStatus;
 use App\Exceptions\LifecycleViolation;
@@ -20,6 +24,7 @@ use App\Models\FeePayment;
 use App\Models\Member;
 use App\Models\MemberSubscription;
 use App\Models\Plan;
+use App\Models\Task;
 use App\Models\WhatsappActionNotification;
 use App\Support\Money;
 use App\Support\PhoneNumber;
@@ -232,6 +237,8 @@ class Show extends Component
 
         $this->member->update(['status' => MemberStatus::Archived]);
 
+        $this->showNotification($this->notifyStatusChanged()?->id);
+
         session()->flash('status', "{$this->member->name} was removed.");
     }
 
@@ -241,7 +248,35 @@ class Show extends Component
 
         $this->member->update(['status' => MemberStatus::Active]);
 
+        $this->showNotification($this->notifyStatusChanged()?->id);
+
         session()->flash('status', "{$this->member->name} was restored.");
+    }
+
+    /**
+     * Removing or restoring a member composes the status message, offered
+     * on this page like every other member message.
+     */
+    private function notifyStatusChanged(): ?WhatsappActionNotification
+    {
+        $member = $this->member->fresh() ?? $this->member;
+
+        return app(CreateActionNotification::class)->handle(
+            organisation: $this->organisation(),
+            type: NotificationActionType::MemberStatusChanged,
+            recipientType: NotificationRecipientType::Member,
+            recipientId: $member->id,
+            recipientName: $member->name,
+            recipientPhone: $member->phone,
+            entityType: NotificationEntityType::Member,
+            entityId: $member->id,
+            actor: $this->currentMembership(),
+            operationId: 'member.status.'.$member->id.'.'.$member->status->value.'.'.now()->timestamp,
+            context: [
+                'changedItem' => 'Status: '.$member->status->label(),
+                'clubName' => $member->primaryClub?->name,
+            ],
+        );
     }
 
     /**
@@ -280,6 +315,30 @@ class Show extends Component
             ->whereDate('attendance_date', '>=', Carbon::today($this->organisation()->timezone)->subWeeks(12)->toDateString())
             ->get()
             ->keyBy(fn (Attendance $attendance): string => $attendance->attendance_date->toDateString());
+    }
+
+    /**
+     * Tasks about this member that the viewer may see — every one for an
+     * admin, and for staff the ones they are involved in — open first.
+     *
+     * @return Collection<int, Task>
+     */
+    protected function memberTasks(): Collection
+    {
+        if (! $this->organisation()->hasFeature(Feature::Tasks) || ! (auth()->user()?->can('viewAny', Task::class) ?? false)) {
+            return new Collection;
+        }
+
+        $membership = $this->currentMembership();
+
+        return Task::query()
+            ->where('member_id', $this->member->id)
+            ->when(! $membership->isAdmin(), fn ($query) => $query->involving($membership))
+            ->with(['category:id,name', 'status', 'assignees.user:id,name', 'items.assignee.user:id,name'])
+            ->orderByRaw('completed_at IS NOT NULL')
+            ->orderByRaw('due_date IS NULL, due_date')
+            ->latest('id')
+            ->get();
     }
 
     public function render(): View
@@ -322,6 +381,7 @@ class Show extends Component
                 $organisation->defaultCountry(),
             ),
             'displayPhone' => PhoneNumber::forDisplay($this->member->phone, $organisation->defaultCountry()),
+            'memberTasks' => $this->tab === 'tasks' ? $this->memberTasks() : new Collection,
         ])->layout('components.layouts.app', ['heading' => $this->member->name]);
     }
 }

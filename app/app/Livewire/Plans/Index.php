@@ -6,6 +6,7 @@ namespace App\Livewire\Plans;
 
 use App\Enums\PlanStatus;
 use App\Enums\SubscriptionStatus;
+use App\Livewire\Concerns\RemembersFilters;
 use App\Livewire\Concerns\ResolvesMembership;
 use App\Models\Plan;
 use App\Support\Search;
@@ -17,7 +18,7 @@ use Livewire\WithPagination;
 
 class Index extends Component
 {
-    use ResolvesMembership, WithPagination;
+    use RemembersFilters, ResolvesMembership, WithPagination;
 
     #[Url]
     public string $search = '';

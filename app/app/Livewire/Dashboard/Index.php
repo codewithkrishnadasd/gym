@@ -6,6 +6,7 @@ namespace App\Livewire\Dashboard;
 
 use App\Enums\ConfirmationStatus;
 use App\Enums\MemberStatus;
+use App\Livewire\Concerns\RemembersFilters;
 use App\Livewire\Concerns\ResolvesMembership;
 use App\Models\Attendance;
 use App\Models\FeePayment;
@@ -28,7 +29,7 @@ use Livewire\Component;
  */
 class Index extends Component
 {
-    use ResolvesMembership;
+    use RemembersFilters, ResolvesMembership;
 
     #[Url]
     public string $range = 'month';

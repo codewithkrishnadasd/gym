@@ -32,6 +32,15 @@
                 @endforeach
             </x-ui.filter-select>
 
+            @if ($clubs->isNotEmpty())
+                <x-ui.filter-select wire:model.live="club" :label="$organisation->term('club_singular')">
+                    <option value="">All {{ strtolower($organisation->term('club_plural')) }}</option>
+                    @foreach ($clubs as $clubOption)
+                        <option value="{{ $clubOption->id }}">{{ $clubOption->name }}</option>
+                    @endforeach
+                </x-ui.filter-select>
+            @endif
+
             @if ($statuses->isNotEmpty())
                 <x-ui.filter-select wire:model.live="status" label="Status">
                     <option value="">Any status</option>
@@ -50,12 +59,22 @@
                 </x-ui.filter-select>
             @endif
 
+            @if ($canFilterByPeople)
             <x-ui.filter-select wire:model.live="who" label="People">
                 <option value="">Everyone</option>
                 <option value="mine">Assigned to me</option>
                 <option value="reported">Reported by me</option>
                 <option value="mentioned">Mentioned me</option>
+                <option value="unassigned">Unassigned</option>
+                @if ($staff->isNotEmpty())
+                    <optgroup label="Assigned to">
+                        @foreach ($staff as $person)
+                            <option value="staff:{{ $person->id }}">{{ $person->user?->name }}</option>
+                        @endforeach
+                    </optgroup>
+                @endif
             </x-ui.filter-select>
+            @endif
 
             <x-ui.filter-select wire:model.live="show" label="Show" default="open">
                 <option value="open">Open</option>
@@ -100,6 +119,9 @@
                                 </div>
                                 <p class="mt-0.5 flex flex-wrap items-center gap-x-2 text-xs text-ink-muted">
                                     <span>{{ $task->category?->name }}</span>
+                                    @if ($task->club && $organisation->usesClubs())
+                                        <span>· {{ $task->club->name }}</span>
+                                    @endif
                                     @if ($task->member)
                                         <span>· for {{ $task->member->name }}</span>
                                     @endif

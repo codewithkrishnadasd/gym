@@ -8,6 +8,7 @@ use App\Actions\Payments\ConfirmFeePayment;
 use App\Actions\Payments\RejectFeePayment;
 use App\Enums\ConfirmationStatus;
 use App\Exceptions\LifecycleViolation;
+use App\Livewire\Concerns\RemembersFilters;
 use App\Livewire\Concerns\ResolvesMembership;
 use App\Models\FeePayment;
 use App\Models\OrganisationUser;
@@ -27,7 +28,7 @@ use Livewire\WithPagination;
  */
 class Confirmations extends Component
 {
-    use ResolvesMembership, WithPagination;
+    use RemembersFilters, ResolvesMembership, WithPagination;
 
     #[Url]
     public string $club = '';

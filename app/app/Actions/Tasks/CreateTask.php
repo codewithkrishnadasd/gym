@@ -20,7 +20,7 @@ use Illuminate\Support\Facades\DB;
 final class CreateTask
 {
     /**
-     * @param  array{title: string, description?: string|null, start_date?: string|null, due_date?: string|null, task_status_id?: int|null, member_id?: int|null, assignee_ids?: array<int, int>}  $attributes
+     * @param  array{title: string, description?: string|null, start_date?: string|null, due_date?: string|null, task_status_id?: int|null, member_id?: int|null, club_id?: int|null, assignee_ids?: array<int, int>}  $attributes
      */
     public function handle(TaskCategory $category, array $attributes, OrganisationUser $actor): Task
     {
@@ -39,6 +39,7 @@ final class CreateTask
                 'start_date' => $attributes['start_date'] ?? null,
                 'due_date' => $attributes['due_date'] ?? null,
                 'member_id' => $attributes['member_id'] ?? null,
+                'club_id' => $attributes['club_id'] ?? null,
                 'created_by' => $actor->id,
                 'completed_at' => $status?->completes ? now() : null,
             ]);
@@ -63,6 +64,7 @@ final class CreateTask
                     'task_category_id' => $category->id,
                     'task_status_id' => $task->task_status_id,
                     'member_id' => $task->member_id,
+                    'club_id' => $task->club_id,
                     'assignee_ids' => array_values($attributes['assignee_ids'] ?? []),
                 ],
             );

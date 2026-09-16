@@ -12,6 +12,7 @@ use App\Enums\MembershipStatus;
 use App\Enums\NotificationActionType;
 use App\Enums\NotificationEntityType;
 use App\Enums\NotificationRecipientType;
+use App\Livewire\Concerns\RemembersFilters;
 use App\Livewire\Concerns\ResolvesMembership;
 use App\Models\AuditEvent;
 use App\Models\OrganisationUser;
@@ -26,7 +27,7 @@ use Livewire\WithPagination;
 
 class Index extends Component
 {
-    use ResolvesMembership, WithPagination;
+    use RemembersFilters, ResolvesMembership, WithPagination;
 
     #[Url]
     public string $search = '';

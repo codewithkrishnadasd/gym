@@ -470,9 +470,4 @@ class Organisation extends Model
 
         return (bool) ($settings['actions'][$type->value] ?? $default);
     }
-
-    public function requiresNotificationPreview(): bool
-    {
-        return (bool) (($this->notification_settings ?? [])['require_preview'] ?? true);
-    }
 }

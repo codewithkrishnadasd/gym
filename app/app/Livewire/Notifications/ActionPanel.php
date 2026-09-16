@@ -61,13 +61,13 @@ class ActionPanel extends Component
      */
     public function saveMessage(string $message): void
     {
+        $this->authorize('sendNotifications', $this->organisation());
+
         $notification = $this->notification();
 
         if (! $notification || trim($message) === '') {
             return;
         }
-
-        $this->authorize('sendNotifications', $this->organisation());
 
         // Once it has gone out, the snapshot is the record of what was sent.
         // Rewriting it afterwards would make the history a lie.
@@ -92,13 +92,13 @@ class ActionPanel extends Component
      */
     public function markOpened(string $message = ''): void
     {
+        $this->authorize('sendNotifications', $this->organisation());
+
         $notification = $this->notification();
 
         if (! $notification) {
             return;
         }
-
-        $this->authorize('sendNotifications', $this->organisation());
 
         $notification->forceFill([
             'status' => NotificationStatus::Opened,
@@ -116,13 +116,13 @@ class ActionPanel extends Component
      */
     public function skip(): void
     {
+        $this->authorize('sendNotifications', $this->organisation());
+
         $notification = $this->notification();
 
         if (! $notification) {
             return;
         }
-
-        $this->authorize('sendNotifications', $this->organisation());
 
         // Skipping something already launched would rewrite what happened.
         if ($notification->status !== NotificationStatus::Ready) {
@@ -148,6 +148,12 @@ class ActionPanel extends Component
 
     protected function notification(): ?WhatsappActionNotification
     {
+        // Seeing a message is the same permission as sending it: the panel
+        // draws nothing for anyone without it, wherever it is mounted.
+        if (! (auth()->user()?->can('sendNotifications', $this->organisation()) ?? false)) {
+            return null;
+        }
+
         return $this->notificationId === null
             ? null
             : WhatsappActionNotification::query()

@@ -4,13 +4,19 @@ declare(strict_types=1);
 
 namespace App\Actions\Attendance;
 
+use App\Actions\Notifications\CreateActionNotification;
 use App\Enums\AttendanceAction;
 use App\Enums\AttendanceSource;
 use App\Enums\AttendanceSubjectType;
+use App\Enums\NotificationActionType;
+use App\Enums\NotificationEntityType;
+use App\Enums\NotificationRecipientType;
 use App\Models\Attendance;
 use App\Models\Club;
+use App\Models\Member;
 use App\Models\Organisation;
 use App\Models\OrganisationUser;
+use App\Models\WhatsappActionNotification;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 
@@ -25,6 +31,8 @@ use Illuminate\Support\Facades\DB;
  */
 final class MarkAttendance
 {
+    public function __construct(private readonly CreateActionNotification $notifications) {}
+
     /**
      * `$club` is null for staff: their attendance is a day for the
      * organisation, not a day at a club.
@@ -67,7 +75,56 @@ final class MarkAttendance
             ->whereDate('attendance_date', $date->toDateString())
             ->firstOrFail();
 
+        $this->notify($organisation, $attendance, $club, $actor);
+
         return $attendance;
+    }
+
+    /**
+     * The attendance message is opt-in (off by default — daily marking is a
+     * lot of messages), so this usually returns null. One mark, one message:
+     * re-marking the same day replaces rather than repeats it.
+     */
+    public function notify(Organisation $organisation, Attendance $attendance, ?Club $club, OrganisationUser $actor): ?WhatsappActionNotification
+    {
+        $isMember = $attendance->subject_type === AttendanceSubjectType::Member->value;
+        $type = $isMember ? NotificationActionType::MemberAttendanceMarked : NotificationActionType::UserAttendanceMarked;
+
+        if (! $organisation->notificationsEnabled($type)) {
+            return null;
+        }
+
+        if ($isMember) {
+            $member = Member::query()->find($attendance->subject_id);
+            $name = $member?->name;
+            $phone = $member?->phone;
+        } else {
+            $staff = OrganisationUser::query()->with('user:id,name,phone')->find($attendance->subject_id);
+            $name = $staff?->user?->name;
+            $phone = $staff?->user?->phone;
+        }
+
+        if ($name === null) {
+            return null;
+        }
+
+        return $this->notifications->handle(
+            organisation: $organisation,
+            type: $type,
+            recipientType: $isMember ? NotificationRecipientType::Member : NotificationRecipientType::User,
+            recipientId: $attendance->subject_id,
+            recipientName: $name,
+            recipientPhone: $phone,
+            entityType: NotificationEntityType::Attendance,
+            entityId: $attendance->id,
+            actor: $actor,
+            operationId: $type->value.'.'.$attendance->id.'.'.$attendance->action->value,
+            context: [
+                'clubName' => $club?->name,
+                'effectiveDate' => $attendance->attendance_date->format('d M Y'),
+                'changedItem' => $attendance->action->label(),
+            ],
+        );
     }
 
     /**

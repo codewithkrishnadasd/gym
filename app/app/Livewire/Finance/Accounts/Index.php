@@ -7,6 +7,7 @@ namespace App\Livewire\Finance\Accounts;
 use App\Enums\ConfirmationStatus;
 use App\Enums\ExpenseStatus;
 use App\Enums\FinancialAccountStatus;
+use App\Livewire\Concerns\RemembersFilters;
 use App\Livewire\Concerns\ResolvesMembership;
 use App\Models\Expense;
 use App\Models\FeePayment;
@@ -18,7 +19,7 @@ use Livewire\Component;
 
 class Index extends Component
 {
-    use ResolvesMembership;
+    use RemembersFilters, ResolvesMembership;
 
     #[Url]
     public string $status = '';
