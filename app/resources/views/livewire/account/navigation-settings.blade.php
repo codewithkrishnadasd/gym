@@ -6,14 +6,13 @@
         <form wire:submit="save" class="grid gap-5 lg:grid-cols-3">
             <div class="space-y-5 lg:col-span-2">
                 <x-ui.card title="Phone tab bar"
-                    description="Your four tabs along the bottom on a phone, in order, each with its icon. The Menu tab is always there beside them.">
+                    :description="'Up to '.\App\Livewire\Account\NavigationSettings::MAX_TABS.' tabs along the bottom on a phone, in order, each with its icon. The Menu tab is always there beside them.'">
                     <div class="space-y-3">
                         @foreach ($mobileTabs as $index => $tab)
-                            <div class="flex flex-col gap-2 rounded-lg border border-hairline bg-raised p-3 sm:flex-row sm:items-end" wire:key="tab-{{ $index }}">
+                            <div class="flex flex-col gap-2 rounded-lg border border-hairline bg-raised p-3 sm:flex-row sm:items-end" wire:key="tab-{{ $index }}-{{ $tab['route'] }}">
                                 <span class="grid h-9 w-9 shrink-0 place-items-center self-start rounded-full bg-accent-soft font-[family-name:var(--font-display)] text-sm font-semibold text-accent-ink sm:self-end">{{ $index + 1 }}</span>
                                 <div class="min-w-0 flex-1">
-                                    <x-ui.select wire:model.live="mobileTabs.{{ $index }}.route" :name="'mobileTabs.'.$index.'.route'" label="Destination">
-                                        <option value="">— Not used —</option>
+                                    <x-ui.select wire:model.live="mobileTabs.{{ $index }}.route" :name="'mobileTabs.'.$index.'.route'" label="Destination" required>
                                         @foreach ($destinations as $route => $label)
                                             <option value="{{ $route }}">{{ $label }}</option>
                                         @endforeach
@@ -33,9 +32,24 @@
                                             <x-dynamic-component :component="'heroicon-o-'.$tab['icon']" class="h-5 w-5" />
                                         </span>
                                     @endif
+                                    <x-ui.button type="button" size="icon" variant="ghost" wire:click="removeTab({{ $index }})" :aria-label="'Remove tab '.($index + 1)" title="Remove" class="mb-0.5 text-ink-muted hover:text-critical">
+                                        <x-heroicon-o-trash class="h-4 w-4" />
+                                    </x-ui.button>
                                 </div>
                             </div>
                         @endforeach
+
+                        @if ($mobileTabs === [])
+                            <p class="text-sm text-ink-muted">No tabs yet — the bar shows only Menu.</p>
+                        @endif
+
+                        @if (count($mobileTabs) < \App\Livewire\Account\NavigationSettings::MAX_TABS)
+                            <x-ui.button type="button" variant="secondary" icon="plus" wire:click="addTab" wire:loading.attr="disabled" wire:target="addTab">
+                                Add a tab
+                            </x-ui.button>
+                        @else
+                            <p class="text-xs text-ink-muted">That is the most the bar takes. Remove one to add another.</p>
+                        @endif
                     </div>
                 </x-ui.card>
 

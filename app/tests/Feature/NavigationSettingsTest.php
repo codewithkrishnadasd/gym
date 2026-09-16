@@ -43,12 +43,17 @@ it('starts from the built-in bar and saves a personal one with icons and a dashb
     Livewire::test(NavigationSettings::class)
         ->assertSet('mobileTabs.0.route', 'tenant.dashboard')
         ->assertSet('mobileTabs.1.route', 'tenant.members.index')
+        ->assertCount('mobileTabs', 4)
+        // Full: no room for a fifth until one goes.
+        ->call('addTab')
+        ->assertCount('mobileTabs', 4)
+        ->call('removeTab', 3)
+        ->call('removeTab', 2)
+        ->assertCount('mobileTabs', 2)
         ->set('mobileTabs.0.route', 'tenant.tasks.index')
         ->assertSet('mobileTabs.0.icon', 'check-circle')
         ->set('mobileTabs.0.icon', 'bolt')
         ->set('mobileTabs.1.route', 'tenant.finance.payments.index')
-        ->set('mobileTabs.2.route', '')
-        ->set('mobileTabs.3.route', '')
         ->set('quickAction', 'tasks')
         ->call('save')
         ->assertHasNoErrors();
@@ -84,6 +89,18 @@ it('is personal: another member of staff keeps the built-in bar, and cannot pick
         ->set('mobileTabs.1.icon', 'not-an-icon')
         ->call('save')
         ->assertHasErrors(['mobileTabs.0.route', 'mobileTabs.1.icon']);
+
+    // "Add a tab" offers the next destination not already on the bar.
+    Livewire::actingAs($staffUser)->test(NavigationSettings::class)
+        ->call('removeTab', 0)
+        ->call('removeTab', 0)
+        ->call('removeTab', 0)
+        ->assertCount('mobileTabs', 0)
+        ->call('addTab')
+        ->assertCount('mobileTabs', 1)
+        ->assertSet('mobileTabs.0.route', 'tenant.dashboard')
+        ->call('addTab')
+        ->assertSet('mobileTabs.1.route', 'tenant.members.index');
 });
 
 it('falls back through the quick actions to one the person may do', function (): void {

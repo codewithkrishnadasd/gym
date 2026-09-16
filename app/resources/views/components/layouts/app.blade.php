@@ -178,7 +178,11 @@
             {{-- Floats clear of the screen edges as a frosted pill; the active
                  tab sits on its own soft accent pill. Kept above the home
                  indicator on phones with one. --}}
-            <nav class="glass-nav fixed inset-x-3 bottom-[max(0.375rem,env(safe-area-inset-bottom))] z-30 grid grid-cols-5 rounded-[1.375rem] px-1 py-1 lg:hidden"
+            {{-- Sized to its tabs: five fill the width, fewer make a shorter
+                 pill centred at the bottom (each tab ~5rem, capped at the screen). --}}
+            @php $tabCount = count($mobileItems) + 1; @endphp
+            <nav class="glass-nav fixed bottom-[max(0.375rem,env(safe-area-inset-bottom))] left-1/2 z-30 grid -translate-x-1/2 rounded-[1.375rem] px-1 py-1 lg:hidden"
+                style="width: min(calc(100vw - 1.5rem), {{ $tabCount * 5 }}rem); grid-template-columns: repeat({{ $tabCount }}, minmax(0, 1fr));"
                 aria-label="Primary">
                 @foreach ($mobileItems as $item)
                     @php $active = request()->routeIs($item['active']); @endphp

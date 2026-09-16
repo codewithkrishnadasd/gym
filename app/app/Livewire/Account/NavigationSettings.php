@@ -19,8 +19,11 @@ class NavigationSettings extends Component
 {
     use ResolvesMembership;
 
+    /** The most tabs a phone bar takes beside Menu. */
+    public const MAX_TABS = 4;
+
     /**
-     * Four [route, icon] slots; an empty route is an unused slot.
+     * The tabs, in order, as [route, icon]. Added and removed one by one.
      *
      * @var array<int, array{route: string, icon: string}>
      */
@@ -48,11 +51,36 @@ class NavigationSettings extends Component
             $this->mobileTabs[] = ['route' => $item['route'], 'icon' => $item['icon']];
         }
 
-        while (count($this->mobileTabs) < 4) {
-            $this->mobileTabs[] = ['route' => '', 'icon' => ''];
+        $this->quickAction = $membership->quickAction() ?? '';
+    }
+
+    /**
+     * A new tab, preset to the first destination not already on the bar.
+     */
+    public function addTab(): void
+    {
+        if (count($this->mobileTabs) >= self::MAX_TABS) {
+            return;
         }
 
-        $this->quickAction = $membership->quickAction() ?? '';
+        $used = array_column($this->mobileTabs, 'route');
+        $sections = Navigation::forTenant($this->organisation(), $this->currentMembership());
+
+        foreach ($sections as $section) {
+            foreach ($section['items'] as $item) {
+                if (! in_array($item['route'], $used, true)) {
+                    $this->mobileTabs[] = ['route' => $item['route'], 'icon' => $item['icon']];
+
+                    return;
+                }
+            }
+        }
+    }
+
+    public function removeTab(int $index): void
+    {
+        unset($this->mobileTabs[$index]);
+        $this->mobileTabs = array_values($this->mobileTabs);
     }
 
     /**
@@ -89,8 +117,8 @@ class NavigationSettings extends Component
         $destinations = array_keys(Navigation::destinations($this->organisation(), $membership));
 
         $this->validate([
-            'mobileTabs' => ['array', 'size:4'],
-            'mobileTabs.*.route' => ['nullable', 'string', Rule::in(['', ...$destinations])],
+            'mobileTabs' => ['array', 'max:'.self::MAX_TABS],
+            'mobileTabs.*.route' => ['required', 'string', Rule::in($destinations)],
             'mobileTabs.*.icon' => ['nullable', 'string', Rule::in(['', ...array_keys(Navigation::ICONS)])],
             'quickAction' => ['nullable', 'string', Rule::in(['', ...array_keys(Navigation::QUICK_ACTIONS)])],
         ]);
