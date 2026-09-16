@@ -35,7 +35,7 @@
         'active' => $tab === $key,
     ])->values()->all()" />
 
-    <x-ui.period-filter :presets="$presets" :range="$range" :clubs="$organisation->usesClubs() ? $clubs : null" :club-label="$organisation->term('club_plural')" />
+    <x-ui.period-filter :presets="$presets" :range="$range" :from="$from" :to="$to" :today="\Illuminate\Support\Carbon::today($organisation->timezone)->toDateString()" :clubs="$organisation->usesClubs() ? $clubs : null" :club-label="$organisation->term('club_plural')" />
 
     {{-- Changing the period or club re-queries every figure below; the
          figures stay put, dimmed, while that happens. --}}

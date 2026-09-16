@@ -55,7 +55,7 @@
     ])->values()->all()" />
 
     @if ($tab === 'overview')
-        <x-ui.period-filter :presets="$presets" :range="$range" />
+        <x-ui.period-filter :presets="$presets" :range="$range" :from="$from" :to="$to" :today="\Illuminate\Support\Carbon::today($organisation->timezone)->toDateString()" />
 
         <div class="grid gap-3 lg:grid-cols-2">
             @if ($organisation->hasFeature('payments') || $organisation->hasFeature('expenses'))
@@ -171,7 +171,7 @@
             @endif
         </x-ui.card>
     @elseif ($tab === 'finance')
-        <x-ui.period-filter :presets="$presets" :range="$range" />
+        <x-ui.period-filter :presets="$presets" :range="$range" :from="$from" :to="$to" :today="\Illuminate\Support\Carbon::today($organisation->timezone)->toDateString()" />
 
         <div class="grid gap-3 lg:grid-cols-2">
             @feature('payments')

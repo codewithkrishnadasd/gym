@@ -18,31 +18,34 @@
 
     <x-ui.page-header :title="'Good '.(now($organisation->timezone)->hour < 12 ? 'morning' : (now($organisation->timezone)->hour < 17 ? 'afternoon' : 'evening')).', '.\Illuminate\Support\Str::before($membership->user?->name ?? '', ' ')"
         :description="$organisation->name.' · '.$period->label()">
-        <x-slot:actions>
-            @if ($organisation->hasFeature('reports') && ($organisation->hasFeature('members') || $organisation->hasFeature('payments') || $organisation->hasFeature('expenses')))
-                <x-ui.button icon="chart-bar" :href="route('tenant.reports.index')" wire:navigate>Reports</x-ui.button>
-            @endif
-            @can('create', \App\Models\FeePayment::class)
-                <x-ui.button variant="primary" icon="plus" :href="route('tenant.finance.payments.create')" wire:navigate>Collect fee</x-ui.button>
-            @elsecan('create', \App\Models\Member::class)
-                <x-ui.button variant="primary" icon="plus" :href="route('tenant.members.create')" wire:navigate>Add {{ $organisation->term('member_singular') }}</x-ui.button>
-            @endcan
-        </x-slot:actions>
     </x-ui.page-header>
 
-    <x-ui.period-filter :presets="$presets" :range="$range" :clubs="$organisation->usesClubs() ? $clubs : null" :club-label="$organisation->term('club_plural')" />
+    @can('create', \App\Models\FeePayment::class)
+        <x-ui.fab :href="route('tenant.finance.payments.create')" label="Collect fee" :symbol="$organisation->currencySymbol()" />
+    @endcan
+
+    <x-ui.period-filter :presets="$presets" :range="$range" :from="$from" :to="$to" :today="\Illuminate\Support\Carbon::today($organisation->timezone)->toDateString()" :clubs="$organisation->usesClubs() ? $clubs : null" :club-label="$organisation->term('club_plural')" />
 
     @if ($alerts !== [])
-        <div class="mb-4 grid gap-2 md:grid-cols-2">
+        {{-- Each alert can be put away for the session; it returns on the
+             next sign-in if still true, so nothing is forgotten for good. --}}
+        <div class="mb-4 grid gap-2 md:grid-cols-2 empty:hidden">
             @foreach ($alerts as $alert)
-                <x-ui.alert :tone="$alert['tone']" :title="$alert['title']">
-                    <div class="flex flex-wrap items-center justify-between gap-2">
-                        <span>{{ $alert['detail'] }}</span>
-                        @isset($alert['route'])
-                            <a href="{{ route($alert['route']) }}" wire:navigate class="shrink-0 font-medium underline underline-offset-2">Review</a>
-                        @endisset
-                    </div>
-                </x-ui.alert>
+                @php $alertKey = 'alert:'.md5($alert['title']); @endphp
+                <div x-data="{ shown: true }" x-init="try { shown = ! sessionStorage.getItem(@js($alertKey)); } catch (e) {}" x-show="shown" x-cloak class="relative">
+                    <x-ui.alert :tone="$alert['tone']" :title="$alert['title']" class="pr-10">
+                        <div class="flex flex-wrap items-center justify-between gap-2">
+                            <span>{{ $alert['detail'] }}</span>
+                            @isset($alert['route'])
+                                <a href="{{ route($alert['route']) }}" wire:navigate class="shrink-0 font-medium underline underline-offset-2">Review</a>
+                            @endisset
+                        </div>
+                    </x-ui.alert>
+                    <button type="button" x-on:click="shown = false; try { sessionStorage.setItem(@js($alertKey), '1'); } catch (e) {}" aria-label="Dismiss"
+                        class="absolute right-2 top-2 grid h-8 w-8 place-items-center rounded-lg text-current opacity-60 transition hover:bg-black/5 hover:opacity-100 dark:hover:bg-white/10">
+                        <x-heroicon-o-x-mark class="h-4 w-4" />
+                    </button>
+                </div>
             @endforeach
         </div>
     @endif

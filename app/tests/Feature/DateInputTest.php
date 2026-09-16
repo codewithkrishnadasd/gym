@@ -55,7 +55,9 @@ it('is used for every date on the main screens', function (): void {
     OrganisationUser::factory()->admin()->create(['organisation_id' => $organisation->id, 'user_id' => $user->id]);
     $this->actingAs($user);
 
-    foreach (['/members/create', '/finance/payments', '/finance/payments/create', '/finance/expenses', '/attendance/members', '/dashboard', '/audit-log', '/tasks/create'] as $path) {
+    // The dashboard's period is chosen with the range picker instead (see
+    // components/ui/date-range.blade.php), so it is not in this list.
+    foreach (['/members/create', '/finance/payments', '/finance/payments/create', '/finance/expenses', '/attendance/members', '/audit-log', '/tasks/create'] as $path) {
         $html = $this->get('http://dates.test'.$path)->assertOk()->getContent();
 
         expect(str_contains($html, 'placeholder="dd/mm/yyyy"'))->toBeTrue("No dd/mm/yyyy field on {$path}");

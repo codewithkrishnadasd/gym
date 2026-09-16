@@ -135,7 +135,9 @@
 
         {{-- ===== Main column ===== --}}
         <div class="nav-shell lg:pl-64">
-            <header class="sticky top-0 z-20 flex h-14 items-center gap-2 border-b border-hairline bg-surface/85 px-3 backdrop-blur-md sm:px-6">
+            {{-- Desktop only. On a phone the bottom bar is the navigation and
+                 appearance options live in the menu, so the page starts at the top. --}}
+            <header class="sticky top-0 z-20 hidden h-14 items-center gap-2 border-b border-hairline bg-surface/85 px-3 backdrop-blur-md sm:px-6 lg:flex">
                 {{-- Side-menu style: the hamburger opens the drawer on phones.
                      Launcher style: it opens the full-screen menu everywhere. --}}
                 <button type="button" @click="document.documentElement.dataset.nav === 'launcher' ? $dispatch('open-launcher') : drawer = true" aria-label="Open navigation"
@@ -196,12 +198,14 @@
                     </a>
                 @endforeach
 
-                <button type="button" @click="drawer = true"
+                {{-- Opens whichever menu the person chose: the side drawer, or
+                     the full-screen launcher. --}}
+                <button type="button" @click="document.documentElement.dataset.nav === 'launcher' ? $dispatch('open-launcher') : drawer = true"
                     class="flex min-h-[54px] flex-col items-center justify-center gap-0.5 rounded-2xl text-[11px] font-medium text-ink-muted transition hover:text-ink active:scale-95">
                     <span class="grid h-7 w-12 place-items-center rounded-full">
                         <x-heroicon-o-ellipsis-horizontal-circle class="h-5 w-5" />
                     </span>
-                    <span>More</span>
+                    <span>Menu</span>
                 </button>
             </nav>
         @endif

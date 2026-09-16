@@ -6,6 +6,7 @@ namespace App\Livewire\Clubs;
 
 use App\Enums\ClubAssignmentStatus;
 use App\Enums\MemberStatus;
+use App\Livewire\Concerns\FiltersByPeriod;
 use App\Livewire\Concerns\ResolvesMembership;
 use App\Models\Club;
 use App\Models\ClubUserAssignment;
@@ -24,7 +25,7 @@ use Livewire\Component;
  */
 class Show extends Component
 {
-    use ResolvesMembership;
+    use FiltersByPeriod, ResolvesMembership;
 
     public Club $club;
 
@@ -46,32 +47,6 @@ class Show extends Component
 
         $this->club = $club;
         $this->applyPreset($this->range, false);
-    }
-
-    public function applyPreset(string $key, bool $resetCustom = true): void
-    {
-        $presets = ReportPeriod::presets($this->organisation()->timezone);
-
-        if (! isset($presets[$key])) {
-            return;
-        }
-
-        $this->range = $key;
-
-        if ($resetCustom || $this->from === '' || $this->to === '') {
-            $this->from = $presets[$key]['from'];
-            $this->to = $presets[$key]['to'];
-        }
-    }
-
-    public function updatedFrom(): void
-    {
-        $this->range = 'custom';
-    }
-
-    public function updatedTo(): void
-    {
-        $this->range = 'custom';
     }
 
     /**

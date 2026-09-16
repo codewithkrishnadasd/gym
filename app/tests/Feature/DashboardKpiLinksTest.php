@@ -10,6 +10,7 @@ use App\Models\Organisation;
 use App\Models\OrganisationUser;
 use App\Models\Plan;
 use App\Models\User;
+use Livewire\Livewire;
 
 /**
  * Every KPI card on the dashboard opens the list it was counted from, with
@@ -96,4 +97,30 @@ it('links the staff cards to their own payments across all time', function (): v
         ->toContain('/finance/payments?status=confirmed&from='.$this->organisation->created_at?->toDateString())
         ->toContain('/finance/payments?status=pending_admin_confirmation&from=')
         ->toContain('/finance/payments?status=rejected&from=');
+});
+
+it('offers presets as chips, a custom range picker only when Custom is chosen, and one floating Collect fee button', function (): void {
+    $html = $this->get('http://kpi.test/dashboard')
+        ->assertOk()
+        ->assertSee('This month')
+        ->assertSee('Custom')
+        ->assertDontSee('dateRange({', false)
+        ->assertSee('aria-label="Collect fee"', false)
+        ->getContent();
+
+    // No Reports button in the page header any more (the sidebar link remains).
+    $header = substr($html, strpos($html, '<main'), strpos($html, 'Date range preset') - strpos($html, '<main'));
+    expect($header)->not->toContain('Reports');
+
+    Livewire::test(\App\Livewire\Dashboard\Index::class)
+        ->call('startCustom')
+        ->assertSet('range', 'custom')
+        ->assertSee('dateRange({', false)
+        ->call('setRange', '2026-09-20', '2026-09-01')
+        // Ends are put in order, whichever was clicked first.
+        ->assertSet('from', '2026-09-01')
+        ->assertSet('to', '2026-09-20')
+        ->assertSet('range', 'custom')
+        ->call('applyPreset', 'today')
+        ->assertSet('range', 'today');
 });

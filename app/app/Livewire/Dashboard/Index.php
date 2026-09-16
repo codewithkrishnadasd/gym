@@ -6,6 +6,7 @@ namespace App\Livewire\Dashboard;
 
 use App\Enums\ConfirmationStatus;
 use App\Enums\MemberStatus;
+use App\Livewire\Concerns\FiltersByPeriod;
 use App\Livewire\Concerns\RemembersFilters;
 use App\Livewire\Concerns\ResolvesMembership;
 use App\Models\Attendance;
@@ -29,7 +30,7 @@ use Livewire\Component;
  */
 class Index extends Component
 {
-    use RemembersFilters, ResolvesMembership;
+    use FiltersByPeriod, RemembersFilters, ResolvesMembership;
 
     #[Url]
     public string $range = 'month';
@@ -46,32 +47,6 @@ class Index extends Component
     public function mount(): void
     {
         $this->applyPreset($this->range, false);
-    }
-
-    public function applyPreset(string $key, bool $resetCustom = true): void
-    {
-        $presets = ReportPeriod::presets($this->organisation()->timezone);
-
-        if (! isset($presets[$key])) {
-            return;
-        }
-
-        $this->range = $key;
-
-        if ($resetCustom || $this->from === '' || $this->to === '') {
-            $this->from = $presets[$key]['from'];
-            $this->to = $presets[$key]['to'];
-        }
-    }
-
-    public function updatedFrom(): void
-    {
-        $this->range = 'custom';
-    }
-
-    public function updatedTo(): void
-    {
-        $this->range = 'custom';
     }
 
     /**

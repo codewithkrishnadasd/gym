@@ -2,8 +2,9 @@
 
 <div class="shrink-0 border-t border-hairline p-3" x-data="{ open: false }" @click.outside="open = false">
     <div x-cloak x-show="open" x-transition class="mb-1 overflow-hidden rounded-lg border border-hairline bg-raised">
-        {{-- Menu style lives here as an option rather than in the top bar:
-             it is chosen once, not toggled all day. --}}
+        {{-- Appearance lives here as options rather than in a top bar — on a
+             phone there is no top bar at all. --}}
+        <x-ui.theme-toggle label class="w-full justify-start rounded-none px-3 py-2.5 font-medium" />
         <x-ui.nav-style-toggle label class="w-full justify-start rounded-none px-3 py-2.5 font-medium" />
         <div class="border-t border-hairline"></div>
         <form method="POST" action="{{ $isPlatform ? route('platform.logout') : route('tenant.logout') }}">

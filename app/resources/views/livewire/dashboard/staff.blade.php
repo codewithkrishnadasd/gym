@@ -4,7 +4,11 @@
     <x-ui.page-header :title="'Hello, '.\Illuminate\Support\Str::before($membership->user?->name ?? '', ' ')"
         :description="$organisation->usesClubs() && $clubs->isNotEmpty() ? $organisation->name.' · '.$clubs->pluck('name')->join(', ', ' and ') : $organisation->name" />
 
-    <x-ui.period-filter :presets="$presets" :range="$range" :clubs="$organisation->usesClubs() ? $clubs : null" :club-label="$organisation->term('club_plural')" />
+    <x-ui.period-filter :presets="$presets" :range="$range" :from="$from" :to="$to" :today="\Illuminate\Support\Carbon::today($organisation->timezone)->toDateString()" :clubs="$organisation->usesClubs() ? $clubs : null" :club-label="$organisation->term('club_plural')" />
+
+    @if ($canCollectFees)
+        <x-ui.fab :href="route('tenant.finance.payments.create')" label="Collect fee" :symbol="$organisation->currencySymbol()" />
+    @endif
 
     @php
         $hasPlans = $organisation->hasFeature('plans');
