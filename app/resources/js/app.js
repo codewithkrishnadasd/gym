@@ -1,7 +1,7 @@
 import Chart from 'chart.js/auto';
 import './back-button';
 import './date-field';
-import './date-range';
+import './calendar';
 import './filters-bar';
 import './load-more';
 import './markdown-editor';

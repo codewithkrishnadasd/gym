@@ -71,22 +71,17 @@ class Show extends Component
     }
 
     /**
-     * Opens the plan dialog set up for the likely case: a renewal of the
-     * plan currently running, starting the day after the latest active term
-     * ends (or today, if every term has already lapsed). Everything stays
-     * editable.
+     * Opens the plan dialog set up for the likely case: the plan that ends
+     * last again, starting the day after that term ends (or today, if every
+     * term has already lapsed). Cancelled terms are ignored. Everything
+     * stays editable.
      */
     public function prepareRenewal(): void
     {
         $this->authorize('createFor', [MemberSubscription::class, $this->member]);
 
-        $active = $this->member->subscriptions()
-            ->where('status', SubscriptionStatus::Active)
-            ->orderByDesc('end_date')
-            ->get();
-
         $today = Carbon::today($this->organisation()->timezone);
-        $latest = $active->first();
+        $latest = $this->member->latestTerm();
 
         $this->planId = $latest?->plan_id;
         $this->planStartDate = $latest && $latest->end_date->toDateString() >= $today->toDateString()

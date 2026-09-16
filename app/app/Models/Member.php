@@ -7,6 +7,7 @@ namespace App\Models;
 use App\Enums\ConfirmationStatus;
 use App\Enums\MemberStatus;
 use App\Enums\PaymentPurpose;
+use App\Enums\SubscriptionStatus;
 use App\Models\Concerns\BelongsToOrganisation;
 use Database\Factories\MemberFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -63,6 +64,21 @@ class Member extends Model
     public function clubHistory(): HasMany
     {
         return $this->hasMany(MemberClubHistory::class);
+    }
+
+    /**
+     * The term that ends last among every plan that was not cancelled —
+     * active, expired or paused. A renewal starts the day after it, so
+     * consecutive terms never overlap, whichever order they were bought in.
+     */
+    public function latestTerm(): ?MemberSubscription
+    {
+        return $this->subscriptions()
+            ->with('plan:id,name')
+            ->where('status', '!=', SubscriptionStatus::Cancelled)
+            ->orderByDesc('end_date')
+            ->orderByDesc('id')
+            ->first();
     }
 
     /**

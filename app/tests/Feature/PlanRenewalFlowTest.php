@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Enums\PlanStatus;
+use App\Enums\SubscriptionStatus;
 use App\Livewire\Finance\Payments\Form as PaymentForm;
 use App\Livewire\Members\Show as MemberShow;
 use App\Models\Club;
@@ -189,4 +190,28 @@ it('does not offer the plan step to staff who cannot start plans, nor without th
     Livewire::actingAs($staffUser)->test(PaymentForm::class)
         ->call('selectMember', $member->id)
         ->assertDontSee('No plan yet');
+});
+
+it('renews from the day after the term that ends last, ignoring cancelled terms', function (): void {
+    $today = Carbon::today($this->organisation->timezone);
+
+    // Two live terms bought out of order, plus a cancelled one that runs later still.
+    term($this->member, $this->monthly, $today->copy()->subDays(10)->toDateString(), $today->copy()->addDays(20)->toDateString());
+    $furthest = term($this->member, $this->quarterly, $today->copy()->addDays(21)->toDateString(), $today->copy()->addDays(110)->toDateString());
+    $cancelled = term($this->member, $this->monthly, $today->copy()->addDays(111)->toDateString(), $today->copy()->addDays(140)->toDateString());
+    $cancelled->update(['status' => SubscriptionStatus::Cancelled]);
+
+    Livewire::test(MemberShow::class, ['member' => $this->member])
+        ->call('prepareRenewal')
+        ->assertSet('planId', $this->quarterly->id)
+        ->assertSet('planStartDate', $today->copy()->addDays(111)->toDateString());
+
+    // The same rule from fee collection.
+    Livewire::test(PaymentForm::class)
+        ->call('selectMember', $this->member->id)
+        ->call('preparePlan')
+        ->assertSet('planId', $this->quarterly->id)
+        ->assertSet('planStartDate', $today->copy()->addDays(111)->toDateString());
+
+    expect($furthest->end_date->toDateString())->toBe($today->copy()->addDays(110)->toDateString());
 });

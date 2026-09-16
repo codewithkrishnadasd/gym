@@ -24,8 +24,10 @@ it('renders a dd/mm/yyyy field bound through $wire, deferred or live', function 
         ->toContain('placeholder="dd/mm/yyyy"')
         ->toContain("dateField({ property: 'dueDate', live: false })")
         ->toContain('Due date')
-        // The native input is kept only for its calendar picker.
-        ->toContain('type="date" x-ref="picker"')
+        // The shared calendar, in single-date mode; nothing native.
+        ->toContain("mode: 'single'")
+        ->toContain('futureAllowed: true')
+        ->not->toContain('type="date"')
         ->not->toContain('wire:model');
 
     $live = Blade::render('<x-ui.date-input bare wire:model.live="from" aria-label="From date" class="w-40" />');
@@ -62,7 +64,7 @@ it('is used for every date on the main screens', function (): void {
 
         expect(str_contains($html, 'placeholder="dd/mm/yyyy"'))->toBeTrue("No dd/mm/yyyy field on {$path}");
 
-        // No user-facing native date input remains: only the hidden picker.
-        expect(substr_count($html, 'type="date"'))->toBe(substr_count($html, 'type="date" x-ref="picker"'));
+        // No native date input anywhere: every calendar is the shared one.
+        expect(substr_count($html, 'type="date"'))->toBe(0);
     }
 });

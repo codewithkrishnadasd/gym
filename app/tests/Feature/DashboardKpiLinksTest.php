@@ -107,7 +107,7 @@ it('offers presets as chips, a custom range picker only when Custom is chosen, a
         ->assertOk()
         ->assertSee('This month')
         ->assertSee('Custom')
-        ->assertDontSee('dateRange({', false)
+        ->assertDontSee("mode: 'range'", false)
         ->assertSee('aria-label="Collect fee"', false)
         ->getContent();
 
@@ -118,7 +118,7 @@ it('offers presets as chips, a custom range picker only when Custom is chosen, a
     Livewire::test(Index::class)
         ->call('startCustom')
         ->assertSet('range', 'custom')
-        ->assertSee('dateRange({', false)
+        ->assertSee("mode: 'range'", false)
         ->call('setRange', '2026-09-20', '2026-09-01')
         // Ends are put in order, whichever was clicked first.
         ->assertSet('from', '2026-09-01')

@@ -414,11 +414,7 @@ class Form extends Component
         $this->authorize('createFor', [MemberSubscription::class, $member]);
 
         $today = Carbon::today($this->organisation()->timezone);
-
-        $latest = $member->subscriptions()
-            ->whereIn('status', [SubscriptionStatus::Active, SubscriptionStatus::Expired])
-            ->orderByDesc('end_date')
-            ->first();
+        $latest = $member->latestTerm();
 
         $this->planId = $latest?->plan_id;
         $this->planStartDate = $latest && $latest->end_date->toDateString() >= $today->toDateString()

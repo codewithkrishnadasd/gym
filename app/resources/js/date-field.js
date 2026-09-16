@@ -6,7 +6,8 @@
  * is a plain text box that always reads and writes dd/mm/yyyy, and talks to
  * the Livewire property in ISO (yyyy-mm-dd) so nothing server-side changes.
  *
- * A hidden native date input is kept only for its calendar picker.
+ * The calendar button opens the shared calendar (calendar.js) in
+ * single-date mode; nothing native is involved.
  */
 const ISO = /^(\d{4})-(\d{2})-(\d{2})$/;
 
@@ -117,28 +118,12 @@ document.addEventListener('alpine:init', () => {
             this.$wire.set(property, iso, this.live);
         },
 
-        openPicker() {
-            const picker = this.$refs.picker;
-
-            picker.value = toIso(this.text) ?? '';
-
-            if (typeof picker.showPicker === 'function') {
-                try {
-                    picker.showPicker();
-
-                    return;
-                } catch {
-                    // Falls through to focusing it, which opens the picker in
-                    // browsers that refuse showPicker() outside a user gesture.
-                }
-            }
-
-            picker.focus();
-            picker.click();
+        currentIso() {
+            return toIso(this.text) ?? '';
         },
 
-        onPick(event) {
-            this.text = toDisplay(event.target.value);
+        onPick(isoDate) {
+            this.text = toDisplay(isoDate);
             this.invalid = false;
             this.commit();
         },
