@@ -21,7 +21,6 @@
         class="group inline-flex min-h-[36px] items-baseline gap-2 rounded-lg px-1 text-left transition hover:text-accent max-lg:min-h-[44px]">
         <span class="numeric font-[family-name:var(--font-display)] text-base font-semibold tracking-tight text-ink group-hover:text-accent" x-text="label()">{{ $from && $to ? \Illuminate\Support\Carbon::parse($from)->format('j M Y').' – '.\Illuminate\Support\Carbon::parse($to)->format('j M Y') : 'Pick a date range' }}</span>
         <span x-show="days() > 0" x-cloak class="numeric text-xs text-ink-muted" x-text="days() + (days() === 1 ? ' day' : ' days')"></span>
-        <x-heroicon-o-pencil-square class="h-3.5 w-3.5 self-center text-ink-muted opacity-70 transition group-hover:opacity-100" />
     </button>
 
     {{-- Phone: dim the page behind the sheet. --}}

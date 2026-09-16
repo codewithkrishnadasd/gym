@@ -19,13 +19,13 @@
                     Take attendance
                 </x-ui.button>
             @endcan
-            @can('create', \App\Models\OrganisationUser::class)
-                <x-ui.button variant="primary" icon="plus" :href="route('tenant.staff.create')" wire:navigate>
-                    Invite {{ $organisation->term('user_singular') }}
-                </x-ui.button>
-            @endcan
         </x-slot:actions>
     </x-ui.page-header>
+
+    {{-- The page's one action, as the floating button every page shares. --}}
+    @can('create', \App\Models\OrganisationUser::class)
+        <x-ui.fab :href="route('tenant.staff.create')" label="Invite {{ $organisation->term('user_singular') }}" symbol="+" />
+    @endcan
 
     <x-ui.card :padded="false">
         <x-ui.filters search="search" placeholder="Search by name or WhatsApp number…">

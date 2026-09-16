@@ -3,12 +3,12 @@
 
     <x-ui.page-header title="Plans"
         description="Pricing and duration for the memberships you sell. Removing a plan hides it from new sales without touching existing subscriptions.">
-        <x-slot:actions>
-            @can('create', \App\Models\Plan::class)
-                <x-ui.button variant="primary" icon="plus" :href="route('tenant.plans.create')" wire:navigate>New plan</x-ui.button>
-            @endcan
-        </x-slot:actions>
     </x-ui.page-header>
+
+    {{-- The page's one action, as the floating button every page shares. --}}
+    @can('create', \App\Models\Plan::class)
+        <x-ui.fab :href="route('tenant.plans.create')" label="New plan" symbol="+" />
+    @endcan
 
     <x-ui.card :padded="false">
         <x-ui.filters search="search" placeholder="Search plans…">

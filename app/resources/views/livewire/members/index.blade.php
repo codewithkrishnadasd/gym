@@ -5,13 +5,13 @@
         :description="$organisation->usesClubs() ? 'Everyone training with you. Each belongs to exactly one '.strtolower($organisation->term('club_singular')).'.' : 'Everyone training with you.'">
         <x-slot:actions>
             <x-ui.download-button icon="arrow-down-tray" :what="'a CSV of the '.strtolower($organisation->term('member_plural')).' shown'" note="It uses the filters currently applied." :href="route('tenant.members.export', request()->query())">Export CSV</x-ui.download-button>
-            @can('create', \App\Models\Member::class)
-                <x-ui.button variant="primary" icon="plus" :href="route('tenant.members.create', array_filter(['club' => $club]))" wire:navigate>
-                    Add {{ $organisation->term('member_singular') }}
-                </x-ui.button>
-            @endcan
         </x-slot:actions>
     </x-ui.page-header>
+
+    {{-- The page's one action, as the floating button every page shares. --}}
+    @can('create', \App\Models\Member::class)
+        <x-ui.fab :href="route('tenant.members.create', array_filter(['club' => $club]))" label="Add {{ $organisation->term('member_singular') }}" symbol="+" />
+    @endcan
 
     <x-ui.card :padded="false">
         <x-ui.filters search="search" placeholder="Search by name or WhatsApp number…">

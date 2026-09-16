@@ -3,14 +3,12 @@
 
     <x-ui.page-header title="Financial accounts"
         description="Where money is received and spent. Removing an account never changes historical transactions.">
-        <x-slot:actions>
-            @can('create', \App\Models\FinancialAccount::class)
-                <x-ui.button variant="primary" icon="plus" :href="route('tenant.finance.accounts.create')" wire:navigate>
-                    New account
-                </x-ui.button>
-            @endcan
-        </x-slot:actions>
     </x-ui.page-header>
+
+    {{-- The page's one action, as the floating button every page shares. --}}
+    @can('create', \App\Models\FinancialAccount::class)
+        <x-ui.fab :href="route('tenant.finance.accounts.create')" label="New account" symbol="+" />
+    @endcan
 
     <x-ui.card :padded="false">
         <x-ui.filters>

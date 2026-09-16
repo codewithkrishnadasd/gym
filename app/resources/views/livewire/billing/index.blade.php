@@ -3,12 +3,12 @@
 
     <x-ui.page-header title="Invoices"
         :description="'Bills raised against '.strtolower($organisation->term('member_plural')).' — or anyone else, by name — for anything outside a plan. Payments against them go through the usual confirmation.'">
-        <x-slot:actions>
-            @can('create', \App\Models\Invoice::class)
-                <x-ui.button variant="primary" icon="plus" :href="route('tenant.billing.create')" wire:navigate>New invoice</x-ui.button>
-            @endcan
-        </x-slot:actions>
     </x-ui.page-header>
+
+    {{-- The page's one action, as the floating button every page shares. --}}
+    @can('create', \App\Models\Invoice::class)
+        <x-ui.fab :href="route('tenant.billing.create')" label="New invoice" symbol="+" />
+    @endcan
 
     <div class="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-3">
         <x-ui.stat label="Outstanding" :value="$organisation->money($outstandingTotal)" icon="banknotes"

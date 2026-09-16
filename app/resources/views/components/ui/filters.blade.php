@@ -16,7 +16,7 @@
 
                 <input type="search" wire:model.live.debounce.400ms="{{ $search }}" placeholder="{{ $placeholder }}"
                     aria-label="{{ $placeholder }}"
-                    class="min-h-[40px] w-full rounded-lg border border-hairline-strong bg-surface py-2 pl-9 pr-8 text-sm text-ink placeholder:text-ink-muted transition focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25 max-lg:min-h-[44px]">
+                    class="h-9 w-full rounded-full border border-hairline bg-surface pl-9 pr-8 text-sm text-ink placeholder:text-ink-muted transition hover:border-hairline-strong focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25">
 
                 <div wire:loading wire:target="{{ $search }}" class="absolute right-3 top-1/2 -translate-y-1/2 text-ink-muted">
                     <x-ui.spinner size="xs" />
@@ -26,11 +26,11 @@
 
         <div class="relative shrink-0">
             <button type="button" x-ref="trigger" x-on:click="open ? cancel() : show()" x-bind:aria-expanded="open"
-                x-bind:class="active > 0 ? 'border-accent bg-accent-soft text-accent-ink' : 'border-hairline-strong text-ink-soft hover:bg-sunken'"
-                class="inline-flex min-h-[40px] items-center gap-1.5 rounded-lg border bg-surface px-3 text-sm font-medium transition max-lg:min-h-[44px]">
-                <x-heroicon-o-adjustments-horizontal class="h-4 w-4" />
+                x-bind:class="active > 0 ? 'border-accent bg-accent text-on-accent' : 'border-hairline bg-surface text-ink-soft hover:border-hairline-strong hover:text-ink'"
+                class="inline-flex h-9 items-center gap-1.5 rounded-full border px-3 text-xs font-medium transition">
+                <x-heroicon-o-adjustments-horizontal class="h-3.5 w-3.5" />
                 <span>Filters</span>
-                <span x-show="active > 0" x-cloak x-text="active" class="grid h-5 min-w-5 place-items-center rounded-full bg-accent px-1 text-[11px] font-semibold text-on-accent"></span>
+                <span x-show="active > 0" x-cloak x-text="active" class="grid h-4.5 min-w-4.5 place-items-center rounded-full bg-surface/25 px-1 text-[10px] font-semibold"></span>
             </button>
 
             {{-- Phone: backdrop behind the sheet. --}}

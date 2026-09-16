@@ -8,13 +8,13 @@
                 <x-ui.download-button icon="arrow-down-tray" what="a CSV of the payments shown" note="It uses the filters currently applied."
                     :href="route('tenant.finance.payments.export', request()->query())">Export CSV</x-ui.download-button>
             @endcan
-            @can('create', \App\Models\FeePayment::class)
-                <x-ui.button variant="primary" icon="plus" :href="route('tenant.finance.payments.create')" wire:navigate>
-                    Collect fee
-                </x-ui.button>
-            @endcan
         </x-slot:actions>
     </x-ui.page-header>
+
+    {{-- The page's one action, as the floating button every page shares. --}}
+    @can('create', \App\Models\FeePayment::class)
+        <x-ui.fab :href="route('tenant.finance.payments.create')" label="Collect fee" :symbol="$organisation->currencySymbol()" />
+    @endcan
 
     <div class="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
         <x-ui.stat label="Confirmed revenue" :value="$organisation->money($totals['confirmed'])" icon="banknotes" tone="positive"

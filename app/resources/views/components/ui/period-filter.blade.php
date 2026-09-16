@@ -11,9 +11,9 @@
         <div class="scrollbar-none -mx-4 flex gap-1.5 overflow-x-auto px-4 pr-8 snap-x sm:mx-0 sm:px-0 sm:pr-6" role="group" aria-label="Date range preset">
             @foreach ($presets as $key => $preset)
                 <button type="button" wire:click="applyPreset('{{ $key }}')" @class([
-                    'min-h-[36px] shrink-0 snap-start whitespace-nowrap rounded-full border px-3.5 text-[13px] font-medium transition max-lg:min-h-[40px]',
-                    'border-accent bg-accent text-on-accent shadow-sm' => $range === $key,
-                    'border-hairline bg-surface text-ink-soft elevate hover:border-hairline-strong hover:text-ink' => $range !== $key,
+                    'h-8 shrink-0 snap-start whitespace-nowrap rounded-full border px-3 text-xs font-medium transition',
+                    'border-accent bg-accent text-on-accent' => $range === $key,
+                    'border-hairline bg-surface text-ink-soft hover:border-hairline-strong hover:text-ink' => $range !== $key,
                 ])>{{ $preset['label'] }}</button>
             @endforeach
 
@@ -21,11 +21,11 @@
                  picker is rendered by the response, then told to open. --}}
             <button type="button"
                 x-on:click="$wire.startCustom().then(() => setTimeout(() => $dispatch('open-range-picker'), 30))" @class([
-                'inline-flex min-h-[36px] shrink-0 snap-start items-center gap-1.5 whitespace-nowrap rounded-full border px-3.5 text-[13px] font-medium transition max-lg:min-h-[40px]',
-                'border-accent bg-accent text-on-accent shadow-sm' => $range === 'custom',
-                'border-hairline bg-surface text-ink-soft elevate hover:border-hairline-strong hover:text-ink' => $range !== 'custom',
+                'inline-flex h-8 shrink-0 snap-start items-center gap-1 whitespace-nowrap rounded-full border px-3 text-xs font-medium transition',
+                'border-accent bg-accent text-on-accent' => $range === 'custom',
+                'border-hairline bg-surface text-ink-soft hover:border-hairline-strong hover:text-ink' => $range !== 'custom',
             ])>
-                <x-heroicon-o-calendar-days class="h-4 w-4" />
+                <x-heroicon-o-calendar-days class="h-3.5 w-3.5" />
                 Custom
             </button>
         </div>

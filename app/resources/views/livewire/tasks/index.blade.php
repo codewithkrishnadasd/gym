@@ -6,11 +6,13 @@
             @if ($canManageCategories)
                 <x-ui.button icon="cog-6-tooth" :href="route('tenant.settings.organisation', ['tab' => 'tasks'])" wire:navigate>Settings</x-ui.button>
             @endif
-            @can('create', \App\Models\Task::class)
-                <x-ui.button variant="primary" icon="plus" :href="route('tenant.tasks.create')" wire:navigate>New task</x-ui.button>
-            @endcan
         </x-slot:actions>
     </x-ui.page-header>
+
+    {{-- The page's one action, as the floating button every page shares. --}}
+    @can('create', \App\Models\Task::class)
+        <x-ui.fab :href="route('tenant.tasks.create')" label="New task" symbol="+" />
+    @endcan
 
     {{-- All figures follow the filters below (except open/done), so
          narrowing to a category or a person shows that slice's progress. --}}

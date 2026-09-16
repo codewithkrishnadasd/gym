@@ -3,14 +3,12 @@
 
     <x-ui.page-header :title="$organisation->term('club_plural')"
         :description="'Locations you operate. Each '.strtolower($organisation->term('member_singular')).' belongs to exactly one, and '.strtolower($organisation->term('user_plural')).' can be assigned to several.'">
-        <x-slot:actions>
-            @can('create', \App\Models\Club::class)
-                <x-ui.button variant="primary" icon="plus" :href="route('tenant.clubs.create')" wire:navigate>
-                    New {{ $organisation->term('club_singular') }}
-                </x-ui.button>
-            @endcan
-        </x-slot:actions>
     </x-ui.page-header>
+
+    {{-- The page's one action, as the floating button every page shares. --}}
+    @can('create', \App\Models\Club::class)
+        <x-ui.fab :href="route('tenant.clubs.create')" label="New {{ $organisation->term('club_singular') }}" symbol="+" />
+    @endcan
 
     <x-ui.card :padded="false">
         <x-ui.filters search="search" :placeholder="'Search by name or code…'">

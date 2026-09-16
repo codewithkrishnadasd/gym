@@ -4,13 +4,13 @@
     <x-ui.page-header title="Expenses" :description="$organisation->usesClubs() ? 'Money going out, by club, category, target, and funding account.' : 'Money going out, by category, target, and funding account.'">
         <x-slot:actions>
             <x-ui.download-button icon="arrow-down-tray" what="a CSV of the expenses shown" note="It uses the filters currently applied." :href="route('tenant.finance.expenses.export', request()->query())">Export CSV</x-ui.download-button>
-            @can('create', \App\Models\Expense::class)
-                <x-ui.button variant="primary" icon="plus" :href="route('tenant.finance.expenses.create')" wire:navigate>
-                    Record expense
-                </x-ui.button>
-            @endcan
         </x-slot:actions>
     </x-ui.page-header>
+
+    {{-- The page's one action, as the floating button every page shares. --}}
+    @can('create', \App\Models\Expense::class)
+        <x-ui.fab :href="route('tenant.finance.expenses.create')" label="Record expense" symbol="+" />
+    @endcan
 
     @if ($lifecycleError)
         <div class="mb-4"><x-ui.alert tone="critical">{{ $lifecycleError }}</x-ui.alert></div>
