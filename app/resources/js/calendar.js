@@ -280,10 +280,31 @@ document.addEventListener('alpine:init', () => {
             this.close();
         },
 
+        /**
+         * Picks today outright: the single date, or a one-day range. The
+         * grid moves to this month as well, so the choice is visible if the
+         * panel stays open.
+         */
         goToday() {
             const t = parse(this.today) ?? new Date();
+            const date = iso(t);
+
             this.cursor = new Date(t.getFullYear(), t.getMonth(), 1);
             this.view = 'days';
+
+            if (this.mode === 'single') {
+                this.start = date;
+                apply(date);
+                this.close();
+
+                return;
+            }
+
+            this.start = date;
+            this.end = date;
+            this.hover = null;
+            apply(date, date);
+            this.close();
         },
 
         label() {
