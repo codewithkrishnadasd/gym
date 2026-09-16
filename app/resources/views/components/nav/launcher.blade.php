@@ -74,6 +74,12 @@
                 @endif
             </div>
             <div class="flex items-center gap-1">
+                @unless ($isPlatform)
+                    <a href="{{ route('tenant.me.navigation') }}" wire:navigate x-on:click="$dispatch('close-launcher')" title="Arrange my navigation" aria-label="Arrange my navigation"
+                        class="grid h-9 w-9 place-items-center rounded-lg text-ink-soft transition hover:bg-sunken hover:text-ink">
+                        <x-heroicon-o-adjustments-horizontal class="h-[18px] w-[18px]" />
+                    </a>
+                @endunless
                 <x-ui.nav-style-toggle label />
                 <x-ui.theme-toggle />
             </div>

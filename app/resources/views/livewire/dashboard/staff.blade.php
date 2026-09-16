@@ -6,7 +6,7 @@
 
     <x-ui.period-filter :presets="$presets" :range="$range" :from="$from" :to="$to" :today="\Illuminate\Support\Carbon::today($organisation->timezone)->toDateString()" :clubs="$organisation->usesClubs() ? $clubs : null" :club-label="$organisation->term('club_plural')" />
 
-    @php $quickAction = \App\Support\Navigation::quickAction($organisation, auth()->user()); @endphp
+    @php $quickAction = \App\Support\Navigation::quickAction($organisation, auth()->user(), $membership); @endphp
     @if ($quickAction)
         <x-ui.fab :href="route($quickAction['route'])" :label="$quickAction['label']" :symbol="$quickAction['symbol']" />
     @endif

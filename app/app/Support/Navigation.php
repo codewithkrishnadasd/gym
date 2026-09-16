@@ -259,15 +259,15 @@ final class Navigation
     ];
 
     /**
-     * The tabs of the phone bottom bar: the organisation's own choice where
-     * it has made one (Settings → Navigation), otherwise the four
-     * highest-value destinations. Either way only destinations the viewer
-     * may see are shown, and the Menu tab is always there beside them.
+     * The tabs of the phone bottom bar: the person's own arrangement where
+     * they have made one (account menu → Navigation), otherwise the four
+     * highest-value destinations. Either way only destinations they may
+     * see are shown, and the Menu tab is always there beside them.
      *
      * @param  array<int, NavSection>  $sections
      * @return array<int, NavItem>
      */
-    public static function mobilePrimary(array $sections, ?Organisation $organisation = null): array
+    public static function mobilePrimary(array $sections, ?OrganisationUser $membership = null): array
     {
         $available = [];
 
@@ -277,7 +277,7 @@ final class Navigation
             }
         }
 
-        $chosen = $organisation?->mobileNavigation();
+        $chosen = $membership?->mobileNavigation();
 
         if ($chosen !== null) {
             $items = [];
@@ -310,15 +310,15 @@ final class Navigation
 
     /**
      * The action behind the dashboard's floating button for this viewer:
-     * the organisation's choice when its module is on and the viewer may
-     * do it, otherwise the first of the built-in order they may.
+     * their own choice when its module is on and they may do it, otherwise
+     * the first of the built-in order they may.
      *
      * @return array{label: string, route: string, symbol: string, icon: string}|null
      */
-    public static function quickAction(Organisation $organisation, User $user): ?array
+    public static function quickAction(Organisation $organisation, User $user, ?OrganisationUser $membership = null): ?array
     {
         $order = array_keys(self::QUICK_ACTIONS);
-        $preferred = $organisation->quickAction();
+        $preferred = $membership?->quickAction();
 
         if ($preferred !== null && isset(self::QUICK_ACTIONS[$preferred])) {
             $order = [$preferred, ...array_diff($order, [$preferred])];

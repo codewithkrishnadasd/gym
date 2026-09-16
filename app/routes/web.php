@@ -13,6 +13,7 @@ use App\Http\Controllers\Tenant\PasswordResetController;
 use App\Http\Controllers\Tenant\PublicDocumentController;
 use App\Http\Middleware\EnsureActiveMembership;
 use App\Http\Middleware\EnsureFeatureEnabled;
+use App\Livewire\Account\NavigationSettings as AccountNavigationSettings;
 use App\Livewire\Attendance\Roster as AttendanceRoster;
 use App\Livewire\Audit\Index as AuditIndex;
 use App\Livewire\Billing\Form as BillingForm;
@@ -217,4 +218,7 @@ Route::middleware(['auth:web', EnsureActiveMembership::class])->group(function (
     Route::get('/audit-log', AuditIndex::class)->name('tenant.audit.index');
 
     Route::get('/settings/organisation', OrganisationSettings::class)->name('tenant.settings.organisation');
+
+    // Personal: how this person's own phone bar and dashboard button are arranged.
+    Route::get('/me/navigation', AccountNavigationSettings::class)->name('tenant.me.navigation');
 });

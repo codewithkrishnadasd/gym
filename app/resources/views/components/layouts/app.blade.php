@@ -13,7 +13,7 @@
         ? Navigation::forPlatform()
         : ($organisation ? Navigation::forTenant($organisation, $membership) : []);
 
-    $mobileItems = Navigation::mobilePrimary($sections, $isPlatform ? null : $organisation);
+    $mobileItems = Navigation::mobilePrimary($sections, $isPlatform ? null : $membership);
 
     $brandName = $isPlatform ? 'Platform' : ($organisation->name ?? config('app.name'));
     $brandInitial = mb_strtoupper(mb_substr($brandName, 0, 1));

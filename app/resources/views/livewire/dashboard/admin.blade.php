@@ -23,7 +23,7 @@
         </x-slot:actions>
     </x-ui.page-header>
 
-    @php $quickAction = \App\Support\Navigation::quickAction($organisation, auth()->user()); @endphp
+    @php $quickAction = \App\Support\Navigation::quickAction($organisation, auth()->user(), $membership); @endphp
     @if ($quickAction)
         <x-ui.fab :href="route($quickAction['route'])" :label="$quickAction['label']" :symbol="$quickAction['symbol']" />
     @endif

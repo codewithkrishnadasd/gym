@@ -24,7 +24,7 @@ use Illuminate\Database\Eloquent\Relations\MorphMany;
  * — this is what lets one login work across organisations on different
  * domains. See MEP.md 5.3.
  */
-#[Fillable(['organisation_id', 'user_id', 'role', 'status', 'permissions', 'club_ids', 'created_by'])]
+#[Fillable(['organisation_id', 'user_id', 'role', 'status', 'permissions', 'navigation_settings', 'club_ids', 'created_by'])]
 class OrganisationUser extends Model
 {
     /** @use HasFactory<OrganisationUserFactory> */
@@ -47,6 +47,7 @@ class OrganisationUser extends Model
             'role' => MembershipRole::class,
             'status' => MembershipStatus::class,
             'permissions' => 'array',
+            'navigation_settings' => 'array',
             'club_ids' => 'array',
             'last_login_at' => 'datetime',
         ];
@@ -117,6 +118,43 @@ class OrganisationUser extends Model
         }
 
         return $this->expandedPermissions;
+    }
+
+    /**
+     * This person's own phone tab bar, as [route, icon] pairs in order, or
+     * null for the built-in choice. Only routes they may see are shown — see Navigation::mobilePrimary().
+     *
+     * @return array<int, array{route: string, icon: string}>|null
+     */
+    public function mobileNavigation(): ?array
+    {
+        /** @var array<int, mixed>|null $items */
+        $items = ($this->navigation_settings ?? [])['mobile'] ?? null;
+
+        if (! is_array($items) || $items === []) {
+            return null;
+        }
+
+        $chosen = [];
+
+        foreach ($items as $item) {
+            if (is_array($item) && is_string($item['route'] ?? null) && $item['route'] !== '') {
+                $chosen[] = ['route' => $item['route'], 'icon' => is_string($item['icon'] ?? null) ? $item['icon'] : ''];
+            }
+        }
+
+        return $chosen === [] ? null : array_slice($chosen, 0, 4);
+    }
+
+    /**
+     * This person's choice of action for the dashboard's floating button, or
+     * null for the built-in order.
+     */
+    public function quickAction(): ?string
+    {
+        $action = ($this->navigation_settings ?? [])['quick_action'] ?? null;
+
+        return is_string($action) && $action !== '' ? $action : null;
     }
 
     /**

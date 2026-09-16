@@ -6,6 +6,13 @@
              phone there is no top bar at all. --}}
         <x-ui.theme-toggle label class="w-full justify-start rounded-none px-3 py-2.5 font-medium" />
         <x-ui.nav-style-toggle label class="w-full justify-start rounded-none px-3 py-2.5 font-medium" />
+        @unless ($isPlatform)
+            <a href="{{ route('tenant.me.navigation') }}" wire:navigate
+                class="flex w-full items-center gap-2.5 px-3 py-2.5 text-sm font-medium text-ink-soft transition hover:bg-sunken hover:text-ink">
+                <x-heroicon-o-adjustments-horizontal class="h-[18px] w-[18px]" />
+                Arrange my navigation
+            </a>
+        @endunless
         <div class="border-t border-hairline"></div>
         <form method="POST" action="{{ $isPlatform ? route('platform.logout') : route('tenant.logout') }}">
             @csrf
