@@ -88,7 +88,7 @@ document.addEventListener('alpine:init', () => {
         },
 
         // ---- positioning: under the trigger, kept inside the viewport.
-        pos: { top: 0, left: 0, width: 608 },
+        pos: { top: 0, left: 0, width: 336 },
 
         panelWidth() {
             return this.twoMonths() ? 608 : 336;
@@ -103,23 +103,23 @@ document.addEventListener('alpine:init', () => {
                 return;
             }
 
-            this.$nextTick(() => {
-                const rect = trigger.getBoundingClientRect();
-                const gutter = 12;
-                const width = Math.min(this.panelWidth(), window.innerWidth - gutter * 2);
-                const left = Math.min(Math.max(rect.left, gutter), window.innerWidth - width - gutter);
-                // Below when there is room, otherwise above.
-                const below = rect.bottom + 8;
-                const top = below + 420 > window.innerHeight && rect.top > 440 ? Math.max(gutter, rect.top - 8 - 420) : below;
+            const rect = trigger.getBoundingClientRect();
+            const gutter = 12;
+            const width = Math.min(this.panelWidth(), window.innerWidth - gutter * 2);
+            const left = Math.min(Math.max(rect.left, gutter), window.innerWidth - width - gutter);
+            // Below when there is room, otherwise above.
+            const below = rect.bottom + 8;
+            const top = below + 420 > window.innerHeight && rect.top > 440 ? Math.max(gutter, rect.top - 8 - 420) : below;
 
-                this.pos = { top, left, width };
-            });
+            this.pos = { top, left, width };
         },
 
+        // An object, not a string: a string binding replaces the whole style
+        // attribute and undoes the display x-show manages.
         panelStyle() {
             return this.wide()
-                ? `top:${this.pos.top}px;left:${this.pos.left}px;width:${this.pos.width}px`
-                : '';
+                ? { top: `${this.pos.top}px`, left: `${this.pos.left}px`, width: `${this.pos.width}px` }
+                : {};
         },
 
         // ---- month / year navigation

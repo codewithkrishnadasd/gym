@@ -8,12 +8,18 @@
     an × to clear. Bound to the Livewire property in ISO through
     date-field.js.
 --}}
+@php
+    // HTML lowercases attribute names, so the event that opens this field's
+    // calendar has to be lowercase on both sides.
+    $openEvent = 'calendar-open-'.strtolower(preg_replace('/[^A-Za-z0-9]+/', '-', $id) ?? '');
+@endphp
+
 <div x-data="dateField({ property: @js($property), live: @js($live) })" class="relative {{ $wrapperClass }}">
     <button type="button" x-ref="trigger"
         id="{{ $id }}"
         @if ($name) data-field="{{ $name }}" @endif
         @if ($invalid) aria-invalid="true" @endif
-        x-on:click="$refs.calendar.dispatchEvent(new CustomEvent('calendar-open', { detail: iso }))"
+        x-on:click="$dispatch('{{ $openEvent }}', iso)"
         x-bind:aria-expanded="pickerOpen"
         {{ $rest->class([$control, 'flex items-center justify-between gap-2 text-left', 'border-critical' => $invalid, 'border-hairline-strong' => ! $invalid]) }}>
         <span class="numeric truncate" x-text="display || 'Select date'" x-bind:class="display ? 'text-ink' : 'text-ink-muted'">Select date</span>
@@ -27,14 +33,16 @@
         </button>
     @endunless
 
-    <div x-ref="calendar" x-data="calendar({
+    {{-- Its own scope, so it is addressed by a page-unique event rather than
+         a ref (an element with x-data keeps its refs to itself). --}}
+    <div x-data="calendar({
             mode: 'single',
             today: @js(now(app()->bound('tenant') ? app('tenant')->timezone : config('app.timezone'))->toDateString()),
             futureAllowed: true,
             anchor: () => $el.parentElement.querySelector('[x-ref=trigger]'),
             apply: (date) => $dispatch('date-picked', date),
         })"
-        x-on:calendar-open="openWith($event.detail)"
+        x-on:{{ $openEvent }}.window="openWith($event.detail)"
         x-on:date-picked="onPick($event.detail)"
         x-on:keydown.escape.window="close()"
         x-effect="pickerOpen = open">
