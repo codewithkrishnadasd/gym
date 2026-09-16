@@ -26,12 +26,23 @@
                 and every expression on the card failed with "copied is not
                 defined".
             --}}
-            <div
+            <div wire:key="panel-body-{{ $notification->id }}"
                 x-data="{
                 message: @js($message),
                 digits: @js($recipientDigits),
-                editing: false,
+                editing: @js($startEditing),
                 copied: false,
+                // Keeping the wording as a template: the small form, and its result.
+                savingTemplate: false,
+                templateName: @js($sourceTemplateName),
+                templateSaved: '',
+                async keepAsTemplate() {
+                    if (this.templateName.trim() === '') return;
+                    await this.$wire.saveAsTemplate(this.templateName, this.message);
+                    this.templateSaved = this.templateName;
+                    this.savingTemplate = false;
+                    setTimeout(() => this.templateSaved = '', 3000);
+                },
                 // 'idle' | 'saving' | 'saved': every edit is written as it is
                 // typed, so refreshing or navigating away mid-edit loses nothing.
                 saveState: 'idle',
@@ -123,6 +134,25 @@
                     <span x-show="saveState === 'idle'">Changes are saved as you type.</span>
                 </p>
 
+                {{-- Keep this wording for next time. Names and figures become
+                     placeholders, so the template fits every recipient. --}}
+                <div x-show="savingTemplate" x-cloak class="mt-3 flex flex-col gap-2 rounded-lg border border-hairline bg-raised p-3 sm:flex-row sm:items-end">
+                    <label class="min-w-0 flex-1">
+                        <span class="mb-1 block text-xs font-medium text-ink-soft">Template name</span>
+                        <input type="text" x-model="templateName" maxlength="80" placeholder="e.g. Renewal reminder"
+                            x-on:keydown.enter.prevent="keepAsTemplate()"
+                            class="h-9 w-full rounded-lg border border-hairline-strong bg-surface px-3 text-sm text-ink focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25">
+                    </label>
+                    <div class="flex items-center gap-2">
+                        <x-ui.button type="button" size="sm" variant="primary" x-on:click="keepAsTemplate()" x-bind:disabled="templateName.trim() === ''">Save template</x-ui.button>
+                        <x-ui.button type="button" size="sm" variant="ghost" x-on:click="savingTemplate = false">Cancel</x-ui.button>
+                    </div>
+                    <p class="text-[11px] text-ink-muted sm:basis-full">The person's name, ID, club, plan, dates and amounts become placeholders, so it works for anyone. Same name updates the existing template.</p>
+                </div>
+                <p x-show="templateSaved" x-cloak class="mt-2 text-xs font-medium text-positive">
+                    <x-heroicon-o-check class="inline h-3.5 w-3.5" /> Saved as “<span x-text="templateSaved"></span>” — it is now in the WhatsApp menu.
+                </p>
+
                 <pre x-show="! editing"
                     class="max-h-56 overflow-y-auto whitespace-pre-wrap rounded-lg border border-hairline bg-raised px-3 py-2.5 font-sans text-[13px] leading-relaxed text-ink-soft"
                     x-text="message">{{ $message }}</pre>
@@ -166,6 +196,12 @@
                         </x-ui.button>
                     @else
                         <span class="text-xs text-ink-muted">Already {{ strtolower($notification->status->label()) }} — the wording is fixed.</span>
+                    @endif
+
+                    @if ($canSaveTemplate)
+                        <x-ui.button type="button" size="md" variant="ghost" icon="bookmark" x-on:click="savingTemplate = ! savingTemplate">
+                            Save as template
+                        </x-ui.button>
                     @endif
 
                     @if ($context === 'queue' && $notification->status === \App\Enums\NotificationStatus::Ready)

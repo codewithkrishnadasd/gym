@@ -31,6 +31,20 @@ final class MessageComposer
     public const VERSION = 'v1';
 
     /**
+     * What a hand-written message about a member may mention: the
+     * organisation's own templates draw on exactly this set.
+     *
+     * @var array<string, string>
+     */
+    public const MEMBER_VARIABLES = [
+        'memberId' => 'Their member ID, e.g. MEM-42',
+        'clubName' => 'The club they belong to',
+        'planName' => 'Their latest plan',
+        'endDate' => 'The day that plan ends or ended',
+        'balanceDue' => 'What they still owe, formatted in your currency',
+    ];
+
+    /**
      * Variables offered to the editor for each action, as name => description.
      * This list is also the substitution allowlist.
      *
@@ -70,6 +84,8 @@ final class MessageComposer
                 'startDate' => 'First day of the term',
                 'endDate' => 'Last day of the term',
             ],
+            NotificationActionType::MemberPlanExpired,
+            NotificationActionType::CustomMessage => self::MEMBER_VARIABLES,
             NotificationActionType::FeePaymentConfirmed => [
                 'amount' => 'The amount received, formatted in your currency',
                 'planName' => 'The plan the payment was applied to',
@@ -157,6 +173,16 @@ final class MessageComposer
                 'Valid from: {startDate}',
                 'Valid until: {endDate}',
             ],
+            NotificationActionType::MemberPlanExpired => [
+                'Hi {memberName}, your {planName} plan with {organisationName} ended on {endDate}.',
+                'Club: {clubName}',
+                'Balance due: {balanceDue}',
+                '',
+                'Renew at the counter or reply here and we will set it up for you. Questions? {supportContact}.',
+            ],
+            NotificationActionType::CustomMessage => [
+                'Hi {memberName},',
+            ],
             NotificationActionType::FeePaymentConfirmed => [
                 'Hi {memberName}, your {memberLabel} fee payment of {amount} has been confirmed by {organisationName}.',
                 'Plan: {planName}',
@@ -237,24 +263,50 @@ final class MessageComposer
             ...$context,
         ];
 
-        // Only declared variables are substituted; anything else in the body
-        // is left alone rather than resolved against arbitrary data.
+        return self::renderBody(self::bodyFor($organisation, $type), $values, array_keys(self::variablesFor($type)));
+    }
+
+    /**
+     * Renders any wording — a built-in template or one of the organisation's
+     * own — against values. Only the allowed placeholders are substituted;
+     * anything else in the body is left alone rather than resolved against
+     * arbitrary data. A line whose only value was never supplied is dropped,
+     * so recipients never see a half-filled template.
+     *
+     * @param  array<string, string|null>  $values
+     * @param  array<int, string>  $allowed
+     */
+    public static function renderBody(string $body, array $values, array $allowed): string
+    {
         $replacements = [];
 
-        foreach (array_keys(self::variablesFor($type)) as $name) {
+        foreach ($allowed as $name) {
             $replacements['{'.$name.'}'] = $values[$name] ?? '—';
         }
 
-        $rendered = strtr(self::bodyFor($organisation, $type), $replacements);
+        $rendered = strtr($body, $replacements);
 
-        // Drop any line whose only value was never supplied, so recipients
-        // never see a half-filled template.
         $kept = array_filter(
             explode("\n", $rendered),
             static fn (string $line): bool => ! str_ends_with(trim($line), ': —'),
         );
 
         return trim(implode("\n", $kept));
+    }
+
+    /**
+     * The organisation-wide values every message may use.
+     *
+     * @return array<string, string>
+     */
+    public static function baseValues(Organisation $organisation): array
+    {
+        return [
+            'organisationName' => $organisation->name,
+            'memberLabel' => $organisation->term('member_singular'),
+            'clubLabel' => $organisation->term('club_singular'),
+            'supportContact' => $organisation->contact_phone ?: $organisation->name,
+        ];
     }
 
     /**

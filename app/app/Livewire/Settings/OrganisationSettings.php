@@ -7,10 +7,12 @@ namespace App\Livewire\Settings;
 use App\Enums\NotificationActionType;
 use App\Livewire\Concerns\ResolvesMembership;
 use App\Models\AuditEvent;
+use App\Models\CustomMessageTemplate;
 use App\Models\Expense;
 use App\Models\MessageTemplate;
 use App\Models\Organisation;
 use App\Support\Images\BrandImage;
+use App\Support\Navigation;
 use App\Support\PhoneNumber;
 use App\Support\WhatsApp\MessageComposer;
 use Illuminate\Support\Facades\DB;
@@ -94,6 +96,23 @@ class OrganisationSettings extends Component
 
     public string $templateBody = '';
 
+    /**
+     * The phone tab bar: four [route, icon] slots, and the dashboard's
+     * floating button. Empty route = slot unused.
+     *
+     * @var array<int, array{route: string, icon: string}>
+     */
+    public array $mobileTabs = [];
+
+    public string $quickAction = '';
+
+    // The organisation's own templates, sent by hand from a person's page.
+    public string $customTemplateName = '';
+
+    public string $customTemplateAudience = 'member';
+
+    public string $customTemplateBody = '';
+
     public function mount(): void
     {
         $organisation = $this->organisation();
@@ -114,6 +133,8 @@ class OrganisationSettings extends Component
         $this->userPlural = $organisation->terminology_user_plural;
         $this->clubSingular = $organisation->terminology_club_singular;
         $this->clubPlural = $organisation->terminology_club_plural;
+
+        $this->loadNavigation();
 
         foreach (array_keys(Organisation::DEFAULT_ID_PREFIXES) as $entity) {
             $this->idPrefixes[$entity] = $organisation->idPrefix($entity);
@@ -427,6 +448,58 @@ class OrganisationSettings extends Component
         session()->flash('status', 'Message template saved. New messages use this wording; already-sent ones are unchanged.');
     }
 
+    /**
+     * Adds one of the organisation's own wordings — the ones offered in the
+     * WhatsApp menu on a member's or staff member's page. Placeholders are
+     * limited to what a hand-written message may mention.
+     */
+    public function addCustomTemplate(): void
+    {
+        $organisation = $this->organisation();
+        $this->authorize('manageSettings', $organisation);
+
+        $validated = $this->validate([
+            'customTemplateName' => ['required', 'string', 'max:80'],
+            'customTemplateAudience' => ['required', Rule::in(['member', 'user'])],
+            'customTemplateBody' => ['required', 'string', 'max:2000'],
+        ], [], ['customTemplateName' => 'name', 'customTemplateBody' => 'message']);
+
+        $allowed = array_keys(MessageComposer::variablesFor(NotificationActionType::CustomMessage));
+        preg_match_all('/\{(\w+)\}/', $validated['customTemplateBody'], $matches);
+        $unknown = array_values(array_unique(array_diff($matches[1], $allowed)));
+
+        if ($unknown !== []) {
+            $this->addError('customTemplateBody', 'Unknown variable: {'.implode('}, {', $unknown).'}.');
+
+            return;
+        }
+
+        $template = CustomMessageTemplate::query()->firstOrNew([
+            'organisation_id' => $organisation->id,
+            'audience' => $validated['customTemplateAudience'],
+            'name' => trim($validated['customTemplateName']),
+        ]);
+
+        $template->fill([
+            'body' => $validated['customTemplateBody'],
+            'created_by' => $template->created_by ?? $this->currentMembership()->id,
+        ])->save();
+
+        $this->reset(['customTemplateName', 'customTemplateBody']);
+
+        session()->flash('status', 'Template "'.$template->name.'" saved. It is now in the WhatsApp menu.');
+    }
+
+    public function deleteCustomTemplate(int $templateId): void
+    {
+        $organisation = $this->organisation();
+        $this->authorize('manageSettings', $organisation);
+
+        CustomMessageTemplate::query()->whereKey($templateId)->delete();
+
+        session()->flash('status', 'Template removed.');
+    }
+
     public function resetTemplate(): void
     {
         $organisation = $this->organisation();
@@ -586,6 +659,95 @@ class OrganisationSettings extends Component
     }
 
     /**
+     * Shows the bar as it currently stands — the organisation's choice, or
+     * the built-in one — so editing starts from what people see.
+     */
+    private function loadNavigation(): void
+    {
+        $organisation = $this->organisation();
+        $sections = Navigation::forTenant($organisation, $this->currentMembership());
+        $current = Navigation::mobilePrimary($sections, $organisation);
+
+        $this->mobileTabs = [];
+
+        foreach ($current as $item) {
+            $this->mobileTabs[] = ['route' => $item['route'], 'icon' => $item['icon']];
+        }
+
+        while (count($this->mobileTabs) < 4) {
+            $this->mobileTabs[] = ['route' => '', 'icon' => ''];
+        }
+
+        $this->quickAction = $organisation->quickAction() ?? '';
+    }
+
+    /**
+     * When a destination is picked for a tab, its own icon comes with it;
+     * the icon can then be changed on its own.
+     */
+    public function updatedMobileTabs(mixed $value, string $key): void
+    {
+        if (! str_ends_with($key, '.route')) {
+            return;
+        }
+
+        $index = (int) explode('.', $key)[0];
+        $route = is_string($value) ? $value : '';
+
+        if ($route === '') {
+            $this->mobileTabs[$index]['icon'] = '';
+
+            return;
+        }
+
+        foreach (Navigation::forTenant($this->organisation(), $this->currentMembership()) as $section) {
+            foreach ($section['items'] as $item) {
+                if ($item['route'] === $route) {
+                    $this->mobileTabs[$index]['icon'] = $item['icon'];
+                }
+            }
+        }
+    }
+
+    public function saveNavigation(): void
+    {
+        $organisation = $this->organisation();
+        $this->authorize('manageSettings', $organisation);
+
+        $destinations = array_keys(Navigation::destinations($organisation, $this->currentMembership()));
+
+        $this->validate([
+            'mobileTabs' => ['array', 'size:4'],
+            'mobileTabs.*.route' => ['nullable', 'string', Rule::in(['', ...$destinations])],
+            'mobileTabs.*.icon' => ['nullable', 'string', Rule::in(['', ...array_keys(Navigation::ICONS)])],
+            'quickAction' => ['nullable', 'string', Rule::in(['', ...array_keys(Navigation::QUICK_ACTIONS)])],
+        ]);
+
+        $tabs = [];
+
+        foreach ($this->mobileTabs as $tab) {
+            if ($tab['route'] !== '' && ! in_array($tab['route'], array_column($tabs, 'route'), true)) {
+                $tabs[] = ['route' => $tab['route'], 'icon' => $tab['icon']];
+            }
+        }
+
+        $settings = [
+            'mobile' => $tabs === [] ? null : $tabs,
+            'quick_action' => $this->quickAction !== '' ? $this->quickAction : null,
+        ];
+
+        $this->persist(
+            ['navigation_settings' => $settings],
+            ['navigation_settings' => $organisation->navigation_settings],
+            'organisation.navigation_updated',
+        );
+
+        $this->loadNavigation();
+
+        session()->flash('status', 'Navigation saved. The phone bar and the dashboard button follow it from the next page load.');
+    }
+
+    /**
      * @param  array<string, mixed>  $after
      * @param  array<string, mixed>  $before
      */
@@ -617,6 +779,14 @@ class OrganisationSettings extends Component
                 NotificationActionType::from($this->templateAction),
                 $this->templateBody ?: null,
             ),
+            'destinations' => Navigation::destinations($organisation, $this->currentMembership()),
+            'icons' => Navigation::ICONS,
+            'quickActions' => collect(Navigation::QUICK_ACTIONS)
+                ->filter(fn (array $action): bool => $organisation->hasFeature($action['feature']))
+                ->map(fn (array $action): string => $action['label'])
+                ->all(),
+            'customTemplates' => CustomMessageTemplate::query()->orderBy('audience')->orderBy('name')->get(),
+            'customVariables' => MessageComposer::variablesFor(NotificationActionType::CustomMessage),
             'templateIsCustom' => MessageTemplate::query()->withoutGlobalScopes()
                 ->where('organisation_id', $organisation->id)
                 ->where('action_type', $this->templateAction)

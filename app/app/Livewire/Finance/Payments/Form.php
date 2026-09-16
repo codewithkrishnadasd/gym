@@ -8,6 +8,7 @@ use App\Actions\Payments\RecordFeePayment;
 use App\Actions\Subscriptions\CreateSubscription;
 use App\Enums\Feature;
 use App\Enums\FinancialAccountStatus;
+use App\Enums\FinancialAccountType;
 use App\Enums\InvoiceStatus;
 use App\Enums\MemberStatus;
 use App\Enums\PaymentMethod;
@@ -117,6 +118,7 @@ class Form extends Component
 
         $this->paymentDate = Carbon::today($this->organisation()->timezone)->toDateString();
         $this->confirmImmediately = $this->currentMembership()->isAdmin();
+        $this->applyMethodAccount();
 
         // Without the Members module every payer is named directly.
         if (! $this->organisation()->hasFeature(Feature::Members)) {
@@ -503,6 +505,50 @@ class Form extends Component
         return $this->memberId === null ? null : Member::query()->with('primaryClub')->find($this->memberId);
     }
 
+    /**
+     * Cash goes into the cash account, so there is nothing to choose: the
+     * account follows the method and the picker only appears for a bank,
+     * UPI or card payment (or when no cash account exists to fall back on).
+     */
+    public function updatedPaymentMethod(): void
+    {
+        $this->applyMethodAccount();
+    }
+
+    private function applyMethodAccount(): void
+    {
+        $cash = $this->cashAccount();
+
+        if ($this->paymentMethod === PaymentMethod::Cash->value) {
+            $this->financialAccountId = $cash !== null ? $cash->id : $this->financialAccountId;
+
+            return;
+        }
+
+        // Switching away from cash: the cash account is no longer the answer.
+        if ($cash !== null && $this->financialAccountId === $cash->id) {
+            $this->financialAccountId = null;
+        }
+    }
+
+    private function cashAccount(): ?FinancialAccount
+    {
+        return FinancialAccount::query()
+            ->where('status', FinancialAccountStatus::Active)
+            ->where('account_type', FinancialAccountType::Cash)
+            ->orderBy('id')
+            ->first();
+    }
+
+    /**
+     * Whether the account picker is shown: hidden for a cash payment that
+     * has a cash account to land in.
+     */
+    public function needsAccountChoice(): bool
+    {
+        return $this->paymentMethod !== PaymentMethod::Cash->value || $this->cashAccount() === null;
+    }
+
     public function clearMember(): void
     {
         $this->reset(['memberId', 'walkIn', 'payerName', 'payerPhone', 'subscriptionId', 'invoiceId', 'target', 'amount', 'discount', 'memberSearch']);
@@ -856,6 +902,8 @@ class Form extends Component
             'accounts' => auth()->user()?->can('select', FinancialAccount::class)
                 ? FinancialAccount::query()->where('status', FinancialAccountStatus::Active)->orderBy('name')->get()
                 : collect(),
+            'needsAccountChoice' => $this->needsAccountChoice(),
+            'cashAccount' => $this->cashAccount(),
             'isAdmin' => $this->currentMembership()->isAdmin(),
         ])->layout('components.layouts.app', ['heading' => 'Collect fee']);
     }

@@ -13,7 +13,7 @@
         ? Navigation::forPlatform()
         : ($organisation ? Navigation::forTenant($organisation, $membership) : []);
 
-    $mobileItems = Navigation::mobilePrimary($sections);
+    $mobileItems = Navigation::mobilePrimary($sections, $isPlatform ? null : $organisation);
 
     $brandName = $isPlatform ? 'Platform' : ($organisation->name ?? config('app.name'));
     $brandInitial = mb_strtoupper(mb_substr($brandName, 0, 1));
@@ -178,7 +178,7 @@
             {{-- Floats clear of the screen edges as a frosted pill; the active
                  tab sits on its own soft accent pill. Kept above the home
                  indicator on phones with one. --}}
-            <nav class="glass-nav fixed inset-x-3 bottom-[max(0.75rem,env(safe-area-inset-bottom))] z-30 grid grid-cols-5 rounded-[1.375rem] px-1 py-1 lg:hidden"
+            <nav class="glass-nav fixed inset-x-3 bottom-[max(0.375rem,env(safe-area-inset-bottom))] z-30 grid grid-cols-5 rounded-[1.375rem] px-1 py-1 lg:hidden"
                 aria-label="Primary">
                 @foreach ($mobileItems as $item)
                     @php $active = request()->routeIs($item['active']); @endphp
@@ -215,6 +215,18 @@
         {{-- Due task reminders, shown once per page load. --}}
         <livewire:tasks.reminders />
     @endif
+
+    {{-- Back to the top once the page has scrolled a way. Sits above the
+         floating action's slot on the right, so the two never overlap. --}}
+    <button type="button" x-data="{ shown: false }" x-cloak x-show="shown"
+        x-on:scroll.window.passive="shown = window.scrollY > 480"
+        x-on:click="window.scrollTo({ top: 0, behavior: 'smooth' })"
+        x-transition:enter="transition duration-150 ease-out" x-transition:enter-start="translate-y-2 opacity-0"
+        x-transition:leave="transition duration-100 ease-in" x-transition:leave-end="translate-y-2 opacity-0"
+        aria-label="Back to top" title="Back to top"
+        class="glass-nav fixed bottom-[calc(max(0.375rem,env(safe-area-inset-bottom))+9rem)] right-5 z-30 grid h-10 w-10 place-items-center rounded-full text-ink-soft transition hover:text-ink active:scale-95 lg:bottom-[6.5rem] lg:right-9">
+        <x-heroicon-o-arrow-up class="h-4 w-4" />
+    </button>
 
     <x-nav.launcher :sections="$sections" :brand-name="$brandName" :account="$account" :role-label="$roleLabel" :is-platform="$isPlatform" />
     <x-ui.confirm-dialog />

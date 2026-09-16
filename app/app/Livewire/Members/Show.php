@@ -375,11 +375,6 @@ class Show extends Component
             'clubHistory' => $this->member->clubHistory()->with(['fromClub:id,name', 'toClub:id,name', 'changedBy.user:id,name'])
                 ->orderByDesc('changed_at')->get(),
             'availablePlans' => Plan::query()->where('status', PlanStatus::Active)->orderBy('name')->get(),
-            'whatsappUrl' => PhoneNumber::whatsappUrl(
-                $this->member->phone,
-                "Hi {$this->member->name},",
-                $organisation->defaultCountry(),
-            ),
             'displayPhone' => PhoneNumber::forDisplay($this->member->phone, $organisation->defaultCountry()),
             'memberTasks' => $this->tab === 'tasks' ? $this->memberTasks() : new Collection,
         ])->layout('components.layouts.app', ['heading' => $this->member->name]);

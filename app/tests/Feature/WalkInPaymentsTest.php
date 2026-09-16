@@ -2,8 +2,10 @@
 
 declare(strict_types=1);
 
+use App\Enums\FinancialAccountType;
 use App\Enums\NotificationRecipientType;
 use App\Livewire\Billing\Form as InvoiceForm;
+use App\Livewire\Finance\Expenses\Form;
 use App\Livewire\Finance\Payments\Form as PaymentForm;
 use App\Models\BillableItem;
 use App\Models\Domain;
@@ -207,4 +209,44 @@ it('makes every payment and invoice out by name when the Members module is off',
 
     expect(Invoice::query()->whereNull('member_id')->where('payer_name', 'Company Co')->exists())->toBeTrue()
         ->and(FeePayment::query()->whereNull('member_id')->where('payer_name', 'Drop-in Dan')->exists())->toBeTrue();
+});
+
+it('sends cash to the cash account without asking, and asks only for other methods', function (): void {
+    $cash = FinancialAccount::factory()->create(['organisation_id' => $this->organisation->id, 'name' => 'Till', 'account_type' => FinancialAccountType::Cash]);
+    $bank = FinancialAccount::factory()->create(['organisation_id' => $this->organisation->id, 'name' => 'HDFC', 'account_type' => FinancialAccountType::Bank]);
+    $member = Member::factory()->create(['organisation_id' => $this->organisation->id, 'primary_club_id' => null]);
+
+    $form = Livewire::test(PaymentForm::class)
+        ->assertSet('paymentMethod', 'cash')
+        ->assertSet('financialAccountId', $cash->id)
+        ->assertDontSee('Received into')
+        ->assertSee('Goes into Till');
+
+    // A bank transfer needs an account named — and the cash account is not offered for it.
+    $form->set('paymentMethod', 'bank_transfer')
+        ->assertSet('financialAccountId', null)
+        ->assertSee('Received into')
+        ->assertSee('HDFC (')
+        ->assertDontSee('Till (');
+
+    $form->set('paymentMethod', 'cash')
+        ->assertSet('financialAccountId', $cash->id)
+        ->call('selectMember', $member->id)
+        ->set('amount', '100')
+        ->set('confirmImmediately', true)
+        ->call('save')
+        ->assertHasNoErrors();
+
+    expect(FeePayment::query()->latest('id')->value('financial_account_id'))->toBe($cash->id);
+
+    // Expenses: cash comes out of the cash account; otherwise pick a non-cash account.
+    Livewire::test(Form::class)
+        ->assertSet('paidBy', 'cash')
+        ->assertSet('fundingAccountId', $cash->id)
+        ->assertDontSee('Paid from')
+        ->set('paidBy', 'account')
+        ->assertSet('fundingAccountId', null)
+        ->assertSee('Paid from')
+        ->assertSee('HDFC (')
+        ->assertDontSee('Till (');
 });

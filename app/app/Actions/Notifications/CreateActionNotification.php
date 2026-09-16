@@ -33,6 +33,8 @@ final class CreateActionNotification
 {
     /**
      * @param  array<string, string|null>  $context  Placeholder values for the message template.
+     * @param  string|null  $body  Already-rendered wording, for a message composed by hand rather than from the action's template.
+     * @param  string|null  $version  Where that wording came from, e.g. "custom:12".
      */
     public function handle(
         Organisation $organisation,
@@ -46,6 +48,8 @@ final class CreateActionNotification
         OrganisationUser $actor,
         string $operationId,
         array $context = [],
+        ?string $body = null,
+        ?string $version = null,
     ): ?WhatsappActionNotification {
         if (! $organisation->notificationsEnabled($type)) {
             return null;
@@ -63,7 +67,7 @@ final class CreateActionNotification
 
         $normalisedPhone = PhoneNumber::normalise($recipientPhone, $organisation->defaultCountry());
 
-        $message = MessageComposer::render($type, $organisation, [
+        $message = $body ?? MessageComposer::render($type, $organisation, [
             'memberName' => $recipientName,
             ...$context,
         ]);
@@ -76,7 +80,7 @@ final class CreateActionNotification
             'entity_type' => $entityType,
             'entity_id' => $entityId,
             'action_type' => $type,
-            'message_template_version' => MessageComposer::versionFor($organisation, $type),
+            'message_template_version' => $version ?? MessageComposer::versionFor($organisation, $type),
             'message_snapshot' => $message,
             // No usable number still produces a snapshot so the admin can copy
             // the message manually (MEP.md 10).

@@ -23,9 +23,10 @@
         </x-slot:actions>
     </x-ui.page-header>
 
-    @can('create', \App\Models\FeePayment::class)
-        <x-ui.fab :href="route('tenant.finance.payments.create')" label="Collect fee" :symbol="$organisation->currencySymbol()" />
-    @endcan
+    @php $quickAction = \App\Support\Navigation::quickAction($organisation, auth()->user()); @endphp
+    @if ($quickAction)
+        <x-ui.fab :href="route($quickAction['route'])" :label="$quickAction['label']" :symbol="$quickAction['symbol']" />
+    @endif
 
     <x-ui.period-filter :presets="$presets" :range="$range" :from="$from" :to="$to" :today="\Illuminate\Support\Carbon::today($organisation->timezone)->toDateString()" :clubs="$organisation->usesClubs() ? $clubs : null" :club-label="$organisation->term('club_plural')" />
 

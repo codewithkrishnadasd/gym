@@ -9,14 +9,6 @@
          the fade at the right edge hints there is more. --}}
     <div class="relative min-w-0 flex-1 sm:flex-none">
         <div class="scrollbar-none -mx-4 flex gap-1.5 overflow-x-auto px-4 pr-8 snap-x sm:mx-0 sm:px-0 sm:pr-6" role="group" aria-label="Date range preset">
-            @foreach ($presets as $key => $preset)
-                <button type="button" wire:click="applyPreset('{{ $key }}')" @class([
-                    'h-8 shrink-0 snap-start whitespace-nowrap rounded-full border px-3 text-xs font-medium transition',
-                    'border-accent bg-accent text-on-accent' => $range === $key,
-                    'border-hairline bg-surface text-ink-soft hover:border-hairline-strong hover:text-ink' => $range !== $key,
-                ])>{{ $preset['label'] }}</button>
-            @endforeach
-
             {{-- Switches to a custom range and opens the picker in one go: the
                  picker is rendered by the response, then told to open. --}}
             <button type="button"
@@ -28,6 +20,14 @@
                 <x-heroicon-o-calendar-days class="h-3.5 w-3.5" />
                 Custom
             </button>
+            @foreach ($presets as $key => $preset)
+                <button type="button" wire:click="applyPreset('{{ $key }}')" @class([
+                    'h-8 shrink-0 snap-start whitespace-nowrap rounded-full border px-3 text-xs font-medium transition',
+                    'border-accent bg-accent text-on-accent' => $range === $key,
+                    'border-hairline bg-surface text-ink-soft hover:border-hairline-strong hover:text-ink' => $range !== $key,
+                ])>{{ $preset['label'] }}</button>
+            @endforeach
+
         </div>
         <div class="pointer-events-none absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-[var(--c-app)] to-transparent sm:hidden"></div>
     </div>

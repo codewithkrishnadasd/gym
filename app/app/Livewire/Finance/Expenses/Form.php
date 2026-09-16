@@ -7,6 +7,7 @@ namespace App\Livewire\Finance\Expenses;
 use App\Enums\ExpenseTargetType;
 use App\Enums\Feature;
 use App\Enums\FinancialAccountStatus;
+use App\Enums\FinancialAccountType;
 use App\Livewire\Concerns\ResolvesMembership;
 use App\Models\AuditEvent;
 use App\Models\Club;
@@ -51,6 +52,9 @@ class Form extends Component
 
     public ?int $fundingAccountId = null;
 
+    /** 'cash' (the cash account, chosen for you) or 'account' (pick one). */
+    public string $paidBy = 'cash';
+
     public string $payee = '';
 
     public string $description = '';
@@ -68,6 +72,10 @@ class Form extends Component
         $this->expense = $expense;
         $this->expenseDate = Carbon::today($this->organisation()->timezone)->toDateString();
 
+        if ($expense === null) {
+            $this->applyPaidBy();
+        }
+
         if ($expense) {
             // A category that is not on the list — free-typed, or since
             // deactivated — is shown as "Other" with its wording kept.
@@ -81,6 +89,7 @@ class Form extends Component
             $this->expenseDate = $expense->expense_date->toDateString();
             $this->clubId = $expense->club_id;
             $this->fundingAccountId = $expense->paid_from_financial_account_id;
+            $this->paidBy = $this->fundingAccountId !== null && $this->fundingAccountId === $this->cashAccount()?->id ? 'cash' : 'account';
             $this->payee = (string) $expense->payee;
             $this->description = (string) $expense->description;
             $this->targetType = $expense->target_type->value ?? '';
@@ -212,6 +221,39 @@ class Form extends Component
     }
 
     /**
+     * Cash comes out of the cash account, so there is nothing to choose; a
+     * bank or UPI payment is picked from the other accounts.
+     */
+    public function updatedPaidBy(): void
+    {
+        $this->applyPaidBy();
+    }
+
+    private function applyPaidBy(): void
+    {
+        $cash = $this->cashAccount();
+
+        if ($this->paidBy === 'cash') {
+            $this->fundingAccountId = $cash?->id;
+
+            return;
+        }
+
+        if ($cash !== null && $this->fundingAccountId === $cash->id) {
+            $this->fundingAccountId = null;
+        }
+    }
+
+    private function cashAccount(): ?FinancialAccount
+    {
+        return FinancialAccount::query()
+            ->where('status', FinancialAccountStatus::Active)
+            ->where('account_type', FinancialAccountType::Cash)
+            ->orderBy('id')
+            ->first();
+    }
+
+    /**
      * What an expense can be attributed to: the organisation, and the people
      * and places of whichever modules are on.
      *
@@ -236,7 +278,8 @@ class Form extends Component
         return view('livewire.finance.expenses.form', [
             'organisation' => $organisation,
             'clubs' => $this->accessibleClubs(true),
-            'accounts' => FinancialAccount::query()->where('status', FinancialAccountStatus::Active)->orderBy('name')->get(),
+            'accounts' => FinancialAccount::query()->where('status', FinancialAccountStatus::Active)->where('account_type', '!=', FinancialAccountType::Cash)->orderBy('name')->get(),
+            'cashAccount' => $this->cashAccount(),
             'categories' => Expense::categoriesForEntry($organisation),
             'targetTypes' => $this->availableTargetTypes(),
             'members' => $this->targetType === ExpenseTargetType::Member->value

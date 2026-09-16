@@ -96,16 +96,20 @@
 
                     <x-ui.input wire:model="paymentDate" name="paymentDate" label="Payment date" type="date" required />
 
-                    <x-ui.select wire:model="paymentMethod" name="paymentMethod" label="Payment method" required>
+                    <x-ui.select wire:model.live="paymentMethod" name="paymentMethod" label="Payment method" required
+                        :hint="! $needsAccountChoice && $cashAccount ? 'Goes into '.$cashAccount->name.'.' : null">
                         @foreach ($methods as $case)
                             <option value="{{ $case->value }}">{{ $case->label() }}</option>
                         @endforeach
                     </x-ui.select>
 
-                    @if ($accounts->isNotEmpty())
+                    @if (! $needsAccountChoice)
+                        {{-- Cash lands in the cash account; nothing to choose. --}}
+                    @elseif ($accounts->isNotEmpty())
                         <x-ui.select wire:model="financialAccountId" name="financialAccountId" label="Received into" required>
                             <option value="">Choose an account…</option>
                             @foreach ($accounts as $account)
+                                @continue($account->account_type === \App\Enums\FinancialAccountType::Cash && $paymentMethod !== 'cash' && $paymentMethod !== 'other')
                                 <option value="{{ $account->id }}">{{ $account->name }} ({{ $account->account_type->label() }})</option>
                             @endforeach
                         </x-ui.select>

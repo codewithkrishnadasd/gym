@@ -18,7 +18,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Facades\Storage;
 
 #[Fillable([
-    'name', 'slug', 'logo_path', 'favicon_path', 'accent_color', 'theme_colors', 'id_prefixes', 'features', 'status', 'timezone', 'currency_code', 'locale',
+    'name', 'slug', 'logo_path', 'favicon_path', 'accent_color', 'theme_colors', 'id_prefixes', 'features', 'navigation_settings', 'status', 'timezone', 'currency_code', 'locale',
     'default_country_code', 'contact_email', 'contact_phone', 'address',
     'notification_settings', 'expense_categories', 'created_by',
     'terminology_member_singular', 'terminology_member_plural',
@@ -52,6 +52,7 @@ class Organisation extends Model
             'theme_colors' => 'array',
             'id_prefixes' => 'array',
             'features' => 'array',
+            'navigation_settings' => 'array',
         ];
     }
 
@@ -415,6 +416,44 @@ class Organisation extends Model
         $key = $feature instanceof Feature ? $feature->value : $feature;
 
         return in_array($key, $this->enabledFeatures(), true);
+    }
+
+    /**
+     * The destinations chosen for the phone tab bar, as [route, icon] pairs
+     * in order, or null for the built-in choice. Only routes the viewer may
+     * see are shown — see Navigation::mobilePrimary().
+     *
+     * @return array<int, array{route: string, icon: string}>|null
+     */
+    public function mobileNavigation(): ?array
+    {
+        /** @var array<int, mixed>|null $items */
+        $items = ($this->navigation_settings ?? [])['mobile'] ?? null;
+
+        if (! is_array($items) || $items === []) {
+            return null;
+        }
+
+        $chosen = [];
+
+        foreach ($items as $item) {
+            if (is_array($item) && is_string($item['route'] ?? null) && $item['route'] !== '') {
+                $chosen[] = ['route' => $item['route'], 'icon' => is_string($item['icon'] ?? null) ? $item['icon'] : ''];
+            }
+        }
+
+        return $chosen === [] ? null : array_slice($chosen, 0, 4);
+    }
+
+    /**
+     * The action behind the dashboard's floating button, or null for the
+     * built-in choice (collecting a fee).
+     */
+    public function quickAction(): ?string
+    {
+        $action = ($this->navigation_settings ?? [])['quick_action'] ?? null;
+
+        return is_string($action) && $action !== '' ? $action : null;
     }
 
     /**

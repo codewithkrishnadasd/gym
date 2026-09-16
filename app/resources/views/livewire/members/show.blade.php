@@ -42,8 +42,8 @@
     <x-ui.page-header :title="$member->name" :back="route('tenant.members.index')" :back-label="$organisation->term('member_plural')"
         :description="collect([$organisation->reference('member', $member->id), $displayPhone, $organisation->usesClubs() ? $member->primaryClub?->name : null])->filter()->join(' · ')">
         <x-slot:actions>
-            @if ($whatsappUrl)
-                <x-ui.button icon="chat-bubble-left-right" :href="$whatsappUrl" target="_blank" rel="noopener">WhatsApp</x-ui.button>
+            @if ($canNotify && $member->phone)
+                <livewire:notifications.compose-menu recipient-type="member" :recipient-id="$member->id" :key="'compose-'.$member->id" />
             @endif
 
             @can('create', \App\Models\FeePayment::class)

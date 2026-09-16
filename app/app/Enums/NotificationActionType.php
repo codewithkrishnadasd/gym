@@ -36,6 +36,18 @@ enum NotificationActionType: string
     case InvoiceIssued = 'invoice_issued';
 
     /**
+     * Sent by hand from a member's page once their plan has run out — a
+     * nudge to renew. Not composed by any action, so it has no switch.
+     */
+    case MemberPlanExpired = 'member_plan_expired';
+
+    /**
+     * A message written on the spot, or from one of the organisation's own
+     * templates (CustomMessageTemplate). Its wording is whatever was chosen.
+     */
+    case CustomMessage = 'custom_message';
+
+    /**
      * Plain-language name for filters and message lists, where the raw enum
      * value ("member_plan_renewed") is readable but not what an operator calls
      * the thing.
@@ -61,6 +73,8 @@ enum NotificationActionType: string
             self::UserAttendanceMarked => 'Staff attendance',
             self::PasswordResetLink => 'Password link',
             self::InvoiceIssued => 'Invoice issued',
+            self::MemberPlanExpired => 'Plan expired follow-up',
+            self::CustomMessage => 'Custom message',
         };
     }
 
@@ -89,6 +103,8 @@ enum NotificationActionType: string
             self::UserAttendanceMarked => 'Every time a staff member is marked on the roster. Off by default.',
             self::PasswordResetLink => 'The one-time sign-in link an admin hands to a staff member. Always prepared.',
             self::InvoiceIssued => 'When an invoice is issued — with its link.',
+            self::MemberPlanExpired => 'Sent by hand from a member\'s page when their plan has run out.',
+            self::CustomMessage => 'A message written on the spot, or from one of your own templates.',
         };
     }
 
@@ -99,7 +115,8 @@ enum NotificationActionType: string
     {
         return match ($this) {
             self::MemberCreated, self::MemberProfileUpdated, self::MemberClubTransferred, self::MemberStatusChanged => 'Members',
-            self::MemberPlanCreated, self::MemberPlanRenewed, self::MemberPlanPaused, self::MemberPlanCancelled => 'Plans',
+            self::MemberPlanCreated, self::MemberPlanRenewed, self::MemberPlanPaused, self::MemberPlanCancelled, self::MemberPlanExpired => 'Plans',
+            self::CustomMessage => 'Custom',
             self::FeePaymentConfirmed, self::InvoiceIssued => 'Payments and invoices',
             self::MemberAttendanceMarked, self::UserAttendanceMarked => 'Attendance',
             self::UserInvited, self::UserProfileUpdated, self::UserClubAssignmentChanged,
@@ -116,7 +133,8 @@ enum NotificationActionType: string
         return match ($this) {
             self::MemberCreated, self::MemberProfileUpdated, self::MemberStatusChanged => Feature::Members,
             self::MemberClubTransferred => Feature::Clubs,
-            self::MemberPlanCreated, self::MemberPlanRenewed, self::MemberPlanPaused, self::MemberPlanCancelled => Feature::Plans,
+            self::MemberPlanCreated, self::MemberPlanRenewed, self::MemberPlanPaused, self::MemberPlanCancelled, self::MemberPlanExpired => Feature::Plans,
+            self::CustomMessage => Feature::Messaging,
             self::FeePaymentConfirmed => Feature::Payments,
             self::InvoiceIssued => Feature::Billing,
             self::MemberAttendanceMarked, self::UserAttendanceMarked => Feature::Attendance,
@@ -154,8 +172,17 @@ enum NotificationActionType: string
     {
         return array_values(array_filter(
             self::cases(),
-            fn (self $case): bool => $organisation->hasFeature($case->feature()),
+            // A custom message has no fixed wording to edit.
+            fn (self $case): bool => $case !== self::CustomMessage && $organisation->hasFeature($case->feature()),
         ));
+    }
+
+    /**
+     * Whether the message is composed by hand rather than by an action.
+     */
+    public function isManual(): bool
+    {
+        return in_array($this, [self::MemberPlanExpired, self::CustomMessage], true);
     }
 
     /**
@@ -164,6 +191,8 @@ enum NotificationActionType: string
      */
     public function isOptional(): bool
     {
-        return $this !== self::PasswordResetLink;
+        // A handover, and anything someone writes by hand, cannot be
+        // switched off: they exist only because a person asked for them.
+        return $this !== self::PasswordResetLink && ! $this->isManual();
     }
 }

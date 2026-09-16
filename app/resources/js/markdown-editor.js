@@ -39,7 +39,8 @@ export function toMarkdown(html) {
 
 document.addEventListener('alpine:init', () => {
     window.Alpine.data('markdownEditor', ({ property }) => ({
-        mode: 'code',
+        // Preview is where most people write; Code is for the markdown-minded.
+        mode: 'preview',
         help: false,
         text: '',
         html: '',

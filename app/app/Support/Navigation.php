@@ -5,8 +5,15 @@ declare(strict_types=1);
 namespace App\Support;
 
 use App\Enums\Feature;
+use App\Models\Attendance;
+use App\Models\Expense;
+use App\Models\FeePayment;
+use App\Models\Invoice;
+use App\Models\Member;
 use App\Models\Organisation;
 use App\Models\OrganisationUser;
+use App\Models\Task;
+use App\Models\User;
 
 /**
  * Builds the role- and permission-aware navigation for the tenant shell
@@ -205,24 +212,152 @@ final class Navigation
     }
 
     /**
-     * The four highest-value destinations for the mobile bottom bar; anything
-     * else stays reachable through the "More" drawer.
+     * The icons a tab or a quick action may use, as heroicon name => label.
+     *
+     * @var array<string, string>
+     */
+    public const ICONS = [
+        'squares-2x2' => 'Grid',
+        'user-group' => 'People',
+        'user-plus' => 'Add person',
+        'identification' => 'ID card',
+        'clipboard-document-check' => 'Checklist',
+        'check-circle' => 'Tick',
+        'banknotes' => 'Money',
+        'credit-card' => 'Card',
+        'document-text' => 'Document',
+        'receipt-percent' => 'Receipt',
+        'building-office-2' => 'Building',
+        'rectangle-stack' => 'Stack',
+        'chart-bar' => 'Chart',
+        'chat-bubble-left-right' => 'Chat',
+        'calendar-days' => 'Calendar',
+        'bell' => 'Bell',
+        'star' => 'Star',
+        'heart' => 'Heart',
+        'bolt' => 'Bolt',
+        'fire' => 'Fire',
+        'trophy' => 'Trophy',
+        'shield-check' => 'Shield',
+        'cog-6-tooth' => 'Settings',
+        'home' => 'Home',
+    ];
+
+    /**
+     * The actions the dashboard's floating button can open, keyed by the
+     * value stored in settings.
+     *
+     * @var array<string, array{label: string, route: string, feature: Feature, ability: array{0: string, 1: class-string}, symbol: string|null, icon: string}>
+     */
+    public const QUICK_ACTIONS = [
+        'payments' => ['label' => 'Collect fee', 'route' => 'tenant.finance.payments.create', 'feature' => Feature::Payments, 'ability' => ['create', FeePayment::class], 'symbol' => 'currency', 'icon' => 'banknotes'],
+        'members' => ['label' => 'Add member', 'route' => 'tenant.members.create', 'feature' => Feature::Members, 'ability' => ['create', Member::class], 'symbol' => '+', 'icon' => 'user-plus'],
+        'tasks' => ['label' => 'New task', 'route' => 'tenant.tasks.create', 'feature' => Feature::Tasks, 'ability' => ['create', Task::class], 'symbol' => '+', 'icon' => 'check-circle'],
+        'billing' => ['label' => 'New invoice', 'route' => 'tenant.billing.create', 'feature' => Feature::Billing, 'ability' => ['create', Invoice::class], 'symbol' => '+', 'icon' => 'document-text'],
+        'expenses' => ['label' => 'Record expense', 'route' => 'tenant.finance.expenses.create', 'feature' => Feature::Expenses, 'ability' => ['create', Expense::class], 'symbol' => '−', 'icon' => 'receipt-percent'],
+        'attendance' => ['label' => 'Mark attendance', 'route' => 'tenant.attendance.members', 'feature' => Feature::Attendance, 'ability' => ['markMembers', Attendance::class], 'symbol' => '✓', 'icon' => 'clipboard-document-check'],
+    ];
+
+    /**
+     * The tabs of the phone bottom bar: the organisation's own choice where
+     * it has made one (Settings → Navigation), otherwise the four
+     * highest-value destinations. Either way only destinations the viewer
+     * may see are shown, and the Menu tab is always there beside them.
      *
      * @param  array<int, NavSection>  $sections
      * @return array<int, NavItem>
      */
-    public static function mobilePrimary(array $sections): array
+    public static function mobilePrimary(array $sections, ?Organisation $organisation = null): array
     {
-        $items = [];
+        $available = [];
 
         foreach ($sections as $section) {
             foreach ($section['items'] as $item) {
-                if ($item['mobile'] ?? false) {
-                    $items[] = $item;
-                }
+                $available[$item['route']] = $item;
             }
         }
 
-        return array_slice($items, 0, 4);
+        $chosen = $organisation?->mobileNavigation();
+
+        if ($chosen !== null) {
+            $items = [];
+
+            foreach ($chosen as $tab) {
+                if (! isset($available[$tab['route']]) || isset($items[$tab['route']])) {
+                    continue;
+                }
+
+                $item = $available[$tab['route']];
+
+                if ($tab['icon'] !== '' && isset(self::ICONS[$tab['icon']])) {
+                    $item['icon'] = $tab['icon'];
+                }
+
+                $items[$tab['route']] = $item;
+            }
+
+            if ($items !== []) {
+                return array_slice(array_values($items), 0, 4);
+            }
+        }
+
+        return array_slice(
+            array_values(array_filter($available, static fn (array $item): bool => $item['mobile'] ?? false)),
+            0,
+            4,
+        );
+    }
+
+    /**
+     * The action behind the dashboard's floating button for this viewer:
+     * the organisation's choice when its module is on and the viewer may
+     * do it, otherwise the first of the built-in order they may.
+     *
+     * @return array{label: string, route: string, symbol: string, icon: string}|null
+     */
+    public static function quickAction(Organisation $organisation, User $user): ?array
+    {
+        $order = array_keys(self::QUICK_ACTIONS);
+        $preferred = $organisation->quickAction();
+
+        if ($preferred !== null && isset(self::QUICK_ACTIONS[$preferred])) {
+            $order = [$preferred, ...array_diff($order, [$preferred])];
+        }
+
+        foreach ($order as $key) {
+            $action = self::QUICK_ACTIONS[$key];
+
+            if (! $organisation->hasFeature($action['feature']) || ! $user->can($action['ability'][0], $action['ability'][1])) {
+                continue;
+            }
+
+            return [
+                'label' => $action['label'],
+                'route' => $action['route'],
+                'symbol' => $action['symbol'] === 'currency' ? $organisation->currencySymbol() : (string) $action['symbol'],
+                'icon' => $action['icon'],
+            ];
+        }
+
+        return null;
+    }
+
+    /**
+     * Every destination an admin could put on the phone bar, for the
+     * settings screen.
+     *
+     * @return array<string, string> route => label
+     */
+    public static function destinations(Organisation $organisation, OrganisationUser $membership): array
+    {
+        $labels = [];
+
+        foreach (self::forTenant($organisation, $membership) as $section) {
+            foreach ($section['items'] as $item) {
+                $labels[$item['route']] = $item['label'];
+            }
+        }
+
+        return $labels;
     }
 }

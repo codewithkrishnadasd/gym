@@ -1,7 +1,21 @@
 <div>
     <x-ui.page-header :title="$organisationUser ? 'Edit '.$name : 'Invite '.$organisation->term('user_singular')"
         :back="route('tenant.staff.index')" :back-label="$organisation->term('user_plural')"
-        description="Club assignments and permissions are set here, in the same flow." />
+        description="Club assignments and permissions are set here, in the same flow.">
+        @if ($organisationUser && $organisationUser->user?->phone)
+            @can('sendNotifications', $organisation)
+                <x-slot:actions>
+                    <livewire:notifications.compose-menu recipient-type="user" :recipient-id="$organisationUser->id" :key="'compose-staff-'.$organisationUser->id" />
+                </x-slot:actions>
+            @endcan
+        @endif
+    </x-ui.page-header>
+
+    @can('sendNotifications', $organisation)
+        <div class="mb-4">
+            <livewire:notifications.action-panel :notification-id="null" key="staff-form-panel" />
+        </div>
+    @endcan
 
     <form wire:submit="save" class="grid gap-5 lg:grid-cols-3">
         <div class="space-y-5 lg:col-span-2">

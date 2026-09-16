@@ -7,6 +7,7 @@ namespace App\Providers;
 use App\Models\Attendance;
 use App\Models\BillableItem;
 use App\Models\Club;
+use App\Models\CustomMessageTemplate;
 use App\Models\Document;
 use App\Models\Expense;
 use App\Models\FeePayment;
@@ -92,6 +93,7 @@ class AppServiceProvider extends ServiceProvider
             'financial_account' => FinancialAccount::class,
             'organisation' => Organisation::class,
             'message_template' => MessageTemplate::class,
+            'custom_message_template' => CustomMessageTemplate::class,
             'document' => Document::class,
             'storage_bucket' => StorageBucket::class,
             'invoice' => Invoice::class,

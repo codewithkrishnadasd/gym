@@ -39,12 +39,20 @@
                         </x-ui.select>
                     @endif
 
-                    <x-ui.select wire:model="fundingAccountId" name="fundingAccountId" label="Paid from">
-                        <option value="">Not specified</option>
-                        @foreach ($accounts as $account)
-                            <option value="{{ $account->id }}">{{ $account->name }}</option>
-                        @endforeach
+                    <x-ui.select wire:model.live="paidBy" name="paidBy" label="Paid by" required
+                        :hint="$paidBy === 'cash' ? ($cashAccount ? 'Comes out of '.$cashAccount->name.'.' : 'No cash account yet — the expense is recorded without one.') : null">
+                        <option value="cash">Cash</option>
+                        <option value="account">Bank, UPI or card account</option>
                     </x-ui.select>
+
+                    @if ($paidBy === 'account')
+                        <x-ui.select wire:model="fundingAccountId" name="fundingAccountId" label="Paid from">
+                            <option value="">Not specified</option>
+                            @foreach ($accounts as $account)
+                                <option value="{{ $account->id }}">{{ $account->name }} ({{ $account->account_type->label() }})</option>
+                            @endforeach
+                        </x-ui.select>
+                    @endif
 
                     <x-ui.input wire:model="payee" name="payee" label="Payee" placeholder="Who was paid" />
 

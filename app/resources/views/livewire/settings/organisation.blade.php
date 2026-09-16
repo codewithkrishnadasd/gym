@@ -10,6 +10,7 @@
         $settingsTabs = array_filter([
             'profile' => 'Profile',
             'terminology' => 'Terminology',
+            'navigation' => 'Navigation',
             'notifications' => $organisation->hasFeature('messaging') ? 'Notifications' : null,
             'expenses' => $organisation->hasFeature('expenses') ? 'Expense categories' : null,
             'billing' => $organisation->hasFeature('billing') ? 'Billing' : null,
@@ -167,6 +168,79 @@
                 </x-ui.card>
             </div>
         </div>
+    @elseif ($tab === 'navigation')
+        <form wire:submit="saveNavigation" class="grid gap-5 lg:grid-cols-3">
+            <div class="space-y-5 lg:col-span-2">
+                <x-ui.card title="Phone tab bar"
+                    description="The four tabs along the bottom on a phone, in order, each with its icon. The Menu tab is always there beside them. A tab someone may not open is simply left out for them.">
+                    <div class="space-y-3">
+                        @foreach ($mobileTabs as $index => $tab)
+                            <div class="flex flex-col gap-2 rounded-lg border border-hairline bg-raised p-3 sm:flex-row sm:items-end" wire:key="tab-{{ $index }}">
+                                <span class="grid h-9 w-9 shrink-0 place-items-center self-start rounded-full bg-accent-soft font-[family-name:var(--font-display)] text-sm font-semibold text-accent-ink sm:self-end">{{ $index + 1 }}</span>
+                                <div class="min-w-0 flex-1">
+                                    <x-ui.select wire:model.live="mobileTabs.{{ $index }}.route" :name="'mobileTabs.'.$index.'.route'" label="Destination">
+                                        <option value="">— Not used —</option>
+                                        @foreach ($destinations as $route => $label)
+                                            <option value="{{ $route }}">{{ $label }}</option>
+                                        @endforeach
+                                    </x-ui.select>
+                                </div>
+                                <div class="flex items-end gap-2 sm:w-56">
+                                    <div class="min-w-0 flex-1">
+                                        <x-ui.select wire:model.live="mobileTabs.{{ $index }}.icon" :name="'mobileTabs.'.$index.'.icon'" label="Icon">
+                                            <option value="">Default</option>
+                                            @foreach ($icons as $icon => $iconLabel)
+                                                <option value="{{ $icon }}">{{ $iconLabel }}</option>
+                                            @endforeach
+                                        </x-ui.select>
+                                    </div>
+                                    @if ($tab['icon'] !== '' && isset($icons[$tab['icon']]))
+                                        <span class="mb-0.5 grid h-10 w-10 shrink-0 place-items-center rounded-lg border border-hairline bg-surface text-ink-soft">
+                                            <x-dynamic-component :component="'heroicon-o-'.$tab['icon']" class="h-5 w-5" />
+                                        </span>
+                                    @endif
+                                </div>
+                            </div>
+                        @endforeach
+                    </div>
+                </x-ui.card>
+
+                <x-ui.card title="Dashboard button" description="The round button in the corner of the dashboard. Only offered to people allowed to do it; otherwise the next one down the list is shown.">
+                    <x-ui.select wire:model="quickAction" name="quickAction" label="Opens">
+                        <option value="">Built-in (collect a fee)</option>
+                        @foreach ($quickActions as $key => $label)
+                            <option value="{{ $key }}">{{ $label }}</option>
+                        @endforeach
+                    </x-ui.select>
+                </x-ui.card>
+            </div>
+
+            <div class="space-y-5">
+                <x-ui.card title="Preview" description="How the bar reads on a phone.">
+                    <div class="glass-nav grid grid-cols-5 rounded-[1.375rem] px-1 py-1">
+                        @foreach (collect($mobileTabs)->filter(fn ($tab) => $tab['route'] !== '')->take(4) as $tab)
+                            <span class="flex min-h-[54px] flex-col items-center justify-center gap-0.5 text-[11px] font-medium text-ink-muted">
+                                <span class="grid h-7 w-12 place-items-center rounded-full">
+                                    <x-dynamic-component :component="'heroicon-o-'.($tab['icon'] !== '' && isset($icons[$tab['icon']]) ? $tab['icon'] : 'squares-2x2')" class="h-5 w-5" />
+                                </span>
+                                <span class="max-w-full truncate px-1">{{ $destinations[$tab['route']] ?? '' }}</span>
+                            </span>
+                        @endforeach
+                        <span class="flex min-h-[54px] flex-col items-center justify-center gap-0.5 text-[11px] font-medium text-ink-muted">
+                            <span class="grid h-7 w-12 place-items-center rounded-full"><x-heroicon-o-ellipsis-horizontal-circle class="h-5 w-5" /></span>
+                            <span>Menu</span>
+                        </span>
+                    </div>
+                </x-ui.card>
+
+                <x-ui.card title="Save">
+                    <x-ui.button type="submit" variant="primary" size="lg" class="w-full" wire:loading.attr="disabled" wire:target="saveNavigation">
+                        <span wire:loading.remove wire:target="saveNavigation">Save navigation</span>
+                        <span wire:loading wire:target="saveNavigation" class="inline-flex items-center gap-1.5"><x-ui.spinner /> Saving…</span>
+                    </x-ui.button>
+                </x-ui.card>
+            </div>
+        </form>
     @elseif ($tab === 'terminology')
         <form wire:submit="saveTerminology" class="grid gap-5 lg:grid-cols-3">
             <div class="space-y-5 lg:col-span-2">
@@ -406,6 +480,54 @@
                 </x-ui.alert>
             </div>
         </form>
+
+        {{-- The organisation's own wordings, offered in the WhatsApp menu on
+             every person's page and filled in for them when chosen. --}}
+        <div class="mt-5 grid gap-5 lg:grid-cols-3">
+            <x-ui.card :padded="false" title="Your templates"
+                description="Messages you send by hand — a renewal nudge, a class reminder, a greeting. They appear under WhatsApp on a member's or staff member's page.">
+                @if ($customTemplates->isEmpty())
+                    <x-ui.empty icon="document-text" title="No templates of your own yet" description="Add one on the right, or save a message you have just written from any WhatsApp panel." />
+                @else
+                    <ul class="divide-y divide-[var(--c-hairline)]">
+                        @foreach ($customTemplates as $template)
+                            <li class="flex items-start justify-between gap-3 px-4 py-3" wire:key="custom-template-{{ $template->id }}">
+                                <div class="min-w-0">
+                                    <p class="flex items-center gap-2 text-sm font-medium text-ink">
+                                        {{ $template->name }}
+                                        <x-ui.badge tone="neutral" :dot="false">{{ $template->audience->value === 'user' ? $organisation->term('user_singular') : $organisation->term('member_singular') }}</x-ui.badge>
+                                    </p>
+                                    <p class="mt-0.5 whitespace-pre-line text-xs text-ink-muted">{{ \Illuminate\Support\Str::limit($template->body, 160) }}</p>
+                                </div>
+                                <x-ui.button size="sm" variant="ghost" icon="trash" wire:click="deleteCustomTemplate({{ $template->id }})"
+                                    data-confirm-title="Remove this template?" data-confirm-action="Remove" data-confirm-tone="danger" data-confirm="Remove “{{ $template->name }}” from the WhatsApp menu? Messages already sent from it are unchanged.">Remove</x-ui.button>
+                            </li>
+                        @endforeach
+                    </ul>
+                @endif
+            </x-ui.card>
+
+            <form wire:submit="addCustomTemplate" class="lg:col-span-2">
+                <x-ui.card title="Add a template" description="Variables in braces are filled in for the person when the message is composed.">
+                    <div class="grid gap-4 sm:grid-cols-2">
+                        <x-ui.input wire:model="customTemplateName" name="customTemplateName" label="Name" required placeholder="e.g. Renewal reminder" maxlength="80" />
+                        <x-ui.select wire:model="customTemplateAudience" name="customTemplateAudience" label="For" required>
+                            <option value="member">{{ $organisation->term('member_plural') }}</option>
+                            <option value="user">{{ $organisation->term('user_plural') }}</option>
+                        </x-ui.select>
+                        <x-ui.field class="sm:col-span-2" label="Message" name="customTemplateBody" for="f-customTemplateBody" required
+                            :hint="'Variables: '.collect($customVariables)->keys()->map(fn ($name) => '{'.$name.'}')->join(', ').'.'">
+                            <textarea id="f-customTemplateBody" wire:model="customTemplateBody" rows="6"
+                                placeholder="Hi {memberName}, your {planName} plan ended on {endDate} — renew at the counter or reply here."
+                                class="w-full rounded-lg border border-hairline-strong bg-surface px-3 py-2 font-mono text-[13px] leading-relaxed text-ink focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25"></textarea>
+                        </x-ui.field>
+                    </div>
+                    <div class="mt-4 flex justify-end">
+                        <x-ui.button type="submit" variant="primary" icon="plus" wire:loading.attr="disabled" wire:target="addCustomTemplate">Add template</x-ui.button>
+                    </div>
+                </x-ui.card>
+            </form>
+        </div>
     @else
         <form wire:submit="saveNotifications" class="grid gap-5 lg:grid-cols-3">
             <div class="space-y-5 lg:col-span-2">

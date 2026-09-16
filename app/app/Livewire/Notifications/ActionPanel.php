@@ -4,10 +4,15 @@ declare(strict_types=1);
 
 namespace App\Livewire\Notifications;
 
+use App\Enums\NotificationRecipientType;
 use App\Enums\NotificationStatus;
 use App\Livewire\Concerns\ResolvesMembership;
+use App\Models\CustomMessageTemplate;
+use App\Models\Member;
+use App\Models\OrganisationUser;
 use App\Models\WhatsappActionNotification;
 use App\Support\PhoneNumber;
+use App\Support\WhatsApp\RecipientContext;
 use Illuminate\View\View;
 use Livewire\Attributes\On;
 use Livewire\Component;
@@ -45,10 +50,63 @@ class ActionPanel extends Component
         $this->context = $context;
     }
 
+    /** Opens the editor straight away — for a message being written from scratch. */
+    public bool $startEditing = false;
+
     #[On('notification-created')]
-    public function show(int $notificationId): void
+    public function show(int $notificationId, bool $edit = false): void
     {
         $this->notificationId = $notificationId;
+        $this->startEditing = $edit;
+    }
+
+    /**
+     * Keeps the wording on screen as one of the organisation's own
+     * templates. The person's details are swapped back to placeholders so
+     * the template fits everyone; a template of the same name (for the same
+     * audience) is updated rather than duplicated.
+     */
+    public function saveAsTemplate(string $name, string $message): void
+    {
+        $this->authorize('sendNotifications', $this->organisation());
+
+        $notification = $this->notification();
+        $name = trim($name);
+        $message = trim($message);
+
+        if (! $notification || $name === '' || $message === '') {
+            return;
+        }
+
+        if (mb_strlen($name) > 80) {
+            $name = mb_substr($name, 0, 80);
+        }
+
+        $organisation = $this->organisation();
+        $isMember = $notification->recipient_type === NotificationRecipientType::Member;
+
+        $values = ['memberName' => $notification->recipient_name];
+
+        if ($isMember) {
+            $member = Member::query()->with('primaryClub')->find($notification->recipient_id);
+            $values = $member ? RecipientContext::forMember($member, $organisation) : $values;
+        } else {
+            $staff = OrganisationUser::query()->with('user')->find($notification->recipient_id);
+            $values = $staff ? RecipientContext::forStaff($staff, $organisation) : $values;
+        }
+
+        $template = CustomMessageTemplate::query()->firstOrNew([
+            'organisation_id' => $organisation->id,
+            'audience' => $isMember ? NotificationRecipientType::Member->value : NotificationRecipientType::User->value,
+            'name' => $name,
+        ]);
+
+        $template->fill([
+            'body' => RecipientContext::templatize($message, $values),
+            'created_by' => $template->created_by ?? $this->currentMembership()->id,
+        ])->save();
+
+        $this->dispatch('template-saved', name: $template->name);
     }
 
     /**
@@ -166,8 +224,16 @@ class ActionPanel extends Component
         $notification = $this->notification();
         $organisation = $this->organisation();
 
+        // The template a custom message came from, offered as the name to
+        // save it back under.
+        $sourceTemplate = $notification !== null && str_starts_with((string) $notification->message_template_version, 'custom:')
+            ? CustomMessageTemplate::query()->find((int) substr((string) $notification->message_template_version, 7))
+            : null;
+
         return view('livewire.notifications.action-panel', [
             'notification' => $notification,
+            'sourceTemplateName' => $sourceTemplate !== null ? $sourceTemplate->name : '',
+            'canSaveTemplate' => $notification !== null && $notification->recipient_id !== null,
             'message' => $notification->message_snapshot ?? '',
             // Bare international digits, or null when unusable. The client
             // builds the wa.me link from this plus the live message text.
