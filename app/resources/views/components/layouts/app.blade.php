@@ -166,14 +166,17 @@
             {{-- Screen readers get every flash message announced (MEP 9.3). --}}
             <div aria-live="polite" aria-atomic="true" class="sr-only">{{ session('status') }}</div>
 
-            <main class="mx-auto w-full max-w-[1400px] px-4 pb-24 pt-6 sm:px-6 lg:pb-10">
+            <main class="mx-auto w-full max-w-[1400px] px-4 pb-28 pt-6 sm:px-6 lg:pb-10">
                 {{ $slot }}
             </main>
         </div>
 
         {{-- ===== Mobile bottom tabs ===== --}}
         @if ($mobileItems !== [])
-            <nav class="fixed inset-x-0 bottom-0 z-30 grid grid-cols-5 border-t border-hairline bg-surface/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-md lg:hidden"
+            {{-- Floats clear of the screen edges as a frosted pill; the active
+                 tab sits on its own soft accent pill. Kept above the home
+                 indicator on phones with one. --}}
+            <nav class="glass-nav fixed inset-x-3 bottom-[max(0.75rem,env(safe-area-inset-bottom))] z-30 grid grid-cols-5 rounded-[1.375rem] px-1 py-1 lg:hidden"
                 aria-label="Primary">
                 @foreach ($mobileItems as $item)
                     @php $active = request()->routeIs($item['active']); @endphp
@@ -181,11 +184,11 @@
                         x-data="{ busy: false }" x-on:click="busy = true"
                         x-on:livewire:navigated.window="busy = false" x-on:livewire:navigate-failed.window="busy = false"
                         @class([
-                        'flex min-h-[56px] flex-col items-center justify-center gap-1 text-[11px] font-medium transition',
-                        'text-accent' => $active,
-                        'text-ink-muted' => ! $active,
+                        'flex min-h-[54px] flex-col items-center justify-center gap-0.5 rounded-2xl text-[11px] font-medium transition active:scale-95',
+                        'text-accent-ink' => $active,
+                        'text-ink-muted hover:text-ink' => ! $active,
                     ]) @if ($active) aria-current="page" @endif>
-                        <span class="relative h-5 w-5">
+                        <span @class(['relative grid h-7 w-12 place-items-center rounded-full transition', 'bg-accent-soft' => $active])>
                             <x-dynamic-component :component="'heroicon-o-'.$item['icon']" x-show="! busy" class="h-5 w-5" />
                             <span x-show="busy" x-cloak class="absolute inset-0 grid place-items-center text-accent"><x-ui.spinner size="xs" /></span>
                         </span>
@@ -194,8 +197,10 @@
                 @endforeach
 
                 <button type="button" @click="drawer = true"
-                    class="flex min-h-[56px] flex-col items-center justify-center gap-1 text-[11px] font-medium text-ink-muted transition">
-                    <x-heroicon-o-ellipsis-horizontal-circle class="h-5 w-5" />
+                    class="flex min-h-[54px] flex-col items-center justify-center gap-0.5 rounded-2xl text-[11px] font-medium text-ink-muted transition hover:text-ink active:scale-95">
+                    <span class="grid h-7 w-12 place-items-center rounded-full">
+                        <x-heroicon-o-ellipsis-horizontal-circle class="h-5 w-5" />
+                    </span>
                     <span>More</span>
                 </button>
             </nav>
