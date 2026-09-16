@@ -116,7 +116,9 @@
                 </x-slot:actions>
             @endif
 
-            <x-ui.list-loader />
+            {{-- Only whole-roster changes dim the list; a single mark shows its
+                 progress in its own button and never blocks the next one. --}}
+            <x-ui.list-loader target="search,date,clubId,shiftDate,goToToday,markAllPresent" />
 
             @if ($roster->isEmpty())
                 <x-ui.empty icon="user-group" :title="'Nobody on this roster'"
@@ -126,7 +128,12 @@
                     @foreach ($roster as $person)
                         @php $record = $attendance->get($person->id); @endphp
 
-                        <li class="flex flex-col gap-3 p-3 sm:flex-row sm:items-center sm:justify-between sm:px-4">
+                        {{-- `pending` is the action just tapped for this person: its button
+                             shows a spinner until the server answers. Success re-renders the
+                             row in the new state; a failure (see rosterMarks in app.js) simply
+                             clears the spinner, leaving the previous state as it was. --}}
+                        <li class="flex flex-col gap-3 p-3 sm:flex-row sm:items-center sm:justify-between sm:px-4"
+                            x-data="{ pending: null }" x-on:roster-mark-failed.window="pending = null" wire:key="row-{{ $person->id }}">
                             <div class="flex min-w-0 items-center gap-3">
                                 <x-ui.avatar :name="$person->name" size="sm" />
                                 <div class="min-w-0">
@@ -158,9 +165,8 @@
 
                                     <button type="button"
                                         @disabled(! $canMark)
-                                        wire:click="mark({{ $person->id }}, '{{ $action->value }}')"
-                                        wire:loading.attr="disabled"
-                                        wire:target="mark({{ $person->id }}, '{{ $action->value }}')"
+                                        x-on:click="pending = '{{ $action->value }}'; $wire.mark({{ $person->id }}, '{{ $action->value }}').then(() => pending = null).catch(() => pending = null)"
+                                        x-bind:disabled="pending !== null || {{ $canMark ? 'false' : 'true' }}"
                                         aria-pressed="{{ $selected ? 'true' : 'false' }}"
                                         @class([
                                             // Icon over label on a phone: four side-by-side labels need ~267px of
@@ -170,7 +176,8 @@
                                             'border-hairline-strong text-ink-soft hover:bg-sunken' => ! $selected,
                                             'cursor-not-allowed opacity-50' => ! $canMark,
                                         ])>
-                                        <x-dynamic-component :component="'heroicon-o-'.$icon" class="h-4 w-4 shrink-0" />
+                                        <x-dynamic-component :component="'heroicon-o-'.$icon" class="h-4 w-4 shrink-0" x-show="pending !== '{{ $action->value }}'" />
+                                        <span x-show="pending === '{{ $action->value }}'" x-cloak class="grid h-4 w-4 shrink-0 place-items-center"><x-ui.spinner size="xs" /></span>
                                         <span class="capitalize">{{ $action->value }}</span>
                                     </button>
                                 @endforeach

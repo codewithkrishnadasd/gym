@@ -201,6 +201,15 @@ document.addEventListener('DOMContentLoaded', () => renderAll());
 // Livewire replaces DOM in place, so charts are re-rendered after each update
 // and any canvas that disappeared has its Chart instance released.
 document.addEventListener('livewire:navigated', () => renderAll());
+
+// A failed Livewire request leaves optimistic controls (the attendance
+// roster's per-button spinners) waiting forever otherwise; they listen for
+// this and fall back to the state the server last rendered.
+document.addEventListener('livewire:init', () => {
+    window.Livewire.hook('request', ({ fail }) => {
+        fail(() => window.dispatchEvent(new CustomEvent('roster-mark-failed')));
+    });
+});
 document.addEventListener('livewire:update', () => {
     destroyDetached();
     renderAll();

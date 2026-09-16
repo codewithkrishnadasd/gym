@@ -206,6 +206,13 @@
     }
 }
 
+/* No pinch or double-tap zoom: the app is laid out for the screen it is on,
+   and a zoomed-in table is how taps land on the wrong row. The viewport meta
+   covers most browsers; iOS Safari ignores it and honours this instead. */
+html {
+    touch-action: pan-x pan-y;
+}
+
 /* Livewire swaps content without a page load; this keeps the transition calm. */
 [wire\:loading] {
     transition: opacity 150ms ease;
