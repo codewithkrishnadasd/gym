@@ -2,7 +2,10 @@
 
 {{-- `collapsible` turns the header into a toggle for the body; `open` sets the
      starting state. The header actions stay clickable without toggling. --}}
-<section {{ $attributes->class('relative overflow-hidden rounded-xl border border-hairline bg-surface elevate') }}
+{{-- A list card (`padded=false`) runs edge to edge on a phone: the page gutter
+     and the card's own frame are the same 16px twice over, and a table needs
+     every pixel of width there. --}}
+<section {{ $attributes->class(['relative overflow-hidden rounded-xl border border-hairline bg-surface elevate', 'max-sm:-mx-4 max-sm:rounded-none max-sm:border-x-0 max-sm:shadow-none' => ! $padded]) }}
     @if ($collapsible) x-data="{ open: @js((bool) $open) }" @endif>
     @if ($title || $actions)
         <header @class(['flex flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-5', 'border-b border-hairline' => ! $collapsible])

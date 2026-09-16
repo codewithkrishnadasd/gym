@@ -94,10 +94,12 @@
             <div x-show="drawer" x-transition.opacity @click="drawer = false"
                 class="absolute inset-0 bg-slate-950/60 backdrop-blur-sm"></div>
 
+            {{-- Full screen on a phone: one column of big targets, nothing
+                 peeking out from behind to tap by mistake. --}}
             <div x-show="drawer"
                 x-transition:enter="transition duration-200 ease-out" x-transition:enter-start="-translate-x-full"
                 x-transition:leave="transition duration-150 ease-in" x-transition:leave-end="-translate-x-full"
-                class="absolute inset-y-0 left-0 flex w-72 max-w-[85vw] flex-col border-r border-hairline bg-surface">
+                class="absolute inset-0 flex w-full flex-col bg-surface sm:inset-y-0 sm:left-0 sm:right-auto sm:w-80 sm:border-r sm:border-hairline">
                 <div class="flex items-center justify-between border-b border-hairline pr-2">
                     <x-nav.brand :name="$brandName" :initial="$brandInitial" :is-platform="$isPlatform" :logo-url="$brandLogoUrl" class="border-0" />
                     <button type="button" @click="drawer = false" aria-label="Close navigation"
