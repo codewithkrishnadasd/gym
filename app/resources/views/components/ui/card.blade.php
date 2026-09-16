@@ -39,7 +39,9 @@
         </header>
     @endif
 
-    <div @class(['px-4 py-4 sm:px-5' => $padded]) @if ($collapsible) x-show="open" x-collapse @endif>
+    {{-- List cards paint their rows with the "list rows" colour, which an
+         organisation can set apart from cards and panels. --}}
+    <div @class(['px-4 py-4 sm:px-5' => $padded, 'bg-list' => ! $padded]) @if ($collapsible) x-show="open" x-collapse @endif>
         {{ $slot }}
     </div>
 </section>

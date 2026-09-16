@@ -202,7 +202,7 @@
                             <template x-for="(person, i) in matches" :key="person.id">
                                 <li>
                                     <button type="button" x-on:mousedown.prevent="pick(person)" role="option" :aria-selected="i === index"
-                                        :class="i === index ? 'bg-accent-soft text-accent-ink' : 'text-ink hover:bg-raised'"
+                                        :class="i === index ? 'bg-accent-soft text-accent-ink' : 'text-ink hover:bg-list-hover'"
                                         class="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm">
                                         <span class="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-sunken text-[10px] font-semibold uppercase text-ink-soft" x-text="person.name.slice(0, 1)"></span>
                                         <span x-text="person.name"></span>

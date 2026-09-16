@@ -62,7 +62,7 @@
                 </x-slot:head>
 
                 @foreach ($invoices as $invoice)
-                    <tr class="transition hover:bg-raised">
+                    <tr class="transition hover:bg-list-hover">
                         <x-ui.td>
                             <a href="{{ route('tenant.billing.show', $invoice) }}" wire:navigate class="font-mono text-sm font-medium text-ink hover:text-accent">{{ $invoice->number }}</a>
                             <p class="text-xs text-ink-muted">{{ collect([$invoice->issue_date->format('d M Y'), $organisation->usesClubs() ? $invoice->club?->name : null])->filter()->join(' · ') }}</p>
@@ -101,7 +101,7 @@
             <ul class="divide-y divide-[var(--c-hairline)] lg:hidden">
                 @foreach ($invoices as $invoice)
                     <li>
-                        <a href="{{ route('tenant.billing.show', $invoice) }}" wire:navigate class="flex items-center gap-3 p-4 transition hover:bg-raised">
+                        <a href="{{ route('tenant.billing.show', $invoice) }}" wire:navigate class="flex items-center gap-3 p-4 transition hover:bg-list-hover">
                             <div class="min-w-0 flex-1">
                                 <div class="flex flex-wrap items-center gap-1.5">
                                     <span class="font-mono text-sm font-medium text-ink">{{ $invoice->number }}</span>

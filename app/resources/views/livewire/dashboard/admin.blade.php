@@ -216,7 +216,7 @@
                     </x-slot:head>
 
                     @foreach ($clubComparison as $row)
-                        <tr class="transition hover:bg-raised">
+                        <tr class="transition hover:bg-list-hover">
                             <x-ui.td class="font-medium text-ink">{{ $row->club }}</x-ui.td>
                             <x-ui.td align="right" numeric>{{ number_format($row->members) }}</x-ui.td>
                             <x-ui.td align="right" numeric>{{ number_format($row->attendance) }}</x-ui.td>

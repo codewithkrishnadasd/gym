@@ -32,7 +32,7 @@
                         </x-slot:head>
 
                         @foreach ($statement as $row)
-                            <tr class="transition hover:bg-raised">
+                            <tr class="transition hover:bg-list-hover">
                                 <x-ui.td numeric class="whitespace-nowrap">{{ $row->date->format('d M Y') }}</x-ui.td>
                                 <x-ui.td>{{ $row->description }}</x-ui.td>
                                 <x-ui.td align="right" numeric>

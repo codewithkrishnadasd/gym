@@ -23,7 +23,7 @@
                             <button type="button" wire:click="select({{ $category->id }})"
                                 @class(['flex w-full items-center justify-between gap-2 px-4 py-3 text-left transition',
                                     'bg-accent-soft' => $selected?->id === $category->id,
-                                    'hover:bg-raised' => $selected?->id !== $category->id])>
+                                    'hover:bg-list-hover' => $selected?->id !== $category->id])>
                                 <span class="min-w-0">
                                     <span @class(['block truncate text-sm font-medium', 'text-ink' => $category->isActive(), 'text-ink-muted line-through' => ! $category->isActive()])>{{ $category->name }}</span>
                                     <span class="block text-xs text-ink-muted">{{ $category->tasks_count }} {{ $category->tasks_count === 1 ? 'task' : 'tasks' }}</span>

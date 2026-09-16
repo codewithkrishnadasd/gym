@@ -45,7 +45,7 @@
                 </x-slot:head>
 
                 @foreach ($plans as $plan)
-                    <tr class="transition hover:bg-raised">
+                    <tr class="transition hover:bg-list-hover">
                         <x-ui.td>
                             <p class="font-medium text-ink">{{ $plan->name }}
                                 <x-ui.reference :value="$organisation->reference('plan', $plan->id)" class="ml-1" /></p>

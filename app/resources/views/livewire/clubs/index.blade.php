@@ -47,7 +47,7 @@
                 </x-slot:head>
 
                 @foreach ($clubs as $club)
-                    <tr class="transition hover:bg-raised">
+                    <tr class="transition hover:bg-list-hover">
                         <x-ui.td>
                             <a href="{{ route('tenant.clubs.show', $club) }}" wire:navigate
                                 class="font-medium text-ink hover:text-accent">{{ $club->name }}</a>

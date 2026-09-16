@@ -91,7 +91,7 @@
                         $due = $subscription ? max(0, $subscription->amount_due_minor - $subscription->amount_paid_minor) : 0;
                     @endphp
 
-                    <tr class="transition hover:bg-raised">
+                    <tr class="transition hover:bg-list-hover">
                         <x-ui.td>
                             <div class="flex items-center gap-2.5">
                                 <x-ui.avatar :name="$member->name" size="sm" />
@@ -158,7 +158,7 @@
 
                     <li>
                         <a href="{{ route('tenant.members.show', $member) }}" wire:navigate
-                            class="flex items-center gap-3 p-4 transition hover:bg-raised">
+                            class="flex items-center gap-3 p-4 transition hover:bg-list-hover">
                             <x-ui.avatar :name="$member->name" />
                             <div class="min-w-0 flex-1">
                                 <div class="flex min-w-0 items-center gap-1.5">

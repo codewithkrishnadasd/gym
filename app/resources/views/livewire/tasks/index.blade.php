@@ -112,7 +112,7 @@
                     @endphp
                     <li>
                         <a href="{{ route('tenant.tasks.show', $task) }}" wire:navigate
-                            class="flex flex-col gap-2 p-4 transition hover:bg-raised sm:flex-row sm:items-center sm:justify-between">
+                            class="flex flex-col gap-2 p-4 transition hover:bg-list-hover sm:flex-row sm:items-center sm:justify-between">
                             <div class="min-w-0 flex-1">
                                 <div class="flex flex-wrap items-center gap-2">
                                     <x-ui.reference :value="$organisation->reference('task', $task->id)" />

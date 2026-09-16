@@ -82,7 +82,7 @@
                                 <ul class="mt-1.5 divide-y divide-[var(--c-hairline)] overflow-hidden rounded-lg border border-hairline">
                                     @foreach ($assigneeResults as $result)
                                         <li>
-                                            <button type="button" wire:click="addAssignee({{ $result->id }})" class="flex w-full items-center gap-2.5 p-2.5 text-left transition hover:bg-raised">
+                                            <button type="button" wire:click="addAssignee({{ $result->id }})" class="flex w-full items-center gap-2.5 p-2.5 text-left transition hover:bg-list-hover">
                                                 <x-ui.avatar :name="$result->user?->name ?? '?'" size="sm" />
                                                 <span class="min-w-0 flex-1">
                                                     <span class="block truncate text-sm font-medium text-ink">{{ $result->user?->name }}</span>
@@ -139,7 +139,7 @@
                                 <ul class="mt-1.5 divide-y divide-[var(--c-hairline)] overflow-hidden rounded-lg border border-hairline">
                                     @foreach ($memberResults as $result)
                                         <li>
-                                            <button type="button" wire:click="selectMember({{ $result->id }})" class="flex w-full items-center gap-2.5 p-2.5 text-left transition hover:bg-raised">
+                                            <button type="button" wire:click="selectMember({{ $result->id }})" class="flex w-full items-center gap-2.5 p-2.5 text-left transition hover:bg-list-hover">
                                                 <x-ui.avatar :name="$result->name" size="sm" />
                                                 <span class="min-w-0">
                                                     <span class="block truncate text-sm font-medium text-ink">{{ $result->name }}</span>

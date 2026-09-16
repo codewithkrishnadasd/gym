@@ -82,7 +82,7 @@
                 </x-slot:head>
 
                 @foreach (\App\Enums\ConfirmationStatus::cases() as $case)
-                    <tr class="transition hover:bg-raised">
+                    <tr class="transition hover:bg-list-hover">
                         <x-ui.td><x-ui.badge :tone="$case->tone()">{{ $case->label() }}</x-ui.badge></x-ui.td>
                         <x-ui.td align="right" numeric>{{ number_format($statusTotals[$case->value]['count']) }}</x-ui.td>
                         <x-ui.td align="right" numeric class="font-medium text-ink">{{ $organisation->money($statusTotals[$case->value]['total']) }}</x-ui.td>
@@ -146,7 +146,7 @@
                         </x-slot:head>
 
                         @foreach ($clubComparison as $row)
-                            <tr class="transition hover:bg-raised">
+                            <tr class="transition hover:bg-list-hover">
                                 <x-ui.td class="font-medium text-ink">{{ $row->club }}</x-ui.td>
                                 <x-ui.td align="right" numeric class="text-positive">{{ $organisation->money($row->revenue) }}</x-ui.td>
                                 <x-ui.td align="right" numeric class="text-critical">{{ $organisation->money($row->expenses) }}</x-ui.td>
@@ -171,7 +171,7 @@
                         </x-slot:head>
 
                         @foreach ($leaderboard as $row)
-                            <tr class="transition hover:bg-raised">
+                            <tr class="transition hover:bg-list-hover">
                                 <x-ui.td class="font-medium text-ink">{{ $row->name }}</x-ui.td>
                                 <x-ui.td align="right" numeric>{{ number_format($row->count) }}</x-ui.td>
                                 <x-ui.td align="right" numeric class="font-medium">{{ $organisation->money($row->collected) }}</x-ui.td>
@@ -235,7 +235,7 @@
 
                         @foreach ($followUps as $subscription)
                             @php $due = max(0, $subscription->amount_due_minor - $subscription->amount_paid_minor); @endphp
-                            <tr class="transition hover:bg-raised">
+                            <tr class="transition hover:bg-list-hover">
                                 <x-ui.td>
                                     <a href="{{ route('tenant.members.show', $subscription->member) }}" wire:navigate
                                         class="font-medium text-ink hover:text-accent">{{ $subscription->member->name }}</a>
@@ -286,7 +286,7 @@
                     </x-slot:head>
 
                     @foreach ($clubComparison as $row)
-                        <tr class="transition hover:bg-raised">
+                        <tr class="transition hover:bg-list-hover">
                             <x-ui.td class="font-medium text-ink">{{ $row->club }}</x-ui.td>
                             <x-ui.td align="right" numeric>{{ number_format($row->members) }}</x-ui.td>
                             <x-ui.td align="right" numeric>{{ number_format($row->attendance) }}</x-ui.td>

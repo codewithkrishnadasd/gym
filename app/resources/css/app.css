@@ -17,6 +17,8 @@
     --color-surface: var(--c-surface);
     --color-raised: var(--c-raised);
     --color-sunken: var(--c-sunken);
+    --color-list: var(--c-list);
+    --color-list-hover: var(--c-list-hover);
     --color-hairline: var(--c-hairline);
     --color-hairline-strong: var(--c-hairline-strong);
 
@@ -49,6 +51,8 @@
     --c-surface: #ffffff;
     --c-raised: #f9fafb;
     --c-sunken: #f1f3f5;
+    --c-list: #ffffff;
+    --c-list-hover: #f9fafb;
     --c-hairline: #e5e8ec;
     --c-hairline-strong: #d3d8de;
 
@@ -83,6 +87,8 @@
     --c-surface: #101828;
     --c-raised: #16203a;
     --c-sunken: #0b1122;
+    --c-list: #101828;
+    --c-list-hover: #16203a;
     --c-hairline: #1f2b45;
     --c-hairline-strong: #2c3b5c;
 

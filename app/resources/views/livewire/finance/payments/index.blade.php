@@ -106,7 +106,7 @@
                 </x-slot:head>
 
                 @foreach ($payments as $payment)
-                    <tr class="transition hover:bg-raised">
+                    <tr class="transition hover:bg-list-hover">
                         <x-ui.td numeric class="whitespace-nowrap">{{ $payment->payment_date->format('d M Y') }}</x-ui.td>
                         <x-ui.td>
                             <p class="font-medium text-ink">{{ $payment->payerName() }}@if ($payment->isWalkIn()) <span class="text-xs font-normal text-ink-muted">· not a {{ strtolower($organisation->term('member_singular')) }}</span>@endif
@@ -152,7 +152,7 @@
                 @foreach ($payments as $payment)
                     <li>
                         <a href="{{ route('tenant.finance.payments.show', $payment) }}" wire:navigate
-                            class="block p-4 transition hover:bg-raised">
+                            class="block p-4 transition hover:bg-list-hover">
                             <div class="flex items-start justify-between gap-3">
                                 <div class="min-w-0">
                                     <p class="truncate font-medium text-ink">{{ $payment->payerName() }}

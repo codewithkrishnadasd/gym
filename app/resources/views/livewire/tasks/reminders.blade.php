@@ -36,7 +36,7 @@
                             @php $task = $reminder->task; $daysAgo = (int) $reminder->remind_on->diffInDays($today); @endphp
                             <li>
                                 <a href="{{ route('tenant.tasks.show', $task) }}" wire:navigate x-on:click="open = false"
-                                    class="flex items-start gap-3 px-5 py-3 transition hover:bg-raised">
+                                    class="flex items-start gap-3 px-5 py-3 transition hover:bg-list-hover">
                                     <span @class(['mt-1 h-2.5 w-2.5 shrink-0 rounded-full', 'bg-critical' => $daysAgo > 0, 'bg-caution' => $daysAgo === 0])></span>
                                     <span class="min-w-0 flex-1">
                                         <span class="block text-sm font-medium text-ink">{{ $reminder->label }}</span>

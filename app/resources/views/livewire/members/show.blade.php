@@ -218,7 +218,7 @@
 
                         @foreach ($subscriptions as $subscription)
                             @php $due = max(0, $subscription->amount_due_minor - $subscription->amount_paid_minor); @endphp
-                            <tr class="transition hover:bg-raised">
+                            <tr class="transition hover:bg-list-hover">
                                 <x-ui.td>
                                     <p class="font-medium text-ink">{{ $subscription->plan->name }}</p>
                                     @if ($subscription->club)
@@ -363,7 +363,7 @@
                     </x-slot:head>
 
                     @foreach ($payments as $payment)
-                        <tr class="transition hover:bg-raised">
+                        <tr class="transition hover:bg-list-hover">
                             <x-ui.td numeric class="whitespace-nowrap">
                                 <a href="{{ route('tenant.finance.payments.show', $payment) }}" wire:navigate
                                     class="font-medium text-ink hover:text-accent">{{ $payment->payment_date->format('d M Y') }}</a>
@@ -477,7 +477,7 @@
                         @php $overdue = $task->isOverdue($today); @endphp
                         <li>
                             <a href="{{ route('tenant.tasks.show', $task) }}" wire:navigate
-                                class="flex flex-col gap-1.5 p-4 transition hover:bg-raised sm:flex-row sm:items-center sm:justify-between">
+                                class="flex flex-col gap-1.5 p-4 transition hover:bg-list-hover sm:flex-row sm:items-center sm:justify-between">
                                 <div class="min-w-0">
                                     <div class="flex flex-wrap items-center gap-2">
                                         <x-ui.reference :value="$organisation->reference('task', $task->id)" />

@@ -116,7 +116,7 @@
 
                         <div class="flex-1">
                             <label for="brand-image"
-                                class="flex cursor-pointer flex-col items-center justify-center gap-1.5 rounded-xl border border-dashed border-hairline-strong bg-sunken px-4 py-6 text-center transition hover:border-accent hover:bg-raised">
+                                class="flex cursor-pointer flex-col items-center justify-center gap-1.5 rounded-xl border border-dashed border-hairline-strong bg-sunken px-4 py-6 text-center transition hover:border-accent hover:bg-list-hover">
                                 <x-heroicon-o-arrow-up-tray class="h-5 w-5 text-ink-muted" />
                                 <span class="text-sm font-medium text-ink">Choose an image</span>
                                 <span class="text-xs text-ink-muted">JPEG, PNG or GIF · up to 8&nbsp;MB · square works best</span>

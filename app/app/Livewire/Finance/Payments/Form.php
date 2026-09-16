@@ -5,12 +5,14 @@ declare(strict_types=1);
 namespace App\Livewire\Finance\Payments;
 
 use App\Actions\Payments\RecordFeePayment;
+use App\Actions\Subscriptions\CreateSubscription;
 use App\Enums\Feature;
 use App\Enums\FinancialAccountStatus;
 use App\Enums\InvoiceStatus;
 use App\Enums\MemberStatus;
 use App\Enums\PaymentMethod;
 use App\Enums\PaymentPurpose;
+use App\Enums\PlanStatus;
 use App\Enums\SubscriptionStatus;
 use App\Livewire\Concerns\ResolvesMembership;
 use App\Models\FeePayment;
@@ -18,6 +20,7 @@ use App\Models\FinancialAccount;
 use App\Models\Invoice;
 use App\Models\Member;
 use App\Models\MemberSubscription;
+use App\Models\Plan;
 use App\Support\Money;
 use App\Support\PhoneNumber;
 use Illuminate\Database\Eloquent\Builder;
@@ -91,6 +94,17 @@ class Form extends Component
     public string $notes = '';
 
     public bool $confirmImmediately = false;
+
+    /**
+     * Starting or renewing a plan from here, when the member has none or
+     * theirs has run out: the term is created and then paid for in one
+     * sitting, without a detour through the member's page.
+     */
+    public ?int $planId = null;
+
+    public string $planStartDate = '';
+
+    public string $planDiscount = '';
 
     public function mount(?int $member = null): void
     {
@@ -356,6 +370,137 @@ class Form extends Component
         $subscription = $this->subscriptionsForMember()->first();
 
         $this->selectTarget($subscription ? 'plan:'.$subscription->id : 'other');
+    }
+
+    /**
+     * 'none' (never had a plan), 'lapsed' (latest term has ended) or 'active';
+     * null when there is nobody, or the Plans module is off.
+     */
+    public function planSituation(): ?string
+    {
+        if ($this->memberId === null || $this->walkIn || ! $this->organisation()->hasFeature(Feature::Plans)) {
+            return null;
+        }
+
+        $today = Carbon::today($this->organisation()->timezone);
+
+        $latest = MemberSubscription::query()
+            ->where('member_id', $this->memberId)
+            ->whereIn('status', [SubscriptionStatus::Active, SubscriptionStatus::Expired])
+            ->orderByDesc('end_date')
+            ->first();
+
+        if ($latest === null) {
+            return 'none';
+        }
+
+        return $latest->end_date->lt($today) ? 'lapsed' : 'active';
+    }
+
+    /**
+     * Opens the plan dialog set up for the likely case, as the member page
+     * does: the latest plan again, from the day after it ended (or today).
+     */
+    public function preparePlan(): void
+    {
+        $member = $this->selectedMemberModel();
+
+        if ($member === null) {
+            return;
+        }
+
+        $this->authorize('createFor', [MemberSubscription::class, $member]);
+
+        $today = Carbon::today($this->organisation()->timezone);
+
+        $latest = $member->subscriptions()
+            ->whereIn('status', [SubscriptionStatus::Active, SubscriptionStatus::Expired])
+            ->orderByDesc('end_date')
+            ->first();
+
+        $this->planId = $latest?->plan_id;
+        $this->planStartDate = $latest && $latest->end_date->toDateString() >= $today->toDateString()
+            ? $latest->end_date->copy()->addDay()->toDateString()
+            : $today->toDateString();
+
+        $this->prefillPlanDiscount();
+        $this->resetErrorBag(['planId', 'planStartDate', 'planDiscount']);
+
+        $this->dispatch('open-modal', 'start-plan');
+    }
+
+    public function updatedPlanId(): void
+    {
+        $this->prefillPlanDiscount();
+    }
+
+    public function startPlanToday(): void
+    {
+        $this->planStartDate = Carbon::today($this->organisation()->timezone)->toDateString();
+    }
+
+    private function prefillPlanDiscount(): void
+    {
+        $plan = $this->planId ? Plan::query()->find($this->planId) : null;
+        $club = $this->selectedMemberModel()?->primaryClub;
+
+        $this->planDiscount = $plan && $club && $club->discountFor($plan) > 0
+            ? $this->major($club->discountFor($plan))
+            : '';
+    }
+
+    /**
+     * Creates the term and makes it the thing being paid, so the amount and
+     * discount below already read what this term owes.
+     */
+    public function startPlan(): void
+    {
+        $member = $this->selectedMemberModel();
+
+        if ($member === null) {
+            return;
+        }
+
+        $this->authorize('createFor', [MemberSubscription::class, $member]);
+
+        $organisation = $this->organisation();
+
+        $validated = $this->validate([
+            'planId' => ['required', Rule::exists('plans', 'id')->where('organisation_id', $organisation->id)->where('status', PlanStatus::Active->value)],
+            'planStartDate' => ['nullable', 'date'],
+            'planDiscount' => ['nullable', 'numeric', 'min:0'],
+        ], [], ['planId' => 'plan', 'planDiscount' => 'discount']);
+
+        /** @var Plan $plan */
+        $plan = Plan::query()->findOrFail($validated['planId']);
+
+        $discount = $validated['planDiscount'] !== null && $validated['planDiscount'] !== ''
+            ? Money::parseMajor((string) $validated['planDiscount'], $organisation->currency_code)?->minor
+            : null;
+
+        if ($discount !== null && $discount > $plan->price_minor) {
+            $this->addError('planDiscount', 'The discount cannot be more than the plan price of '.$organisation->money($plan->price_minor).'.');
+
+            return;
+        }
+
+        $subscription = app(CreateSubscription::class)->handle(
+            member: $member,
+            plan: $plan,
+            actor: $this->currentMembership(),
+            startDate: $validated['planStartDate'] ? Carbon::parse($validated['planStartDate']) : null,
+            discountMinor: $discount,
+        );
+
+        $this->dispatch('close-modal', 'start-plan');
+        $this->selectTarget('plan:'.$subscription->id);
+
+        session()->flash('status', "\"{$plan->name}\" ".($subscription->start_date->isFuture() ? 'renewed' : 'started')." for {$member->name} — collect the fee below.");
+    }
+
+    private function selectedMemberModel(): ?Member
+    {
+        return $this->memberId === null ? null : Member::query()->with('primaryClub')->find($this->memberId);
     }
 
     public function clearMember(): void
@@ -701,6 +846,12 @@ class Form extends Component
             'targetOutstanding' => $this->targetOutstanding(),
             'availableCredit' => $selectedMember?->unlinkedCreditMinor() ?? 0,
             'receivedNow' => $this->receivedNowMinor(),
+            'planSituation' => $this->planSituation(),
+            'canStartPlan' => $selectedMember !== null && (auth()->user()?->can('createFor', [MemberSubscription::class, $selectedMember]) ?? false),
+            'availablePlans' => $this->planSituation() !== null && $this->planSituation() !== 'active'
+                ? Plan::query()->where('status', PlanStatus::Active)->orderBy('name')->get()
+                : collect(),
+            'today' => Carbon::today($this->organisation()->timezone),
             'methods' => PaymentMethod::cases(),
             'accounts' => auth()->user()?->can('select', FinancialAccount::class)
                 ? FinancialAccount::query()->where('status', FinancialAccountStatus::Active)->orderBy('name')->get()

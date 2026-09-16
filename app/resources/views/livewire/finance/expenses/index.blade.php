@@ -94,7 +94,7 @@
                 </x-slot:head>
 
                 @foreach ($expenses as $expense)
-                    <tr class="transition hover:bg-raised">
+                    <tr class="transition hover:bg-list-hover">
                         <x-ui.td numeric class="whitespace-nowrap">{{ $expense->expense_date->format('d M Y') }}</x-ui.td>
                         <x-ui.td class="text-ink">{{ $expense->category }}
                             <x-ui.reference :value="$organisation->reference('expense', $expense->id)" class="ml-1" /></x-ui.td>

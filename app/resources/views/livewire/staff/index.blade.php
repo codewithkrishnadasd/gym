@@ -80,7 +80,7 @@
                 </x-slot:head>
 
                 @foreach ($members as $person)
-                    <tr class="transition hover:bg-raised">
+                    <tr class="transition hover:bg-list-hover">
                         <x-ui.td>
                             <div class="flex items-center gap-2.5">
                                 <x-ui.avatar :name="$person->user?->name ?? '?'" size="sm" />

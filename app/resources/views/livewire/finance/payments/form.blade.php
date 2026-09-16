@@ -9,6 +9,30 @@
                     :member-search="$memberSearch" :walk-in="$walkIn" :payer-name="$payerName" :payer-phone="$payerPhone" verb="paying" />
             </x-ui.card>
 
+            @if ($planSituation === 'none' || $planSituation === 'lapsed')
+                {{-- Nothing current to pay for: offer the plan step right here,
+                     and continue with the fee for the term it creates. --}}
+                <x-ui.alert :tone="$planSituation === 'lapsed' ? 'caution' : 'info'"
+                    :title="$planSituation === 'lapsed' ? 'Their plan has run out' : 'No plan yet'">
+                    <div class="flex flex-wrap items-center justify-between gap-3">
+                        <span>
+                            @if ($planSituation === 'lapsed')
+                                Renew it first and the fee for the new term is set up below.
+                            @else
+                                Start a plan first and the fee for it is set up below — or collect an unlinked amount.
+                            @endif
+                        </span>
+                        @if ($canStartPlan)
+                            <x-ui.button size="sm" variant="primary" :icon="$planSituation === 'lapsed' ? 'arrow-path' : 'plus'" wire:click="preparePlan" wire:loading.attr="disabled" wire:target="preparePlan">
+                                {{ $planSituation === 'lapsed' ? 'Renew plan' : 'Start a plan' }}
+                            </x-ui.button>
+                        @else
+                            <span class="text-xs">An administrator can {{ $planSituation === 'lapsed' ? 'renew' : 'start' }} it.</span>
+                        @endif
+                    </div>
+                </x-ui.alert>
+            @endif
+
             <x-ui.card title="Payment details">
                 <div class="grid gap-4 sm:grid-cols-2">
                     {{-- One choice for what the money settles. Admission is
@@ -137,4 +161,43 @@
             </x-ui.card>
         </div>
     </form>
+
+    @if ($canStartPlan && $availablePlans->isNotEmpty())
+        <x-ui.modal name="start-plan" :title="$planSituation === 'lapsed' ? 'Renew plan' : 'Start a plan'"
+            description="The term is created for this {{ strtolower($organisation->term('member_singular')) }} and becomes what this payment is for.">
+            <div class="space-y-4">
+                <x-ui.select wire:model.live="planId" name="planId" label="Plan" required>
+                    <option value="">Select a plan…</option>
+                    @foreach ($availablePlans as $plan)
+                        <option value="{{ $plan->id }}">
+                            {{ $plan->name }} — {{ $organisation->money($plan->price_minor) }} / {{ $plan->duration_days }} days
+                        </option>
+                    @endforeach
+                </x-ui.select>
+
+                <div>
+                    <x-ui.input wire:model.live="planStartDate" name="planStartDate" label="Start date" type="date"
+                        :hint="$planSituation === 'lapsed' ? 'Prefilled for the day after the last term ended.' : 'The day the plan begins.'" />
+                    @if ($planStartDate !== '' && $planStartDate !== $today->toDateString())
+                        <button type="button" wire:click="startPlanToday"
+                            class="mt-1.5 inline-flex items-center gap-1 text-xs font-medium text-accent hover:underline">
+                            <x-heroicon-o-calendar class="h-3.5 w-3.5" /> Start today instead ({{ $today->format('d M Y') }})
+                        </button>
+                    @endif
+                </div>
+
+                <x-ui.input wire:model="planDiscount" name="planDiscount" label="Discount" inputmode="decimal"
+                    :prefix="$organisation->currencySymbol()" placeholder="0.00"
+                    :hint="$planDiscount !== '' ? 'Prefilled from the '.strtolower($organisation->term('club_singular')).'’s standing discount on this plan. Change or clear it as needed.' : 'Optional. Taken off the plan price for this term.'" />
+            </div>
+
+            <x-slot:footer>
+                <x-ui.button variant="ghost" x-on:click="$dispatch('close-modal', 'start-plan')">Cancel</x-ui.button>
+                <x-ui.button variant="primary" wire:click="startPlan" wire:loading.attr="disabled" wire:target="startPlan">
+                    <span wire:loading.remove wire:target="startPlan">{{ $planSituation === 'lapsed' ? 'Renew and continue' : 'Start and continue' }}</span>
+                    <span wire:loading wire:target="startPlan" class="inline-flex items-center gap-1.5"><x-ui.spinner /> Saving…</span>
+                </x-ui.button>
+            </x-slot:footer>
+        </x-ui.modal>
+    @endif
 </div>

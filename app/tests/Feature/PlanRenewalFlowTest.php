@@ -2,16 +2,20 @@
 
 declare(strict_types=1);
 
+use App\Enums\PlanStatus;
 use App\Livewire\Finance\Payments\Form as PaymentForm;
 use App\Livewire\Members\Show as MemberShow;
 use App\Models\Club;
+use App\Models\ClubUserAssignment;
 use App\Models\Domain;
+use App\Models\FinancialAccount;
 use App\Models\Member;
 use App\Models\MemberSubscription;
 use App\Models\Organisation;
 use App\Models\OrganisationUser;
 use App\Models\Plan;
 use App\Models\User;
+use Illuminate\Support\Carbon;
 use Livewire\Livewire;
 
 /**
@@ -115,4 +119,74 @@ it('goes straight to collecting the fee for the new term after renewing', functi
         ->assertSet('target', 'plan:'.$renewal->id)
         ->assertSet('subscriptionId', $renewal->id)
         ->assertSet('amount', '1400');
+});
+
+it('offers to start or renew a plan inside fee collection and pays for the new term', function (): void {
+    $member = Member::factory()->create(['organisation_id' => $this->organisation->id, 'primary_club_id' => $this->club->id, 'name' => 'Lapsed Lena']);
+    $plan = Plan::factory()->create(['organisation_id' => $this->organisation->id, 'name' => 'Monthly', 'price_minor' => 120000, 'duration_days' => 30, 'status' => PlanStatus::Active]);
+    $account = FinancialAccount::factory()->create(['organisation_id' => $this->organisation->id]);
+
+    // No plan at all: the form says so and offers to start one.
+    $form = Livewire::test(PaymentForm::class)
+        ->call('selectMember', $member->id)
+        ->assertSee('No plan yet')
+        ->assertSee('Start a plan')
+        ->call('preparePlan')
+        ->assertDispatched('open-modal')
+        ->set('planId', $plan->id)
+        ->call('startPlan')
+        ->assertHasNoErrors()
+        ->assertDispatched('close-modal');
+
+    $subscription = MemberSubscription::query()->where('member_id', $member->id)->firstOrFail();
+
+    // The new term is what the payment is for, with its balance as the amount.
+    $form->assertSet('target', 'plan:'.$subscription->id)
+        ->assertSet('amount', '1200')
+        ->assertDontSee('No plan yet')
+        ->set('financialAccountId', $account->id)
+        ->set('confirmImmediately', true)
+        ->call('save')
+        ->assertHasNoErrors();
+
+    expect($subscription->fresh()?->amount_paid_minor)->toBe(120000);
+
+    // Later, with that term run out, the same spot offers a renewal from the
+    // day after it ended.
+    $subscription->update(['start_date' => now()->subDays(60)->toDateString(), 'end_date' => now()->subDays(31)->toDateString()]);
+
+    Livewire::test(PaymentForm::class)
+        ->call('selectMember', $member->id)
+        ->assertSee('Their plan has run out')
+        ->assertSee('Renew plan')
+        ->call('preparePlan')
+        ->assertSet('planId', $plan->id)
+        ->assertSet('planStartDate', Carbon::today($this->organisation->timezone)->toDateString())
+        ->call('startPlan')
+        ->assertHasNoErrors()
+        ->assertSet('target', fn (string $target): bool => str_starts_with($target, 'plan:') && $target !== 'plan:'.$subscription->id);
+
+    expect(MemberSubscription::query()->where('member_id', $member->id)->count())->toBe(2);
+});
+
+it('does not offer the plan step to staff who cannot start plans, nor without the Plans module', function (): void {
+    $member = Member::factory()->create(['organisation_id' => $this->organisation->id, 'primary_club_id' => $this->club->id]);
+
+    $staffUser = User::factory()->create();
+    $staff = OrganisationUser::factory()->create(['organisation_id' => $this->organisation->id, 'user_id' => $staffUser->id, 'permissions' => ['fees.collect' => true, 'fees.view_own' => true]]);
+    ClubUserAssignment::factory()->create(['organisation_id' => $this->organisation->id, 'organisation_user_id' => $staff->id, 'club_id' => $this->club->id, 'status' => 'active']);
+    app()->forgetInstance('membership');
+
+    Livewire::actingAs($staffUser)->test(PaymentForm::class)
+        ->call('selectMember', $member->id)
+        ->assertSee('No plan yet')
+        ->assertSee('An administrator can start it')
+        ->assertDontSee('name="planId"', false);
+
+    $this->organisation->update(['features' => ['members', 'payments', 'accounts', 'clubs']]);
+    app()->instance('tenant', $this->organisation->fresh());
+
+    Livewire::actingAs($staffUser)->test(PaymentForm::class)
+        ->call('selectMember', $member->id)
+        ->assertDontSee('No plan yet');
 });

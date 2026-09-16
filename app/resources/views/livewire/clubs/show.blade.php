@@ -155,7 +155,7 @@
                     @foreach ($members as $member)
                         <li>
                             <a href="{{ route('tenant.members.show', $member) }}" wire:navigate
-                                class="flex items-center justify-between gap-3 px-4 py-2.5 transition hover:bg-raised">
+                                class="flex items-center justify-between gap-3 px-4 py-2.5 transition hover:bg-list-hover">
                                 <div class="flex min-w-0 items-center gap-3">
                                     <x-ui.avatar :name="$member->name" size="sm" />
                                     <div class="min-w-0">
