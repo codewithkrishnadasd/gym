@@ -4,8 +4,11 @@
      card to be `relative` (x-ui.card is). --}}
 @props(['target' => null])
 
+{{-- Hidden while the only thing in flight is "load more" (see
+     load-more.js): rows already on screen stay usable as the next set
+     arrives underneath them. --}}
 <div wire:loading.delay.short @if ($target) wire:target="{{ $target }}" @endif
-    class="pointer-events-none absolute inset-0 z-10 rounded-xl bg-surface/55" aria-live="polite" aria-label="Updating">
+    class="list-loader pointer-events-none absolute inset-0 z-10 rounded-xl bg-surface/55" aria-live="polite" aria-label="Updating">
     <div class="absolute inset-x-0 top-0 h-0.5 overflow-hidden">
         <div class="list-loader__sweep h-full w-1/3 rounded-full bg-accent"></div>
     </div>

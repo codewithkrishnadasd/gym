@@ -3,6 +3,7 @@ import './back-button';
 import './date-field';
 import './date-range';
 import './filters-bar';
+import './load-more';
 import './markdown-editor';
 import './mention-box';
 import './select-default';
