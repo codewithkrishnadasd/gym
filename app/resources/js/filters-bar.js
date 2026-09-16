@@ -54,10 +54,10 @@ document.addEventListener('alpine:init', () => {
                 return option ? option.text.trim() : String(value);
             }
 
-            // ISO date → dd/mm/yyyy
+            // ISO date → "16 Sep 2026", as the field itself shows it.
             const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(value));
 
-            return match ? `${match[3]}/${match[2]}/${match[1]}` : String(value);
+            return match ? `${Number(match[3])} ${['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][Number(match[2]) - 1]} ${match[1]}` : String(value);
         },
 
         refresh() {

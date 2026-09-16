@@ -11,17 +11,17 @@ use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\ViewErrorBag;
 
 /**
- * Every date in the app is typed and shown as dd/mm/yyyy, regardless of the
+ * Every date in the app is shown as text and chosen from the shared calendar, regardless of the
  * browser's locale, while the Livewire property underneath stays ISO.
  */
-it('renders a dd/mm/yyyy field bound through $wire, deferred or live', function (): void {
+it('renders a calendar-backed date field bound through $wire, deferred or live', function (): void {
     // Components read the shared error bag, which a bare Blade::render lacks.
     view()->share('errors', new ViewErrorBag);
 
     $deferred = Blade::render('<x-ui.input type="date" wire:model="dueDate" name="dueDate" label="Due date" />');
 
     expect($deferred)
-        ->toContain('placeholder="dd/mm/yyyy"')
+        ->toContain('Select date')
         ->toContain("dateField({ property: 'dueDate', live: false })")
         ->toContain('Due date')
         // The shared calendar, in single-date mode; nothing native.
@@ -62,7 +62,7 @@ it('is used for every date on the main screens', function (): void {
     foreach (['/members/create', '/finance/payments', '/finance/payments/create', '/finance/expenses', '/attendance/members', '/audit-log', '/tasks/create'] as $path) {
         $html = $this->get('http://dates.test'.$path)->assertOk()->getContent();
 
-        expect(str_contains($html, 'placeholder="dd/mm/yyyy"'))->toBeTrue("No dd/mm/yyyy field on {$path}");
+        expect(str_contains($html, "mode: 'single'"))->toBeTrue("No calendar date field on {$path}");
 
         // No native date input anywhere: every calendar is the shared one.
         expect(substr_count($html, 'type="date"'))->toBe(0);
