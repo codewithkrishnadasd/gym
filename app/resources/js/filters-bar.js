@@ -120,6 +120,7 @@ document.addEventListener('alpine:init', () => {
 
             this.open = true;
             this.place();
+            window.dispatchEvent(new CustomEvent('combobox:sync'));
         },
 
         /** Stops a select's change reaching Livewire; the value waits for Apply. */
@@ -149,6 +150,7 @@ document.addEventListener('alpine:init', () => {
                 }
 
                 if (el.tagName === 'SELECT') {
+                    // The combobox over it re-reads the value on this signal.
                     el.value = this.snapshot[property] ?? '';
                 } else {
                     // Date fields follow $wire; a deferred set back to the
@@ -158,6 +160,7 @@ document.addEventListener('alpine:init', () => {
             }
 
             this.open = false;
+            window.dispatchEvent(new CustomEvent('combobox:sync'));
         },
 
         clearOne(property) {

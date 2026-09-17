@@ -76,6 +76,15 @@ class Form extends Component
             return;
         }
 
+        // A staff member's new task is theirs to do unless they hand it on:
+        // they start as its assignee. An administrator usually raises tasks
+        // for others, so theirs starts unassigned.
+        $membership = $this->currentMembership();
+
+        if (! $membership->isAdmin()) {
+            $this->assigneeIds = [$membership->id];
+        }
+
         // Opened from a member's page: the task is about them, at their club.
         $member = request()->integer('member') ?: null;
 

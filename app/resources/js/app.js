@@ -6,6 +6,7 @@ import './filters-bar';
 import './load-more';
 import './markdown-editor';
 import './mention-box';
+import './combobox';
 import './select-default';
 
 /**

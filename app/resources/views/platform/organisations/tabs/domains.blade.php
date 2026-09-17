@@ -16,14 +16,18 @@
                             @csrf
                             @method('PATCH')
 
-                            <select name="status" onchange="this.form.requestSubmit()" aria-label="Domain status"
-                                class="min-h-[36px] rounded-lg border border-hairline-strong bg-surface px-2 text-xs text-ink-soft focus:border-accent focus:outline-none">
-                                @foreach (\App\Enums\DomainStatus::cases() as $case)
-                                    <option value="{{ $case->value }}" @selected($domain->status->value === $case->value)>
-                                        {{ $case->label() }}
-                                    </option>
-                                @endforeach
-                            </select>
+                            <span x-data="combobox" x-on:combobox:sync.window="sync()" class="relative inline-block w-36">
+                                <select name="status" onchange="this.form.requestSubmit()" aria-label="Domain status"
+                                    x-on:change="sync()" tabindex="-1" aria-hidden="true"
+                                    class="pointer-events-none absolute inset-0 h-full w-full opacity-0">
+                                    @foreach (\App\Enums\DomainStatus::cases() as $case)
+                                        <option value="{{ $case->value }}" @selected($domain->status->value === $case->value)>
+                                            {{ $case->label() }}
+                                        </option>
+                                    @endforeach
+                                </select>
+                                <x-ui.combobox class="border-hairline-strong" />
+                            </span>
 
                             @unless ($domain->is_primary)
                                 <input type="hidden" name="is_primary" value="0">

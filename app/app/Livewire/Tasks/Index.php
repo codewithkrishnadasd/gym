@@ -68,10 +68,17 @@ class Index extends Component
     {
         $this->authorize('viewAny', Task::class);
 
-        // Without a view of the team there is no people filter: the list is
-        // simply the tasks this person is involved in.
-        if (! $this->canFilterByPeople()) {
+        // Without a view of the team the people filter is only ever about
+        // oneself: nobody else's name, no "unassigned".
+        if (! $this->canFilterByPeople() && ! in_array($this->who, ['', 'mine', 'reported', 'mentioned'], true)) {
             $this->who = '';
+        }
+
+        // A staff member's list opens on what is theirs to do. Once they
+        // have picked a filter themselves (or followed a link naming one),
+        // that choice stands instead.
+        if (! $this->currentMembership()->isAdmin() && ! request()->query->has('who') && ! $this->hasRememberedFilters()) {
+            $this->who = 'mine';
         }
     }
 
@@ -136,7 +143,10 @@ class Index extends Component
         return Task::query()
             // Staff see what they reported and what was handed to them.
             ->when(! $membership->isAdmin(), fn (Builder $query) => $query->involving($membership))
-            ->when($this->who === 'mine', fn (Builder $query) => $query->whereHas('assignees', fn (Builder $assignees) => $assignees->where('organisation_users.id', $membership->id)))
+            // Mine: the whole task or one of its parts, like the by-person filter.
+            ->when($this->who === 'mine', fn (Builder $query) => $query->where(fn (Builder $inner) => $inner
+                ->whereHas('assignees', fn (Builder $assignees) => $assignees->where('organisation_users.id', $membership->id))
+                ->orWhereHas('items', fn (Builder $items) => $items->where('assignee_id', $membership->id))))
             ->when($this->who === 'reported', fn (Builder $query) => $query->where('created_by', $membership->id))
             ->when($this->club !== '' && $this->organisation()->usesClubs(), fn (Builder $query) => $query->where('club_id', (int) $this->club))
             ->when($this->who === 'mentioned', fn (Builder $query) => $query->whereHas('mentions', fn (Builder $mentions) => $mentions->where('organisation_user_id', $membership->id)))

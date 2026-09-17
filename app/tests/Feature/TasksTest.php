@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Actions\Tasks\CreateTask;
 use App\Livewire\Settings\TaskCategories;
 use App\Livewire\Tasks\Form as TaskForm;
+use App\Livewire\Tasks\Index as TaskIndex;
 use App\Livewire\Tasks\Show as TaskShow;
 use App\Models\Club;
 use App\Models\Domain;
@@ -241,7 +242,15 @@ it('shows staff only the tasks they reported or were assigned', function (): voi
     $reported = app(CreateTask::class)->handle($this->category, ['title' => 'Opened by Priya'], $me);
     $other = app(CreateTask::class)->handle($this->category, ['title' => 'Somebody else’s'], $admin);
 
-    $this->get('http://tasks.test/tasks')->assertOk()->assertSee('Handed to Priya')->assertSee('Opened by Priya')->assertDontSee('Somebody else’s');
+    // Their list opens on what is assigned to them; "All my tasks" shows what they raised too.
+    $this->get('http://tasks.test/tasks')->assertOk()->assertSee('Handed to Priya')->assertDontSee('Opened by Priya')->assertDontSee('Somebody else’s');
+    $this->get('http://tasks.test/tasks?who=')->assertOk()->assertSee('Handed to Priya')->assertSee('Opened by Priya')->assertDontSee('Somebody else’s');
+
+    // A task they raise starts assigned to them; they can still hand it on.
+    Livewire::test(TaskForm::class)
+        ->assertSet('assigneeIds', [$me->id])
+        ->call('removeAssignee', $me->id)
+        ->assertSet('assigneeIds', []);
 
     // The people filter needs a view of the team; the list stays theirs either way.
     $me->update(['permissions' => ['staff.view' => true]]);
@@ -253,9 +262,11 @@ it('shows staff only the tasks they reported or were assigned', function (): voi
     $this->get('http://tasks.test/tasks/'.$mine->id)->assertOk();
     $this->get('http://tasks.test/tasks/'.$other->id)->assertForbidden();
 
-    // Admins still see everything.
+    // Admins still see everything, and their new tasks start unassigned.
     $this->actingAs($admin->user);
+    app()->forgetInstance('membership');
     $this->get('http://tasks.test/tasks')->assertOk()->assertSee('Somebody else’s');
+    Livewire::test(TaskForm::class)->assertSet('assigneeIds', []);
 });
 
 it('renders the description as markdown with raw html stripped', function (): void {
@@ -299,8 +310,9 @@ it('takes comments, mentions colleagues with @, and shows the task to whoever wa
         ->and($task->fresh()?->involves($priya))->toBeTrue();
 
     // Priya can now see and open the task, and it is under "Mentioned me".
+    // (Her list opens on what is assigned to her, so "All my tasks" is asked for.)
     $this->actingAs($priya->user);
-    $this->get('http://tasks.test/tasks')->assertOk()->assertSee('Belt order');
+    $this->get('http://tasks.test/tasks?who=')->assertOk()->assertSee('Belt order');
     $this->get('http://tasks.test/tasks?who=mentioned')->assertOk()->assertSee('Belt order');
     $this->get('http://tasks.test/tasks/'.$task->id)->assertOk()->assertSee('Priya Nair');
 
@@ -563,7 +575,7 @@ it('filters the list to unassigned tasks or to one person\'s tasks', function ()
     $page('')->assertSee('value="staff:'.$holder->id.'"', false)->assertSee('Holder Hana')->assertSee('value="unassigned"', false);
 });
 
-it('hides the people filter from staff who cannot see the team, and lists only their own work', function (): void {
+it('narrows the people filter to themselves for staff who cannot see the team, and lists only their own work', function (): void {
     $admin = OrganisationUser::factory()->admin()->create(['organisation_id' => $this->organisation->id, 'user_id' => User::factory()->create()->id]);
     $staff = signIn($this->organisation, false);
 
@@ -571,19 +583,47 @@ it('hides the people filter from staff who cannot see the team, and lists only t
     $mine = Task::factory()->create(['organisation_id' => $this->organisation->id, 'task_category_id' => $this->category->id, 'task_status_id' => $this->todo->id, 'created_by' => $admin->id, 'title' => 'Handed to them']);
     $mine->assignees()->attach($staff->id);
 
-    // A people filter in the link is ignored rather than widening the list.
+    // A people filter in the link naming someone else is ignored rather
+    // than widening the list; the choices offered are only about oneself.
     $this->get('http://tasks.test/tasks?who=staff:'.$admin->id)
         ->assertOk()
         ->assertSee('Handed to them')
         ->assertDontSee('Not theirs')
         ->assertDontSee('value="unassigned"', false)
-        ->assertDontSee('Assigned to me');
+        ->assertDontSee('Everyone')
+        ->assertSee('All my tasks')
+        ->assertSee('Assigned to me');
 
     // With a view of the team, the filter is offered.
     $staff->update(['permissions' => ['staff.view' => true]]);
     app()->forgetInstance('membership');
 
     $this->get('http://tasks.test/tasks')->assertOk()->assertSee('value="unassigned"', false);
+});
+
+it('opens a staff member\'s list on what is assigned to them, until they choose otherwise', function (): void {
+    $admin = OrganisationUser::factory()->admin()->create(['organisation_id' => $this->organisation->id, 'user_id' => User::factory()->create()->id]);
+    $staff = signIn($this->organisation, false);
+
+    Task::factory()->create(['organisation_id' => $this->organisation->id, 'task_category_id' => $this->category->id, 'task_status_id' => $this->todo->id, 'created_by' => $staff->id, 'title' => 'Raised by them']);
+    $mine = Task::factory()->create(['organisation_id' => $this->organisation->id, 'task_category_id' => $this->category->id, 'task_status_id' => $this->todo->id, 'created_by' => $admin->id, 'title' => 'Handed to them']);
+    $mine->assignees()->attach($staff->id);
+
+    // First visit: only what they hold.
+    $this->get('http://tasks.test/tasks')->assertOk()->assertSee('Handed to them')->assertDontSee('Raised by them');
+
+    // A link naming a filter wins.
+    $this->get('http://tasks.test/tasks?who=reported')->assertOk()->assertSee('Raised by them')->assertDontSee('Handed to them');
+
+    // Their own choice sticks: widening to everything of theirs is remembered.
+    Livewire::test(TaskIndex::class)->set('who', '');
+    $this->get('http://tasks.test/tasks')->assertOk()->assertSee('Handed to them')->assertSee('Raised by them');
+
+    // An administrator's list opens on everyone's tasks.
+    $this->actingAs($admin->user);
+    app()->forgetInstance('membership');
+    session()->forget('filters.'.$this->organisation->id.'.'.TaskIndex::class);
+    $this->get('http://tasks.test/tasks')->assertOk()->assertSee('Handed to them')->assertSee('Raised by them')->assertSee('Everyone');
 });
 
 it('files a task under a club and filters the list by it', function (): void {

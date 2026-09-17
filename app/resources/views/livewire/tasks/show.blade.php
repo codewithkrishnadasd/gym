@@ -99,14 +99,17 @@
                                                     <x-heroicon-o-user-plus class="h-3.5 w-3.5 text-ink-muted" />
                                                 @endif
                                                 <span class="sr-only">Assigned to</span>
-                                                <select wire:change="setItemAssignee({{ $item->id }}, $event.target.value || null)"
-                                                    class="max-w-[11rem] cursor-pointer appearance-none rounded-md border border-transparent bg-transparent py-0.5 pl-1 pr-5 text-xs font-medium text-ink-soft transition hover:border-hairline-strong hover:bg-surface focus:border-accent focus:outline-none"
-                                                    style="background-image: none;">
-                                                    <option value="" @selected($item->assignee_id === null)>Unassigned</option>
-                                                    @foreach ($people as $person)
-                                                        <option value="{{ $person->id }}" @selected($item->assignee_id === $person->id)>{{ $person->user?->name }}</option>
-                                                    @endforeach
-                                                </select>
+                                                <span x-data="combobox" x-on:combobox:sync.window="sync()" class="relative inline-block max-w-[11rem]">
+                                                    <select wire:change="setItemAssignee({{ $item->id }}, $event.target.value || null)"
+                                                        x-on:change="sync()" tabindex="-1" aria-hidden="true"
+                                                        class="pointer-events-none absolute inset-0 h-full w-full opacity-0">
+                                                        <option value="" @selected($item->assignee_id === null)>Unassigned</option>
+                                                        @foreach ($people as $person)
+                                                            <option value="{{ $person->id }}" @selected($item->assignee_id === $person->id)>{{ $person->user?->name }}</option>
+                                                        @endforeach
+                                                    </select>
+                                                    <x-ui.combobox size="sm" class="border-transparent" />
+                                                </span>
                                             </label>
                                         @elseif ($item->assignee)
                                             <p class="mt-1 inline-flex items-center gap-1.5 text-xs text-ink-soft">

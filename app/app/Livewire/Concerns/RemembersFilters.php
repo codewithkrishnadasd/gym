@@ -87,6 +87,15 @@ trait RemembersFilters
         return $keys;
     }
 
+    /**
+     * Whether this person has ever changed a filter on this list — the point
+     * after which their own choice, not a built-in default, is what to show.
+     */
+    protected function hasRememberedFilters(): bool
+    {
+        return session()->has($this->rememberedFiltersSessionKey());
+    }
+
     private function rememberedFiltersSessionKey(): string
     {
         $tenant = app()->bound('tenant') ? app('tenant')->id : 'platform';

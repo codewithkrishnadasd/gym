@@ -61,22 +61,24 @@
                 </x-ui.filter-select>
             @endif
 
-            @if ($canFilterByPeople)
+            {{-- Without a view of the team the choices are only about oneself;
+                 the list is already just the tasks this person is involved in. --}}
             <x-ui.filter-select wire:model.live="who" label="People">
-                <option value="">Everyone</option>
+                <option value="">{{ $canFilterByPeople ? 'Everyone' : 'All my tasks' }}</option>
                 <option value="mine">Assigned to me</option>
                 <option value="reported">Reported by me</option>
                 <option value="mentioned">Mentioned me</option>
-                <option value="unassigned">Unassigned</option>
-                @if ($staff->isNotEmpty())
-                    <optgroup label="Assigned to">
-                        @foreach ($staff as $person)
-                            <option value="staff:{{ $person->id }}">{{ $person->user?->name }}</option>
-                        @endforeach
-                    </optgroup>
+                @if ($canFilterByPeople)
+                    <option value="unassigned">Unassigned</option>
+                    @if ($staff->isNotEmpty())
+                        <optgroup label="Assigned to">
+                            @foreach ($staff as $person)
+                                <option value="staff:{{ $person->id }}">{{ $person->user?->name }}</option>
+                            @endforeach
+                        </optgroup>
+                    @endif
                 @endif
             </x-ui.filter-select>
-            @endif
 
             <x-ui.filter-select wire:model.live="show" label="Show" default="open">
                 <option value="open">Open</option>
