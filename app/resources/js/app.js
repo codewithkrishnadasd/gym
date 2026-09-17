@@ -1,5 +1,6 @@
 import Chart from 'chart.js/auto';
 import './back-button';
+import './page-transition';
 import './date-field';
 import './calendar';
 import './filters-bar';

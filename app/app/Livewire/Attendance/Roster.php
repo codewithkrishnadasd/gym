@@ -10,6 +10,7 @@ use App\Enums\AttendanceSubjectType;
 use App\Enums\MembershipStatus;
 use App\Enums\MemberStatus;
 use App\Enums\NotificationEntityType;
+use App\Livewire\Concerns\LazyPage;
 use App\Livewire\Concerns\ResolvesMembership;
 use App\Models\Attendance;
 use App\Models\Club;
@@ -21,6 +22,7 @@ use App\Support\Search;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\View\View;
+use Livewire\Attributes\Defer;
 use Livewire\Attributes\Url;
 use Livewire\Component;
 
@@ -36,9 +38,10 @@ use Livewire\Component;
  * upsert in MarkAttendance is keyed on the table's unique index, so two staff
  * marking the same roster simultaneously cannot create duplicate rows.
  */
+#[Defer]
 class Roster extends Component
 {
-    use ResolvesMembership;
+    use LazyPage, ResolvesMembership;
 
     public AttendanceSubjectType $subjectType = AttendanceSubjectType::Member;
 

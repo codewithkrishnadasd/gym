@@ -8,6 +8,7 @@ use App\Enums\Feature;
 use App\Enums\MemberStatus;
 use App\Enums\SubscriptionHealth;
 use App\Enums\SubscriptionStatus;
+use App\Livewire\Concerns\LazyPage;
 use App\Livewire\Concerns\LoadsMore;
 use App\Livewire\Concerns\RemembersFilters;
 use App\Livewire\Concerns\ResolvesMembership;
@@ -19,12 +20,14 @@ use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
 use Illuminate\View\View;
+use Livewire\Attributes\Defer;
 use Livewire\Attributes\Url;
 use Livewire\Component;
 
+#[Defer]
 class Index extends Component
 {
-    use LoadsMore, RemembersFilters, ResolvesMembership;
+    use LazyPage, LoadsMore, RemembersFilters, ResolvesMembership;
 
     protected function pageSize(): int
     {

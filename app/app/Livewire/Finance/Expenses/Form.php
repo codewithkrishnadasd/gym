@@ -8,6 +8,7 @@ use App\Enums\ExpenseTargetType;
 use App\Enums\Feature;
 use App\Enums\FinancialAccountStatus;
 use App\Enums\FinancialAccountType;
+use App\Livewire\Concerns\LazyPage;
 use App\Livewire\Concerns\ResolvesMembership;
 use App\Models\AuditEvent;
 use App\Models\Club;
@@ -21,6 +22,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
+use Livewire\Attributes\Defer;
 use Livewire\Component;
 use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
 use Livewire\WithFileUploads;
@@ -31,11 +33,12 @@ use Livewire\WithFileUploads;
  * object storage in production) rather than the container filesystem, so any
  * app replica can serve them (MEP.md 8.5).
  */
+#[Defer]
 class Form extends Component
 {
     public const OTHER_CATEGORY = '__other__';
 
-    use ResolvesMembership, WithFileUploads;
+    use LazyPage, ResolvesMembership, WithFileUploads;
 
     public ?Expense $expense = null;
 

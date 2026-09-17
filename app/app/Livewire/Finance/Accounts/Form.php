@@ -6,10 +6,12 @@ namespace App\Livewire\Finance\Accounts;
 
 use App\Enums\FinancialAccountStatus;
 use App\Enums\FinancialAccountType;
+use App\Livewire\Concerns\LazyPage;
 use App\Livewire\Concerns\ResolvesMembership;
 use App\Models\FinancialAccount;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
+use Livewire\Attributes\Defer;
 use Livewire\Component;
 
 /**
@@ -19,9 +21,10 @@ use Livewire\Component;
  * payload is validated before saving — no full credentials or secrets go into
  * the database (MEP.md 5.10).
  */
+#[Defer]
 class Form extends Component
 {
-    use ResolvesMembership;
+    use LazyPage, ResolvesMembership;
 
     public ?FinancialAccount $account = null;
 

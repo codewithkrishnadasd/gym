@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Livewire\Billing;
 
 use App\Enums\InvoiceStatus;
+use App\Livewire\Concerns\LazyPage;
 use App\Livewire\Concerns\LoadsMore;
 use App\Livewire\Concerns\RemembersFilters;
 use App\Livewire\Concerns\ResolvesMembership;
@@ -14,15 +15,17 @@ use App\Support\Search;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
 use Illuminate\View\View;
+use Livewire\Attributes\Defer;
 use Livewire\Attributes\Url;
 use Livewire\Component;
 
 /**
  * Every invoice the viewer is allowed to see, outstanding first.
  */
+#[Defer]
 class Index extends Component
 {
-    use LoadsMore, RemembersFilters, ResolvesMembership;
+    use LazyPage, LoadsMore, RemembersFilters, ResolvesMembership;
 
     protected function pageSize(): int
     {

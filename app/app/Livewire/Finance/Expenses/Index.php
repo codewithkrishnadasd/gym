@@ -7,6 +7,7 @@ namespace App\Livewire\Finance\Expenses;
 use App\Actions\Expenses\ReverseExpense;
 use App\Enums\ExpenseStatus;
 use App\Exceptions\LifecycleViolation;
+use App\Livewire\Concerns\LazyPage;
 use App\Livewire\Concerns\LoadsMore;
 use App\Livewire\Concerns\RemembersFilters;
 use App\Livewire\Concerns\ResolvesMembership;
@@ -17,12 +18,14 @@ use App\Support\Search;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
 use Illuminate\View\View;
+use Livewire\Attributes\Defer;
 use Livewire\Attributes\Url;
 use Livewire\Component;
 
+#[Defer]
 class Index extends Component
 {
-    use LoadsMore, RemembersFilters, ResolvesMembership;
+    use LazyPage, LoadsMore, RemembersFilters, ResolvesMembership;
 
     protected function pageSize(): int
     {

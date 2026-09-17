@@ -8,11 +8,13 @@ use App\Actions\Billing\IssueInvoice;
 use App\Enums\BillableItemStatus;
 use App\Enums\Feature;
 use App\Enums\MemberStatus;
+use App\Livewire\Concerns\LazyPage;
 use App\Livewire\Concerns\ResolvesMembership;
 use App\Models\BillableItem;
 use App\Models\Invoice;
 use App\Models\Member;
 use App\Support\Money;
+use App\Support\PageQuery;
 use App\Support\PhoneNumber;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
@@ -20,6 +22,7 @@ use Illuminate\Support\Collection;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 use InvalidArgumentException;
+use Livewire\Attributes\Defer;
 use Livewire\Component;
 
 /**
@@ -32,9 +35,10 @@ use Livewire\Component;
  *
  * @phpstan-type LineState array{billable_item_id: int|null, description: string, quantity: int, price: string}
  */
+#[Defer]
 class Form extends Component
 {
-    use ResolvesMembership;
+    use LazyPage, ResolvesMembership;
 
     public string $memberSearch = '';
 
@@ -62,7 +66,7 @@ class Form extends Component
 
         // Reached from a member's page with ?member=<id> — a query parameter,
         // which Livewire does not pass to mount() on its own.
-        $member ??= request()->integer('member') ?: null;
+        $member ??= PageQuery::integer('member');
 
         $this->dueDate = Carbon::today($this->organisation()->timezone)->addDays(7)->toDateString();
 

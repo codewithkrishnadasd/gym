@@ -18,6 +18,7 @@ use App\Enums\NotificationRecipientType;
 use App\Enums\PlanStatus;
 use App\Enums\SubscriptionStatus;
 use App\Exceptions\LifecycleViolation;
+use App\Livewire\Concerns\LazyPage;
 use App\Livewire\Concerns\ResolvesMembership;
 use App\Models\Attendance;
 use App\Models\FeePayment;
@@ -32,6 +33,7 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
+use Livewire\Attributes\Defer;
 use Livewire\Attributes\Url;
 use Livewire\Component;
 
@@ -40,9 +42,10 @@ use Livewire\Component;
  * with the contextual actions the acting user is permitted to take
  * (MEP.md 6.6).
  */
+#[Defer]
 class Show extends Component
 {
-    use ResolvesMembership;
+    use LazyPage, ResolvesMembership;
 
     public Member $member;
 

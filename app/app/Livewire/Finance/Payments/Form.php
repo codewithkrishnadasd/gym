@@ -15,6 +15,7 @@ use App\Enums\PaymentMethod;
 use App\Enums\PaymentPurpose;
 use App\Enums\PlanStatus;
 use App\Enums\SubscriptionStatus;
+use App\Livewire\Concerns\LazyPage;
 use App\Livewire\Concerns\ResolvesMembership;
 use App\Models\FeePayment;
 use App\Models\FinancialAccount;
@@ -23,12 +24,14 @@ use App\Models\Member;
 use App\Models\MemberSubscription;
 use App\Models\Plan;
 use App\Support\Money;
+use App\Support\PageQuery;
 use App\Support\PhoneNumber;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
+use Livewire\Attributes\Defer;
 use Livewire\Component;
 
 /**
@@ -39,9 +42,10 @@ use Livewire\Component;
  * ConfirmFeePayment so the subscription credit, audit event, and notification
  * snapshot are produced by exactly one code path.
  */
+#[Defer]
 class Form extends Component
 {
-    use ResolvesMembership;
+    use LazyPage, ResolvesMembership;
 
     public string $memberSearch = '';
 
@@ -114,7 +118,7 @@ class Form extends Component
         // "Collect fee" on a member's page links here with ?member=<id>. That
         // is a query parameter, not a route segment, so Livewire does not pass
         // it to mount() and the picker opened empty.
-        $member ??= request()->integer('member') ?: null;
+        $member ??= PageQuery::integer('member');
 
         $this->paymentDate = Carbon::today($this->organisation()->timezone)->toDateString();
         $this->confirmImmediately = $this->currentMembership()->isAdmin();
@@ -127,7 +131,7 @@ class Form extends Component
             $this->selectMember($member);
         }
 
-        $invoice = request()->integer('invoice') ?: null;
+        $invoice = PageQuery::integer('invoice');
 
         if ($invoice !== null) {
             // "Collect" on a walk-in invoice: the payer is whoever it names.
@@ -142,12 +146,12 @@ class Form extends Component
             $this->selectInvoice($invoice);
         }
 
-        if (request()->query('for') === 'admission' && $this->memberId !== null) {
+        if (PageQuery::get('for') === 'admission' && $this->memberId !== null) {
             $this->selectTarget('admission');
         }
 
         // Arriving from a plan start or renewal: that term is the thing to pay.
-        $subscription = request()->integer('subscription') ?: null;
+        $subscription = PageQuery::integer('subscription');
 
         if ($subscription !== null && $this->memberId !== null) {
             $this->selectTarget('plan:'.$subscription);

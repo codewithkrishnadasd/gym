@@ -13,6 +13,7 @@ use App\Enums\NotificationActionType;
 use App\Enums\NotificationEntityType;
 use App\Enums\NotificationRecipientType;
 use App\Enums\Permission;
+use App\Livewire\Concerns\LazyPage;
 use App\Livewire\Concerns\ResolvesMembership;
 use App\Models\Club;
 use App\Models\ClubUserAssignment;
@@ -25,11 +26,13 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
+use Livewire\Attributes\Defer;
 use Livewire\Component;
 
+#[Defer]
 class Form extends Component
 {
-    use ResolvesMembership;
+    use LazyPage, ResolvesMembership;
 
     public ?OrganisationUser $organisationUser = null;
 

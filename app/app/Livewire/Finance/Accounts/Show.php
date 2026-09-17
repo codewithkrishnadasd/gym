@@ -7,6 +7,7 @@ namespace App\Livewire\Finance\Accounts;
 use App\Enums\ConfirmationStatus;
 use App\Enums\ExpenseStatus;
 use App\Enums\FinancialAccountStatus;
+use App\Livewire\Concerns\LazyPage;
 use App\Livewire\Concerns\ResolvesMembership;
 use App\Models\Expense;
 use App\Models\FeePayment;
@@ -14,6 +15,7 @@ use App\Models\FinancialAccount;
 use App\Support\Reporting\StatementLine;
 use Illuminate\Support\Collection;
 use Illuminate\View\View;
+use Livewire\Attributes\Defer;
 use Livewire\Component;
 use SimpleSoftwareIO\QrCode\Facades\QrCode;
 
@@ -24,9 +26,10 @@ use SimpleSoftwareIO\QrCode\Facades\QrCode;
  * stored as a file — it is cheap to generate, always matches the current
  * payload, and needs no object-storage round trip to display.
  */
+#[Defer]
 class Show extends Component
 {
-    use ResolvesMembership;
+    use LazyPage, ResolvesMembership;
 
     public FinancialAccount $account;
 

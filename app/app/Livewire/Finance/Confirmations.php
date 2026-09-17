@@ -8,6 +8,7 @@ use App\Actions\Payments\ConfirmFeePayment;
 use App\Actions\Payments\RejectFeePayment;
 use App\Enums\ConfirmationStatus;
 use App\Exceptions\LifecycleViolation;
+use App\Livewire\Concerns\LazyPage;
 use App\Livewire\Concerns\LoadsMore;
 use App\Livewire\Concerns\RemembersFilters;
 use App\Livewire\Concerns\ResolvesMembership;
@@ -16,6 +17,7 @@ use App\Models\OrganisationUser;
 use App\Support\Listing\Slice;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\View\View;
+use Livewire\Attributes\Defer;
 use Livewire\Attributes\Url;
 use Livewire\Component;
 
@@ -26,9 +28,10 @@ use Livewire\Component;
  * ageing, where the oldest submission is the most urgent, rather than a
  * financial record to browse.
  */
+#[Defer]
 class Confirmations extends Component
 {
-    use LoadsMore, RemembersFilters, ResolvesMembership;
+    use LazyPage, LoadsMore, RemembersFilters, ResolvesMembership;
 
     protected function pageSize(): int
     {

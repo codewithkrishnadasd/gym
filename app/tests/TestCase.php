@@ -3,10 +3,14 @@
 namespace Tests;
 
 use Illuminate\Foundation\Testing\TestCase as BaseTestCase;
+use Livewire\Livewire;
 use RuntimeException;
 
 abstract class TestCase extends BaseTestCase
 {
+    /** Set by a test that wants pages to defer as they do in the browser. */
+    public static bool $lazyPages = false;
+
     /**
      * Refuses to run against anything but the dedicated testing database.
      *
@@ -18,6 +22,15 @@ abstract class TestCase extends BaseTestCase
     protected function setUp(): void
     {
         parent::setUp();
+
+        // Pages defer their content behind a skeleton (LazyPage); tests read
+        // the page as a whole. Livewire clears the switch after every render
+        // it tests, so it is set again each time. LazyPageTest covers the
+        // deferral itself and opts back in.
+        Livewire::withoutLazyLoading();
+        \Livewire\after('flush-state', static fn () => static::$lazyPages || Livewire::withoutLazyLoading());
+
+        static::$lazyPages = false;
 
         $database = $this->app['db']->connection()->getDatabaseName();
 

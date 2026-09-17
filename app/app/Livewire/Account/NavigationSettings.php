@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 namespace App\Livewire\Account;
 
+use App\Livewire\Concerns\LazyPage;
 use App\Livewire\Concerns\ResolvesMembership;
 use App\Support\Navigation;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
+use Livewire\Attributes\Defer;
 use Livewire\Component;
 
 /**
@@ -15,9 +17,10 @@ use Livewire\Component;
  * Navigation). Stored on their membership, so it follows them on every
  * device and never touches anyone else's.
  */
+#[Defer]
 class NavigationSettings extends Component
 {
-    use ResolvesMembership;
+    use LazyPage, ResolvesMembership;
 
     /** The most tabs a phone bar takes beside Menu. */
     public const MAX_TABS = 4;

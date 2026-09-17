@@ -7,18 +7,21 @@ namespace App\Livewire\Billing;
 use App\Actions\Billing\VoidInvoice;
 use App\Enums\NotificationEntityType;
 use App\Exceptions\LifecycleViolation;
+use App\Livewire\Concerns\LazyPage;
 use App\Livewire\Concerns\ResolvesMembership;
 use App\Models\Invoice;
 use App\Models\WhatsappActionNotification;
 use Illuminate\View\View;
+use Livewire\Attributes\Defer;
 use Livewire\Component;
 
 /**
  * One invoice: its lines, what has been paid against it, and what happens next.
  */
+#[Defer]
 class Show extends Component
 {
-    use ResolvesMembership;
+    use LazyPage, ResolvesMembership;
 
     public Invoice $invoice;
 

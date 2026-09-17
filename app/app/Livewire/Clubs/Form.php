@@ -8,6 +8,7 @@ use App\Enums\ClubAssignmentStatus;
 use App\Enums\ClubStatus;
 use App\Enums\MembershipStatus;
 use App\Enums\PlanStatus;
+use App\Livewire\Concerns\LazyPage;
 use App\Livewire\Concerns\ResolvesMembership;
 use App\Models\Club;
 use App\Models\ClubUserAssignment;
@@ -18,11 +19,13 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
+use Livewire\Attributes\Defer;
 use Livewire\Component;
 
+#[Defer]
 class Form extends Component
 {
-    use ResolvesMembership;
+    use LazyPage, ResolvesMembership;
 
     public ?Club $club = null;
 

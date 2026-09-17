@@ -7,6 +7,7 @@ namespace App\Livewire\Tasks;
 use App\Actions\Tasks\CreateTask;
 use App\Enums\MembershipStatus;
 use App\Enums\MemberStatus;
+use App\Livewire\Concerns\LazyPage;
 use App\Livewire\Concerns\ResolvesMembership;
 use App\Models\AuditEvent;
 use App\Models\Club;
@@ -15,20 +16,23 @@ use App\Models\OrganisationUser;
 use App\Models\Task;
 use App\Models\TaskCategory;
 use App\Models\TaskStatus;
+use App\Support\PageQuery;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Carbon;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
+use Livewire\Attributes\Defer;
 use Livewire\Component;
 
 /**
  * Creating or editing a task. The category is chosen once, at creation: the
  * task's statuses and its checklist of sub-categories come from it.
  */
+#[Defer]
 class Form extends Component
 {
-    use ResolvesMembership;
+    use LazyPage, ResolvesMembership;
 
     public ?Task $task = null;
 
@@ -86,14 +90,14 @@ class Form extends Component
         }
 
         // Opened from a member's page: the task is about them, at their club.
-        $member = request()->integer('member') ?: null;
+        $member = PageQuery::integer('member');
 
         if ($member !== null) {
             $this->selectMember($member);
         }
 
         // Or from a club, or where the user only has the one.
-        $club = request()->integer('club') ?: null;
+        $club = PageQuery::integer('club');
         $clubs = $this->selectableClubs();
 
         if ($this->clubId === null) {
@@ -102,7 +106,7 @@ class Form extends Component
                 : ($clubs->count() === 1 ? $clubs->first()?->id : null);
         }
 
-        $requested = request()->integer('category') ?: null;
+        $requested = PageQuery::integer('category');
         $categories = $this->categories();
 
         // Preselect when opened from a category, or when there is only one.

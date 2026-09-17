@@ -7,6 +7,7 @@ namespace App\Livewire\Clubs;
 use App\Enums\ClubAssignmentStatus;
 use App\Enums\MemberStatus;
 use App\Livewire\Concerns\FiltersByPeriod;
+use App\Livewire\Concerns\LazyPage;
 use App\Livewire\Concerns\ResolvesMembership;
 use App\Models\Club;
 use App\Models\ClubUserAssignment;
@@ -15,6 +16,7 @@ use App\Support\Reporting\OrganisationMetrics;
 use App\Support\Reporting\ReportPeriod;
 use Illuminate\Support\Collection;
 use Illuminate\View\View;
+use Livewire\Attributes\Defer;
 use Livewire\Attributes\Url;
 use Livewire\Component;
 
@@ -23,9 +25,10 @@ use Livewire\Component;
  * (MEP.md 6.4). Figures come from the shared OrganisationMetrics service
  * scoped to this single club, so they reconcile with the dashboard.
  */
+#[Defer]
 class Show extends Component
 {
-    use FiltersByPeriod, ResolvesMembership;
+    use FiltersByPeriod, LazyPage, ResolvesMembership;
 
     public Club $club;
 

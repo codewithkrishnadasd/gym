@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Livewire\Concerns;
 
+use App\Support\PageQuery;
 use Livewire\Attributes\Url;
 use ReflectionClass;
 use ReflectionProperty;
@@ -32,7 +33,7 @@ trait RemembersFilters
 
         // Anything filter-like in the URL means the caller chose the view.
         foreach ($keys as $key) {
-            if (request()->query->has($key)) {
+            if (PageQuery::has($key)) {
                 return;
             }
         }

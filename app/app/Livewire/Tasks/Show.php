@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Livewire\Tasks;
 
 use App\Enums\MembershipStatus;
+use App\Livewire\Concerns\LazyPage;
 use App\Livewire\Concerns\ResolvesMembership;
 use App\Models\AuditEvent;
 use App\Models\Organisation;
@@ -19,15 +20,17 @@ use App\Support\Tasks\Mentions;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\View\View;
+use Livewire\Attributes\Defer;
 use Livewire\Component;
 
 /**
  * One task: its details, and the board where each part's status is moved.
  * Every status change is a single click and is saved immediately.
  */
+#[Defer]
 class Show extends Component
 {
-    use ResolvesMembership;
+    use LazyPage, ResolvesMembership;
 
     public Task $task;
 

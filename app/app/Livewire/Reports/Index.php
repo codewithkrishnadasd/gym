@@ -6,11 +6,13 @@ namespace App\Livewire\Reports;
 
 use App\Enums\Feature;
 use App\Livewire\Concerns\FiltersByPeriod;
+use App\Livewire\Concerns\LazyPage;
 use App\Livewire\Concerns\RemembersFilters;
 use App\Livewire\Concerns\ResolvesMembership;
 use App\Support\Reporting\OrganisationMetrics;
 use App\Support\Reporting\ReportPeriod;
 use Illuminate\View\View;
+use Livewire\Attributes\Defer;
 use Livewire\Attributes\Url;
 use Livewire\Component;
 
@@ -22,9 +24,10 @@ use Livewire\Component;
  * same scope — so an export can never contain a row the user cannot see
  * on screen.
  */
+#[Defer]
 class Index extends Component
 {
-    use FiltersByPeriod, RemembersFilters, ResolvesMembership;
+    use FiltersByPeriod, LazyPage, RemembersFilters, ResolvesMembership;
 
     #[Url]
     public string $tab = 'finance';

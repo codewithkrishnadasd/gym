@@ -5,16 +5,19 @@ declare(strict_types=1);
 namespace App\Livewire\Plans;
 
 use App\Enums\PlanStatus;
+use App\Livewire\Concerns\LazyPage;
 use App\Livewire\Concerns\ResolvesMembership;
 use App\Models\Plan;
 use App\Support\Money;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
+use Livewire\Attributes\Defer;
 use Livewire\Component;
 
+#[Defer]
 class Form extends Component
 {
-    use ResolvesMembership;
+    use LazyPage, ResolvesMembership;
 
     public ?Plan $plan = null;
 

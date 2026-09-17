@@ -13,22 +13,26 @@ use App\Enums\NotificationActionType;
 use App\Enums\NotificationEntityType;
 use App\Enums\NotificationRecipientType;
 use App\Enums\PlanStatus;
+use App\Livewire\Concerns\LazyPage;
 use App\Livewire\Concerns\ResolvesMembership;
 use App\Models\Club;
 use App\Models\Member;
 use App\Models\MemberClubHistory;
 use App\Models\Plan;
 use App\Support\Money;
+use App\Support\PageQuery;
 use App\Support\PhoneNumber;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
+use Livewire\Attributes\Defer;
 use Livewire\Component;
 
+#[Defer]
 class Form extends Component
 {
-    use ResolvesMembership;
+    use LazyPage, ResolvesMembership;
 
     public ?Member $member = null;
 
@@ -100,7 +104,7 @@ class Form extends Component
     private function presetClubId(): ?int
     {
         $accessible = $this->accessibleClubs()->pluck('id')->all();
-        $requested = (int) request()->query('club', 0);
+        $requested = (int) (PageQuery::integer('club') ?? 0);
 
         if ($requested > 0 && in_array($requested, $accessible, true)) {
             return $requested;

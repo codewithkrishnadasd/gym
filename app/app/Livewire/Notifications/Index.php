@@ -6,6 +6,7 @@ namespace App\Livewire\Notifications;
 
 use App\Enums\NotificationActionType;
 use App\Enums\NotificationStatus;
+use App\Livewire\Concerns\LazyPage;
 use App\Livewire\Concerns\LoadsMore;
 use App\Livewire\Concerns\RemembersFilters;
 use App\Livewire\Concerns\ResolvesMembership;
@@ -14,6 +15,7 @@ use App\Support\Listing\Slice;
 use App\Support\Search;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\View\View;
+use Livewire\Attributes\Defer;
 use Livewire\Attributes\On;
 use Livewire\Attributes\Url;
 use Livewire\Component;
@@ -30,9 +32,10 @@ use Livewire\Component;
  * "Opened" means an operator launched the deep link, never that WhatsApp
  * delivered anything. The column is labelled accordingly.
  */
+#[Defer]
 class Index extends Component
 {
-    use LoadsMore, RemembersFilters, ResolvesMembership;
+    use LazyPage, LoadsMore, RemembersFilters, ResolvesMembership;
 
     #[Url]
     public string $search = '';

@@ -7,6 +7,7 @@ namespace App\Livewire\Dashboard;
 use App\Enums\ConfirmationStatus;
 use App\Enums\MemberStatus;
 use App\Livewire\Concerns\FiltersByPeriod;
+use App\Livewire\Concerns\LazyPage;
 use App\Livewire\Concerns\RemembersFilters;
 use App\Livewire\Concerns\ResolvesMembership;
 use App\Models\Attendance;
@@ -16,6 +17,7 @@ use App\Support\Reporting\OrganisationMetrics;
 use App\Support\Reporting\ReportPeriod;
 use Illuminate\Support\Carbon;
 use Illuminate\View\View;
+use Livewire\Attributes\Defer;
 use Livewire\Attributes\Url;
 use Livewire\Component;
 
@@ -28,9 +30,10 @@ use Livewire\Component;
  * the club scope handed to it — so a staff member's numbers are a true subset
  * of the admin's, never a separately-computed approximation.
  */
+#[Defer]
 class Index extends Component
 {
-    use FiltersByPeriod, RemembersFilters, ResolvesMembership;
+    use FiltersByPeriod, LazyPage, RemembersFilters, ResolvesMembership;
 
     #[Url]
     public string $range = 'month';

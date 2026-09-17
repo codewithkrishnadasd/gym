@@ -6,6 +6,7 @@ namespace App\Livewire\Finance\Payments;
 
 use App\Enums\ConfirmationStatus;
 use App\Enums\PaymentMethod;
+use App\Livewire\Concerns\LazyPage;
 use App\Livewire\Concerns\LoadsMore;
 use App\Livewire\Concerns\RemembersFilters;
 use App\Livewire\Concerns\ResolvesMembership;
@@ -17,6 +18,7 @@ use App\Support\Search;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
 use Illuminate\View\View;
+use Livewire\Attributes\Defer;
 use Livewire\Attributes\Url;
 use Livewire\Component;
 
@@ -27,9 +29,10 @@ use Livewire\Component;
  * reversed totals are reported separately and never folded into it
  * (MEP.md 8.4).
  */
+#[Defer]
 class Index extends Component
 {
-    use LoadsMore, RemembersFilters, ResolvesMembership;
+    use LazyPage, LoadsMore, RemembersFilters, ResolvesMembership;
 
     protected function pageSize(): int
     {

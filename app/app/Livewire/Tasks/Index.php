@@ -6,6 +6,7 @@ namespace App\Livewire\Tasks;
 
 use App\Enums\Feature;
 use App\Enums\MembershipStatus;
+use App\Livewire\Concerns\LazyPage;
 use App\Livewire\Concerns\LoadsMore;
 use App\Livewire\Concerns\RemembersFilters;
 use App\Livewire\Concerns\ResolvesMembership;
@@ -16,20 +17,23 @@ use App\Models\TaskCategory;
 use App\Models\TaskItem;
 use App\Models\TaskStatus;
 use App\Support\Listing\Slice;
+use App\Support\PageQuery;
 use App\Support\Search;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Carbon;
 use Illuminate\View\View;
+use Livewire\Attributes\Defer;
 use Livewire\Attributes\Url;
 use Livewire\Component;
 
 /**
  * The team's task list. Open work first; done tasks hidden until asked for.
  */
+#[Defer]
 class Index extends Component
 {
-    use LoadsMore, RemembersFilters, ResolvesMembership;
+    use LazyPage, LoadsMore, RemembersFilters, ResolvesMembership;
 
     protected function pageSize(): int
     {
@@ -77,7 +81,7 @@ class Index extends Component
         // A staff member's list opens on what is theirs to do. Once they
         // have picked a filter themselves (or followed a link naming one),
         // that choice stands instead.
-        if (! $this->currentMembership()->isAdmin() && ! request()->query->has('who') && ! $this->hasRememberedFilters()) {
+        if (! $this->currentMembership()->isAdmin() && ! PageQuery::has('who') && ! $this->hasRememberedFilters()) {
             $this->who = 'mine';
         }
     }

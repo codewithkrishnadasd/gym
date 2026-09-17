@@ -9,12 +9,14 @@ use App\Actions\Payments\RejectFeePayment;
 use App\Actions\Payments\ReverseFeePayment;
 use App\Enums\NotificationActionType;
 use App\Exceptions\LifecycleViolation;
+use App\Livewire\Concerns\LazyPage;
 use App\Livewire\Concerns\ResolvesMembership;
 use App\Models\AuditEvent;
 use App\Models\FeePayment;
 use App\Models\WhatsappActionNotification;
 use Illuminate\Support\Collection;
 use Illuminate\View\View;
+use Livewire\Attributes\Defer;
 use Livewire\Component;
 
 /**
@@ -25,9 +27,10 @@ use Livewire\Component;
  * a locked transaction — so a stale page cannot double-confirm or confirm a
  * payment somebody else already rejected.
  */
+#[Defer]
 class Show extends Component
 {
-    use ResolvesMembership;
+    use LazyPage, ResolvesMembership;
 
     public FeePayment $payment;
 
