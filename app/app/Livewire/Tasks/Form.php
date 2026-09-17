@@ -249,6 +249,11 @@ class Form extends Component
         if ($member) {
             $this->memberId = $member->id;
 
+            // Their name is the title until something more specific is typed.
+            if (trim($this->title) === '') {
+                $this->title = $member->name;
+            }
+
             // The task is most likely about their club, unless one was chosen.
             if ($this->clubId === null && $member->primary_club_id !== null && $this->selectableClubs()->contains('id', $member->primary_club_id)) {
                 $this->clubId = $member->primary_club_id;

@@ -88,7 +88,7 @@
                 @foreach ($members as $member)
                     @php
                         $subscription = $member->subscriptions->first();
-                        $due = $subscription ? max(0, $subscription->amount_due_minor - $subscription->amount_paid_minor) : 0;
+                        $due = $member->listedOutstandingMinor();
                     @endphp
 
                     <tr class="transition hover:bg-list-hover">
@@ -153,7 +153,7 @@
                 @foreach ($members as $member)
                     @php
                         $subscription = $member->subscriptions->first();
-                        $due = $subscription ? max(0, $subscription->amount_due_minor - $subscription->amount_paid_minor) : 0;
+                        $due = $member->listedOutstandingMinor();
                     @endphp
 
                     <li>

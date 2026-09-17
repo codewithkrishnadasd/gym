@@ -27,11 +27,7 @@ final class RecipientContext
             ->orderByDesc('end_date')
             ->first();
 
-        $outstanding = $member->subscriptions()
-            ->whereIn('status', [SubscriptionStatus::Active, SubscriptionStatus::Expired])
-            ->get()
-            ->sum(fn ($subscription): int => $subscription->outstandingMinor())
-            + $member->admissionOutstandingMinor();
+        $outstanding = $member->outstandingMinor();
 
         return [
             ...MessageComposer::baseValues($organisation),
@@ -40,7 +36,7 @@ final class RecipientContext
             'clubName' => $member->primaryClub?->name,
             'planName' => $latest?->plan?->name,
             'endDate' => $latest?->end_date->format('d M Y'),
-            'balanceDue' => $outstanding > 0 ? $organisation->money((int) $outstanding) : null,
+            'balanceDue' => $outstanding > 0 ? $organisation->money($outstanding) : null,
         ];
     }
 

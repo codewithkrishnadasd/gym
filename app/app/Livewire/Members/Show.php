@@ -361,12 +361,9 @@ class Show extends Component
             'unlinkedPaid' => $this->member->unlinkedPaidMinor(),
             'creditApplied' => $this->member->creditAppliedMinor(),
             'unlinkedAvailable' => $this->member->unlinkedCreditMinor(),
-            // Plan balances plus whatever is left of the admission fee: the
-            // one figure the desk needs when the member walks in.
-            'outstanding' => (int) $subscriptions
-                ->whereIn('status', [SubscriptionStatus::Active, SubscriptionStatus::Expired])
-                ->sum(fn (MemberSubscription $s): int => $s->outstandingMinor())
-                + $this->member->admissionOutstandingMinor(),
+            // Plan balances, what is left of the admission fee and open
+            // invoices: the one figure the desk needs when the member walks in.
+            'outstanding' => $this->member->outstandingMinor(),
             'clubHistory' => $this->member->clubHistory()->with(['fromClub:id,name', 'toClub:id,name', 'changedBy.user:id,name'])
                 ->orderByDesc('changed_at')->get(),
             'availablePlans' => Plan::query()->where('status', PlanStatus::Active)->orderBy('name')->get(),

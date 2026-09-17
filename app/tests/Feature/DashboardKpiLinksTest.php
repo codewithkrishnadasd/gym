@@ -79,7 +79,7 @@ it('narrows the member list the way the cards count', function (): void {
         ->assertOk()->assertSee('Newcomer Nair')->assertDontSee('Veteran Verma')->assertSee('Showing:')->assertSee('Joined 01 Sep 2026');
 
     $this->get('http://kpi.test/members?balance=due')
-        ->assertOk()->assertSee('Veteran Verma')->assertDontSee('Newcomer Nair')->assertSee('Owing plan fees');
+        ->assertOk()->assertSee('Veteran Verma')->assertDontSee('Newcomer Nair')->assertSee('With a balance due');
 
     $this->travelTo('2026-09-14 10:00', function () use ($newcomer): void {
         $this->get('http://kpi.test/members?endingBy=2026-10-14')

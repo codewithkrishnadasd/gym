@@ -47,9 +47,9 @@
                 :delta="$revenueDelta" :delta-tone="$revenueTone" hint="vs previous period" :href="$links['revenue']" wire:navigate />
         @endif
 
-        @if ($hasPlans)
-            <x-ui.stat label="Outstanding fees" :value="$organisation->moneyCompact($outstanding)" icon="exclamation-circle"
-                :tone="$outstanding > 0 ? 'caution' : 'neutral'" hint="across active plans" :href="$links['outstanding']" wire:navigate />
+        @if ($hasPlans || $organisation->hasFeature('billing'))
+            <x-ui.stat label="Outstanding" :value="$organisation->moneyCompact($outstanding)" icon="exclamation-circle"
+                :tone="$outstanding > 0 ? 'caution' : 'neutral'" hint="plans, admission and invoices" :href="$links['outstanding']" wire:navigate />
         @endif
 
         @if ($hasExpenses)

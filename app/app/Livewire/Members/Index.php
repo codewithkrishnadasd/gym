@@ -85,7 +85,7 @@ class Index extends Component
         }
 
         if ($this->balance === 'due') {
-            $parts[] = 'owing plan fees';
+            $parts[] = 'with a balance due';
         }
 
         if ($this->endingBy !== '') {
@@ -146,7 +146,9 @@ class Index extends Component
     {
         $query = $this->restrictToClubs(Member::query(), 'primary_club_id')
             ->with('primaryClub:id,name')
-            // The member's live plan, so the list can show expiry and balance
+            // The balance column, summed in the same query rather than per row.
+            ->withOutstanding()
+            // The member's live plan, so the list can show expiry
             // without an N+1 lookup per row (MEP.md 6.6).
             ->with(['subscriptions' => fn ($subscriptions) => $subscriptions
                 ->where('status', SubscriptionStatus::Active)
@@ -167,11 +169,9 @@ class Index extends Component
             ->when($this->plan !== '', fn ($query) => $this->constrainByPlanHealth($query))
             ->when($this->joinedFrom !== '', fn ($query) => $query->whereDate('joined_at', '>=', $this->joinedFrom))
             ->when($this->joinedTo !== '', fn ($query) => $query->whereDate('joined_at', '<=', $this->joinedTo))
-            // Mirrors OrganisationMetrics::outstandingFees(): any live or lapsed
-            // term with less paid than is due.
-            ->when($this->balance === 'due', fn ($query) => $query->whereHas('subscriptions', fn ($subscriptions) => $subscriptions
-                ->whereIn('status', [SubscriptionStatus::Active, SubscriptionStatus::Expired])
-                ->whereColumn('amount_paid_minor', '<', 'amount_due_minor')))
+            // Anything owed at all — plan terms, admission fee or open
+            // invoices (Member::scopeOwing).
+            ->when($this->balance === 'due', fn ($query) => $query->owing())
             // Mirrors OrganisationMetrics::expiringSubscriptions(): active terms
             // ending between today and the given date.
             ->when($this->endingBy !== '', fn ($query) => $query->whereHas('subscriptions', fn ($subscriptions) => $subscriptions

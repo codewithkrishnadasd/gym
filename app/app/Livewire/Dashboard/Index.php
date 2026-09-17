@@ -146,7 +146,7 @@ class Index extends Component
             'expiring' => $metrics->expiringSubscriptions(),
             'revenue' => $revenue,
             'revenuePrevious' => $previous->revenueCollected(),
-            'outstanding' => $metrics->outstandingFees(),
+            'outstanding' => $metrics->outstandingTotal(),
             'expenses' => $expenses,
             'netMovement' => $revenue - $expenses,
             'attendanceRate' => $metrics->attendanceRate(),

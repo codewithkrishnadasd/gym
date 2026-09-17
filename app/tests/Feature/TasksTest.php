@@ -219,6 +219,8 @@ it('assigns people and tags a member, and gives every task a reference', functio
         ->assertSee('Remove')
         ->call('selectMember', $member->id)
         ->assertSet('memberId', $member->id)
+        // A title already typed is kept; only an empty one takes the name.
+        ->assertSet('title', 'Call about renewal')
         ->call('save')
         ->assertHasNoErrors();
 
@@ -639,10 +641,14 @@ it('lists a member\'s tasks on their page and starts a new one already about the
         ->assertDontSee('Olga induction')
         ->assertSee('/tasks/create?member='.$member->id, false);
 
-    // The new-task form arrives already about Tom, at Tom's club.
+    // The new-task form arrives already about Tom, at Tom's club, titled
+    // with his name, and links back to his page.
     Livewire::withQueryParams(['member' => $member->id])->test(TaskForm::class)
         ->assertSet('memberId', $member->id)
-        ->assertSet('clubId', $north->id);
+        ->assertSet('clubId', $north->id)
+        ->assertSet('title', $member->name)
+        ->assertSee('/members/'.$member->id, false)
+        ->assertSee('View');
 
     // Without the Tasks module the tab is gone.
     $this->organisation->update(['features' => ['members', 'clubs']]);

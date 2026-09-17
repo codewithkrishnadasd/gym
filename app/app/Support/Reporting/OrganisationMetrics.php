@@ -120,6 +120,29 @@ final class OrganisationMetrics
     }
 
     /**
+     * Everything members owe, in one figure — plan balances, what is left of
+     * admission fees and open invoices raised to a member — matching what
+     * the member list's balance filter shows (Member::scopeOwing) and the
+     * member page's figure (Member::outstandingMinor). Walk-in invoices have
+     * no member to chase, so they are not in it.
+     */
+    public function outstandingTotal(): int
+    {
+        $admission = (int) $this->memberScope()
+            ->where('status', '!=', MemberStatus::Archived)
+            ->selectRaw('COALESCE(SUM(GREATEST(0, admission_fee_minor - admission_discount_minor - admission_paid_minor)), 0) AS due')
+            ->value('due');
+
+        $invoices = (int) $this->invoiceScope()
+            ->whereNotNull('member_id')
+            ->whereIn('status', [InvoiceStatus::Issued, InvoiceStatus::PartiallyPaid])
+            ->selectRaw('COALESCE(SUM(GREATEST(0, total_minor - discount_minor - paid_minor)), 0) AS due')
+            ->value('due');
+
+        return $this->outstandingFees() + $admission + $invoices;
+    }
+
+    /**
      * Money still owed on open invoices — a separate figure from plan fees,
      * because the two are collected and chased differently.
      */
@@ -127,7 +150,7 @@ final class OrganisationMetrics
     {
         return (int) $this->invoiceScope()
             ->whereIn('status', [InvoiceStatus::Issued, InvoiceStatus::PartiallyPaid])
-            ->selectRaw('COALESCE(SUM(total_minor - paid_minor), 0) AS due')
+            ->selectRaw('COALESCE(SUM(GREATEST(0, total_minor - discount_minor - paid_minor)), 0) AS due')
             ->value('due');
     }
 

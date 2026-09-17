@@ -4,63 +4,6 @@
 
     <form wire:submit="save" class="grid gap-5 lg:grid-cols-3">
         <div class="space-y-5 lg:col-span-2">
-            <x-ui.card title="Task">
-                <div class="grid gap-4 sm:grid-cols-2">
-                    <x-ui.input class="sm:col-span-2" wire:model="title" name="title" label="Title" required
-                        placeholder="What needs doing?" autofocus />
-
-                    @if ($task)
-                        <x-ui.field label="Category" class="sm:col-span-2">
-                            <p class="text-sm text-ink">{{ $category?->name ?? '—' }}</p>
-                            <p class="mt-0.5 text-xs text-ink-muted">Fixed once the task exists — its statuses and parts come from it.</p>
-                        </x-ui.field>
-                    @else
-                        <x-ui.select class="sm:col-span-2" wire:model.live="categoryId" name="categoryId" label="Category" required>
-                            <option value="">Choose a category…</option>
-                            @foreach ($categories as $option)
-                                <option value="{{ $option->id }}">{{ $option->name }}</option>
-                            @endforeach
-                        </x-ui.select>
-                    @endif
-
-                    @if ($category && $category->statuses->isNotEmpty())
-                        <div class="sm:col-span-2">
-                            <x-ui.field label="Status" name="statusId">
-                                {{-- Statuses as their own chips rather than a select, so the
-                                     colour that identifies each one is part of the choice. --}}
-                                <div class="flex flex-wrap gap-1.5" role="radiogroup" aria-label="Status">
-                                    @foreach ($category->statuses as $status)
-                                        <button type="button" wire:click="$set('statusId', {{ $status->id }})" role="radio"
-                                            aria-checked="{{ $statusId === $status->id ? 'true' : 'false' }}"
-                                            @class(['rounded-full px-3 py-1.5 text-sm font-medium transition ring-offset-2 ring-offset-[var(--c-surface)]',
-                                                'ring-2 ring-[var(--c-ink)] shadow-sm' => $statusId === $status->id,
-                                                'opacity-60 hover:opacity-100' => $statusId !== $status->id])
-                                            style="{{ $status->style() }}">{{ $status->name }}</button>
-                                    @endforeach
-                                </div>
-                            </x-ui.field>
-                        </div>
-                    @endif
-
-                    <x-ui.markdown-editor class="sm:col-span-2" wire:model="description" name="description" label="Description"
-                        hint="Optional. Markdown — switch to Preview to see it laid out; you can type in either view."
-                        placeholder="Context, links, what done looks like…" rows="7" />
-
-                    <x-ui.input wire:model="startDate" name="startDate" label="Start date" type="date" hint="Optional." />
-                    <x-ui.input wire:model="dueDate" name="dueDate" label="Due date" type="date" hint="Optional." />
-
-                    @if ($organisation->usesClubs() && $clubs->isNotEmpty())
-                        <x-ui.select wire:model="clubId" name="clubId" :label="$organisation->term('club_singular')"
-                            hint="Optional. Where this task belongs, so the list can be narrowed to a location.">
-                            <option value="">Not tied to one {{ strtolower($organisation->term('club_singular')) }}</option>
-                            @foreach ($clubs as $club)
-                                <option value="{{ $club->id }}">{{ $club->name }}</option>
-                            @endforeach
-                        </x-ui.select>
-                    @endif
-                </div>
-            </x-ui.card>
-
             <x-ui.card title="People" :description="$organisation->hasFeature('members')
                 ? 'Who is doing this, and which '.strtolower($organisation->term('member_singular')).' it concerns. Both optional. Assignees and the person who raised it can see the task.'
                 : 'Who is doing this. Optional. Assignees and the person who raised it can see the task.'">
@@ -127,7 +70,10 @@
                                         <p class="truncate text-xs text-ink-muted">{{ collect([$organisation->reference('member', $selectedMember->id), $organisation->usesClubs() ? ($selectedMember->primaryClub?->name ?? 'No club') : null])->filter()->join(' · ') }}</p>
                                     </div>
                                 </div>
-                                <x-ui.button size="sm" variant="ghost" type="button" wire:click="clearMember">Change</x-ui.button>
+                                <div class="flex shrink-0 items-center gap-1">
+                                    <x-ui.button size="sm" variant="ghost" type="button" icon="arrow-up-right" :href="route('tenant.members.show', $selectedMember)" wire:navigate>View</x-ui.button>
+                                    <x-ui.button size="sm" variant="ghost" type="button" wire:click="clearMember">Change</x-ui.button>
+                                </div>
                             </div>
                         @else
                             <div class="relative">
@@ -157,6 +103,63 @@
                         @endif
                     </x-ui.field>
                     @endfeature
+                </div>
+            </x-ui.card>
+
+            <x-ui.card title="Task">
+                <div class="grid gap-4 sm:grid-cols-2">
+                    <x-ui.input class="sm:col-span-2" wire:model="title" name="title" label="Title" required
+                        placeholder="What needs doing?" autofocus />
+
+                    @if ($task)
+                        <x-ui.field label="Category" class="sm:col-span-2">
+                            <p class="text-sm text-ink">{{ $category?->name ?? '—' }}</p>
+                            <p class="mt-0.5 text-xs text-ink-muted">Fixed once the task exists — its statuses and parts come from it.</p>
+                        </x-ui.field>
+                    @else
+                        <x-ui.select class="sm:col-span-2" wire:model.live="categoryId" name="categoryId" label="Category" required>
+                            <option value="">Choose a category…</option>
+                            @foreach ($categories as $option)
+                                <option value="{{ $option->id }}">{{ $option->name }}</option>
+                            @endforeach
+                        </x-ui.select>
+                    @endif
+
+                    @if ($category && $category->statuses->isNotEmpty())
+                        <div class="sm:col-span-2">
+                            <x-ui.field label="Status" name="statusId">
+                                {{-- Statuses as their own chips rather than a select, so the
+                                     colour that identifies each one is part of the choice. --}}
+                                <div class="flex flex-wrap gap-1.5" role="radiogroup" aria-label="Status">
+                                    @foreach ($category->statuses as $status)
+                                        <button type="button" wire:click="$set('statusId', {{ $status->id }})" role="radio"
+                                            aria-checked="{{ $statusId === $status->id ? 'true' : 'false' }}"
+                                            @class(['rounded-full px-3 py-1.5 text-sm font-medium transition ring-offset-2 ring-offset-[var(--c-surface)]',
+                                                'ring-2 ring-[var(--c-ink)] shadow-sm' => $statusId === $status->id,
+                                                'opacity-60 hover:opacity-100' => $statusId !== $status->id])
+                                            style="{{ $status->style() }}">{{ $status->name }}</button>
+                                    @endforeach
+                                </div>
+                            </x-ui.field>
+                        </div>
+                    @endif
+
+                    <x-ui.markdown-editor class="sm:col-span-2" wire:model="description" name="description" label="Description"
+                        hint="Optional. Markdown — switch to Preview to see it laid out; you can type in either view."
+                        placeholder="Context, links, what done looks like…" rows="7" />
+
+                    <x-ui.input wire:model="startDate" name="startDate" label="Start date" type="date" hint="Optional." />
+                    <x-ui.input wire:model="dueDate" name="dueDate" label="Due date" type="date" hint="Optional." />
+
+                    @if ($organisation->usesClubs() && $clubs->isNotEmpty())
+                        <x-ui.select wire:model="clubId" name="clubId" :label="$organisation->term('club_singular')"
+                            hint="Optional. Where this task belongs, so the list can be narrowed to a location.">
+                            <option value="">Not tied to one {{ strtolower($organisation->term('club_singular')) }}</option>
+                            @foreach ($clubs as $club)
+                                <option value="{{ $club->id }}">{{ $club->name }}</option>
+                            @endforeach
+                        </x-ui.select>
+                    @endif
                 </div>
             </x-ui.card>
 
