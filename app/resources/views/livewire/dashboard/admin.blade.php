@@ -37,7 +37,7 @@
         $hasExpenses = $organisation->hasFeature('expenses');
         $hasPlans = $organisation->hasFeature('plans');
         $hasMembers = $organisation->hasFeature('members');
-        $hasAttendance = $organisation->hasFeature('attendance') && $hasMembers;
+        $hasAttendance = $organisation->hasFeature('member_attendance') && $hasMembers;
     @endphp
 
     {{-- Core cards (MEP 6.2). --}}

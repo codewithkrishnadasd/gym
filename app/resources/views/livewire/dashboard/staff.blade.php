@@ -13,7 +13,7 @@
 
     @php
         $hasPlans = $organisation->hasFeature('plans');
-        $hasAttendance = $organisation->hasFeature('attendance') && $organisation->hasFeature('members');
+        $hasAttendance = $organisation->hasFeature('member_attendance') && $organisation->hasFeature('members');
     @endphp
 
     {{-- Quick actions: only what this user is actually permitted to do. --}}

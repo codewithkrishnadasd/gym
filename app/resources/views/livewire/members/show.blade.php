@@ -9,7 +9,7 @@
         $tabs['plans'] = 'Plans';
     }
 
-    if ($organisation->hasFeature('attendance')) {
+    if ($organisation->hasFeature('member_attendance')) {
         $tabs['attendance'] = 'Attendance';
     }
 
@@ -103,7 +103,7 @@
                 :hint="$member->owesAdmissionFee() ? 'includes '.$organisation->money($member->admissionOutstandingMinor()).' admission fee' : null"
                 :tone="$outstanding > 0 ? 'caution' : 'positive'" icon="exclamation-circle" />
         @endfeature
-        @feature('attendance')
+        @feature('member_attendance')
             <x-ui.stat label="Attendance" :value="$attendanceRate.'%'" :hint="$presentMarks.' visits in 12 weeks'"
                 :tone="$attendanceRate >= 60 ? 'positive' : 'neutral'" icon="clipboard-document-check" />
         @endfeature
@@ -267,47 +267,7 @@
             </x-ui.card>
         </div>
     @elseif ($tab === 'attendance')
-        <x-ui.card title="Last 12 weeks" :description="$presentMarks.' visits · '.$attendanceRate.'% of marked days'">
-            {{-- A compact calendar heatmap: one column per week, one cell per day. --}}
-            <div class="overflow-x-auto">
-                <div class="flex gap-1" style="min-width: 640px">
-                    @for ($week = 11; $week >= 0; $week--)
-                        <div class="flex flex-1 flex-col gap-1">
-                            @for ($day = 0; $day < 7; $day++)
-                                @php
-                                    $date = $today->copy()->subWeeks($week)->startOfWeek()->addDays($day);
-                                    $record = $date->gt($today) ? null : $attendance->get($date->toDateString());
-                                    $tone = match ($record?->action->value) {
-                                        'present' => 'bg-positive',
-                                        'late' => 'bg-caution',
-                                        'excused' => 'bg-info',
-                                        'absent' => 'bg-critical',
-                                        default => 'bg-sunken',
-                                    };
-                                @endphp
-                                <div class="h-4 flex-1 rounded-[3px] {{ $date->gt($today) ? 'opacity-30' : '' }} {{ $tone }}"
-                                    title="{{ $date->format('D d M Y') }}{{ $record ? ' — '.$record->action->label() : '' }}"></div>
-                            @endfor
-                        </div>
-                    @endfor
-                </div>
-            </div>
-
-            <div class="mt-4 flex flex-wrap items-center gap-4 text-xs text-ink-muted">
-                @foreach (\App\Enums\AttendanceAction::cases() as $case)
-                    <span class="flex items-center gap-1.5">
-                        <span @class(['h-3 w-3 rounded-[3px]',
-                            'bg-positive' => $case->value === 'present',
-                            'bg-caution' => $case->value === 'late',
-                            'bg-info' => $case->value === 'excused',
-                            'bg-critical' => $case->value === 'absent',
-                        ])></span>
-                        {{ $case->label() }}
-                    </span>
-                @endforeach
-                <span class="flex items-center gap-1.5"><span class="h-3 w-3 rounded-[3px] bg-sunken"></span> Not marked</span>
-            </div>
-        </x-ui.card>
+        <livewire:attendance.report subject-type="member" :subject-id="$member->id" :key="'attendance-'.$member->id" />
     @elseif ($tab === 'payments')
         @if ($unlinkedPaid > 0)
             {{-- Money received without saying what for. Shown apart from the

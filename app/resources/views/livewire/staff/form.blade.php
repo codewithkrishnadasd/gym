@@ -143,6 +143,13 @@
 
     {{-- Only for an existing staff member: an upload needs a row to attach to,
          and this saves itself rather than riding on the form above. --}}
+    @if ($organisationUser && $organisation->hasFeature('staff_attendance') && $organisation->hasFeature('staff'))
+        <div class="mt-5">
+            <h2 class="mb-3 font-[family-name:var(--font-display)] text-base font-semibold text-ink">Attendance</h2>
+            <livewire:attendance.report subject-type="user" :subject-id="$organisationUser->id" :key="'attendance-staff-'.$organisationUser->id" />
+        </div>
+    @endif
+
     @if ($organisationUser)
         @can('viewAny', \App\Models\Document::class)
             <div class="mt-5 lg:w-2/3">

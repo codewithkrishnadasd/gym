@@ -42,7 +42,7 @@
             <x-ui.stat label="Expenses" :value="$organisation->moneyCompact($expenses)" icon="receipt-percent" tone="critical"
                 hint="this period" :href="route('tenant.finance.expenses.index', ['status' => 'completed', ...$periodQuery])" wire:navigate />
         @endfeature
-        @feature('attendance')
+        @feature('member_attendance')
             <x-ui.stat label="Attendance rate" :value="$attendanceRate.'%'" icon="chart-bar"
                 :tone="$attendanceRate >= 60 ? 'positive' : 'caution'" hint="this period" :href="$organisation->hasFeature('reports') ? route('tenant.reports.index', ['tab' => 'attendance', 'range' => $range, ...$periodQuery]) : null" wire:navigate />
         @endfeature
@@ -70,7 +70,7 @@
             </x-ui.card>
             @endif
 
-            @feature('attendance')
+            @feature('member_attendance')
             <x-ui.card title="Attendance" :description="$period->label()">
                 <x-ui.chart type="bar" :labels="$attendanceTrend['labels']" :height="230" stacked
                     :summary="'Attendance rate is '.$attendanceRate.'%.'"

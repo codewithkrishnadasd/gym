@@ -93,7 +93,7 @@ class Index extends Component
         return array_filter([
             'finance' => $organisation->hasFeature(Feature::Payments) || $organisation->hasFeature(Feature::Expenses) ? 'Finance' : null,
             'members' => $organisation->hasFeature(Feature::Members) ? $organisation->term('member_plural') : null,
-            'attendance' => $organisation->hasFeature(Feature::Attendance) && $organisation->hasFeature(Feature::Members) ? 'Attendance' : null,
+            'attendance' => $organisation->hasFeature(Feature::MemberAttendance) && $organisation->hasFeature(Feature::Members) ? 'Attendance' : null,
         ]);
     }
 

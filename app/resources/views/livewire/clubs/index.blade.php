@@ -41,7 +41,7 @@
                     @feature('members')<x-ui.th align="right">{{ $organisation->term('member_plural') }}</x-ui.th>@endfeature
                     @feature('staff')<x-ui.th align="right">{{ $organisation->term('user_plural') }}</x-ui.th>@endfeature
                     @feature('payments')<x-ui.th align="right">Revenue (MTD)</x-ui.th>@endfeature
-                    @feature('attendance')<x-ui.th align="right">Attendance (MTD)</x-ui.th>@endfeature
+                    @feature('member_attendance')<x-ui.th align="right">Attendance (MTD)</x-ui.th>@endfeature
                     <x-ui.th>Status</x-ui.th>
                     <x-ui.th align="right"></x-ui.th>
                 </x-slot:head>
@@ -68,7 +68,7 @@
                                 <a href="{{ route('tenant.finance.payments.index', ['club' => $club->id, 'status' => 'confirmed']) }}" wire:navigate class="hover:text-accent hover:underline" title="Confirmed payments at {{ $club->name }}">{{ $organisation->money((int) ($club->revenue_minor ?? 0)) }}</a>
                             </x-ui.td>
                         @endfeature
-                        @feature('attendance')
+                        @feature('member_attendance')
                             <x-ui.td align="right"><x-ui.count-link :value="$club->attendance_count" :href="route('tenant.attendance.members', ['clubId' => $club->id])" :title="'Attendance at '.$club->name" /></x-ui.td>
                         @endfeature
                         <x-ui.td><x-ui.badge :tone="$club->status->tone()">{{ $club->status->label() }}</x-ui.badge></x-ui.td>

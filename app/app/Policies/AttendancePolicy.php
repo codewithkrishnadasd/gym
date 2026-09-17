@@ -19,13 +19,13 @@ class AttendancePolicy
     use EvaluatesMembership;
 
     /**
-     * Nothing here is permitted while the organisation has the Attendance
-     * module switched off. Each roster additionally needs the module for the
-     * people on it — Members or Staff — since a roster of nobody is no roster.
+     * Nothing here is permitted while neither roster's module is on. Each
+     * roster is its own module — Member attendance, Staff attendance — and
+     * each also needs the people it is a roster of.
      */
     public function before(User $user): ?bool
     {
-        return $this->featureEnabled(Feature::Attendance) ? null : false;
+        return $this->featureEnabled(Feature::MemberAttendance) || $this->featureEnabled(Feature::StaffAttendance) ? null : false;
     }
 
     public function viewAny(User $user): bool
@@ -35,14 +35,14 @@ class AttendancePolicy
 
     public function markMembers(User $user, ?int $clubId = null): bool
     {
-        return $this->featureEnabled(Feature::Members)
+        return $this->featureEnabled(Feature::MemberAttendance) && $this->featureEnabled(Feature::Members)
             && ($this->isAdmin($user) || $this->hasPermission($user, 'attendance.member.mark'))
             && $this->clubAllowed($user, $clubId);
     }
 
     public function markStaff(User $user, ?int $clubId = null): bool
     {
-        return $this->featureEnabled(Feature::Staff)
+        return $this->featureEnabled(Feature::StaffAttendance) && $this->featureEnabled(Feature::Staff)
             && ($this->isAdmin($user) || $this->hasPermission($user, 'attendance.staff.mark'))
             && $this->clubAllowed($user, $clubId);
     }

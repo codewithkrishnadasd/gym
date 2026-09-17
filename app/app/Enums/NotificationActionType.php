@@ -137,7 +137,8 @@ enum NotificationActionType: string
             self::CustomMessage => Feature::Messaging,
             self::FeePaymentConfirmed => Feature::Payments,
             self::InvoiceIssued => Feature::Billing,
-            self::MemberAttendanceMarked, self::UserAttendanceMarked => Feature::Attendance,
+            self::MemberAttendanceMarked => Feature::MemberAttendance,
+            self::UserAttendanceMarked => Feature::StaffAttendance,
             self::UserInvited, self::UserProfileUpdated, self::UserClubAssignmentChanged,
             self::UserPermissionsChanged, self::UserStatusChanged, self::PasswordResetLink => Feature::Staff,
         };

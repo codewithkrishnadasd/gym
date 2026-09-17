@@ -255,7 +255,7 @@ it('saves a new member when clubs exist but the Clubs module is off', function (
 });
 
 it('marks member attendance organisation-wide without the Clubs module', function (): void {
-    enableOnly([Feature::Members, Feature::Attendance]);
+    enableOnly([Feature::Members, Feature::MemberAttendance]);
 
     $member = Member::factory()->create(['organisation_id' => $this->organisation->id, 'name' => 'Present Pia', 'primary_club_id' => null]);
 
@@ -272,8 +272,8 @@ it('marks member attendance organisation-wide without the Clubs module', functio
         'club_id' => null,
     ]);
 
-    // Staff attendance needs the Staff module.
-    $this->get('http://features.test/attendance/users')->assertForbidden();
+    // Staff attendance is its own module, off here.
+    $this->get('http://features.test/attendance/users')->assertNotFound();
 });
 
 it('offers a payment only what the enabled modules can pay for', function (): void {

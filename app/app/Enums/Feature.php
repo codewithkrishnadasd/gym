@@ -22,7 +22,8 @@ enum Feature: string
     case Clubs = 'clubs';
     case Staff = 'staff';
     case Plans = 'plans';
-    case Attendance = 'attendance';
+    case MemberAttendance = 'member_attendance';
+    case StaffAttendance = 'staff_attendance';
     case Payments = 'payments';
     case Billing = 'billing';
     case Expenses = 'expenses';
@@ -39,7 +40,8 @@ enum Feature: string
             self::Clubs => 'Clubs',
             self::Staff => 'Staff',
             self::Plans => 'Plans',
-            self::Attendance => 'Attendance',
+            self::MemberAttendance => 'Member attendance',
+            self::StaffAttendance => 'Staff attendance',
             self::Payments => 'Fee collection',
             self::Billing => 'Invoices',
             self::Expenses => 'Expenses',
@@ -58,7 +60,8 @@ enum Feature: string
             self::Clubs => 'Several locations under one organisation, with members, staff, and money grouped by club. Without it everything is organisation-wide.',
             self::Staff => 'The team page: invite staff, set permissions, and assign them to clubs.',
             self::Plans => 'Membership plans, renewals, expiry tracking, and plan balances.',
-            self::Attendance => 'Daily rosters for members and staff, with the attendance calendar and rate.',
+            self::MemberAttendance => 'The daily member roster, with each member\'s attendance calendar and rate.',
+            self::StaffAttendance => 'The daily staff roster — who was in for the day — with each person\'s attendance calendar.',
             self::Payments => 'Collecting fees with receipts, discounts, partial payments, and admin confirmation of staff collections.',
             self::Billing => 'Invoices built from a price list, with balances and shareable links.',
             self::Expenses => 'Recording what the organisation spends, by category.',
@@ -77,7 +80,8 @@ enum Feature: string
             self::Clubs => 'building-office-2',
             self::Staff => 'identification',
             self::Plans => 'rectangle-stack',
-            self::Attendance => 'clipboard-document-check',
+            self::MemberAttendance => 'clipboard-document-check',
+            self::StaffAttendance => 'clipboard-document-list',
             self::Payments => 'banknotes',
             self::Billing => 'document-text',
             self::Expenses => 'receipt-percent',
@@ -92,7 +96,7 @@ enum Feature: string
     public function group(): string
     {
         return match ($this) {
-            self::Members, self::Clubs, self::Staff, self::Plans, self::Attendance => 'People',
+            self::Members, self::Clubs, self::Staff, self::Plans, self::MemberAttendance, self::StaffAttendance => 'People',
             self::Payments, self::Billing, self::Expenses, self::Accounts => 'Finance',
             self::Documents, self::Messaging, self::Tasks, self::Reports => 'Operations',
         };
@@ -107,9 +111,11 @@ enum Feature: string
     public function requires(): array
     {
         return match ($this) {
-            // A plan is sold to a member. Fees and invoices, by contrast, can
-            // be made out to anyone by name, so they stand without Members.
-            self::Plans => [self::Members],
+            // A plan is sold to a member, and a roster is of members or of
+            // staff. Fees and invoices, by contrast, can be made out to anyone
+            // by name, so they stand without Members.
+            self::Plans, self::MemberAttendance => [self::Members],
+            self::StaffAttendance => [self::Staff],
             // Every collection names the account the money landed in.
             self::Payments => [self::Accounts],
             // Every expense is paid from an account.
@@ -153,6 +159,11 @@ enum Feature: string
     {
         /** @var array<string, true> $resolved */
         $resolved = [];
+
+        // Before the two rosters were separate modules there was one key.
+        if (in_array('attendance', $enabled, true)) {
+            $enabled = [...$enabled, self::MemberAttendance->value, self::StaffAttendance->value];
+        }
 
         /** @var array<int, self> $queue */
         $queue = array_values(array_filter(array_map(

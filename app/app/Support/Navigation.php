@@ -41,9 +41,10 @@ final class Navigation
 
         // The member roster is the natural first stop; an organisation
         // without members marks staff only.
-        $attendanceRoute = $has(Feature::Members) ? 'tenant.attendance.members' : 'tenant.attendance.staff';
-        $attendanceAllowed = ($has(Feature::Members) && ($isAdmin || $can('attendance.member.mark')))
-            || ($has(Feature::Staff) && ($isAdmin || $can('attendance.staff.mark')));
+        $memberRoster = $has(Feature::MemberAttendance) && $has(Feature::Members) && ($isAdmin || $can('attendance.member.mark'));
+        $staffRoster = $has(Feature::StaffAttendance) && $has(Feature::Staff) && ($isAdmin || $can('attendance.staff.mark'));
+        $attendanceRoute = $memberRoster ? 'tenant.attendance.members' : 'tenant.attendance.staff';
+        $attendanceAllowed = $memberRoster || $staffRoster;
 
         $sections = [];
 
@@ -64,7 +65,7 @@ final class Navigation
                     'active' => 'tenant.members.*',
                     'mobile' => true,
                 ] : null,
-                $has(Feature::Attendance) && $attendanceAllowed ? [
+                $attendanceAllowed ? [
                     'label' => 'Attendance',
                     'route' => $attendanceRoute,
                     'icon' => 'clipboard-document-check',
@@ -255,7 +256,7 @@ final class Navigation
         'tasks' => ['label' => 'New task', 'route' => 'tenant.tasks.create', 'feature' => Feature::Tasks, 'ability' => ['create', Task::class], 'symbol' => '+', 'icon' => 'check-circle'],
         'billing' => ['label' => 'New invoice', 'route' => 'tenant.billing.create', 'feature' => Feature::Billing, 'ability' => ['create', Invoice::class], 'symbol' => '+', 'icon' => 'document-text'],
         'expenses' => ['label' => 'Record expense', 'route' => 'tenant.finance.expenses.create', 'feature' => Feature::Expenses, 'ability' => ['create', Expense::class], 'symbol' => '−', 'icon' => 'receipt-percent'],
-        'attendance' => ['label' => 'Mark attendance', 'route' => 'tenant.attendance.members', 'feature' => Feature::Attendance, 'ability' => ['markMembers', Attendance::class], 'symbol' => '✓', 'icon' => 'clipboard-document-check'],
+        'attendance' => ['label' => 'Mark attendance', 'route' => 'tenant.attendance.members', 'feature' => Feature::MemberAttendance, 'ability' => ['markMembers', Attendance::class], 'symbol' => '✓', 'icon' => 'clipboard-document-check'],
     ];
 
     /**

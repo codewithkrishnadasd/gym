@@ -153,9 +153,9 @@ Route::middleware(['auth:web', EnsureActiveMembership::class])->group(function (
         Route::get('/{plan}/edit', PlanForm::class)->name('edit');
     });
 
-    Route::prefix('attendance')->name('tenant.attendance.')->middleware(EnsureFeatureEnabled::class.':attendance')->group(function (): void {
-        Route::get('/members', AttendanceRoster::class)->defaults('subject', 'members')->name('members');
-        Route::get('/users', AttendanceRoster::class)->defaults('subject', 'staff')->name('staff');
+    Route::prefix('attendance')->name('tenant.attendance.')->group(function (): void {
+        Route::get('/members', AttendanceRoster::class)->defaults('subject', 'members')->middleware(EnsureFeatureEnabled::class.':member_attendance')->name('members');
+        Route::get('/users', AttendanceRoster::class)->defaults('subject', 'staff')->middleware(EnsureFeatureEnabled::class.':staff_attendance')->name('staff');
     });
 
     Route::prefix('finance')->name('tenant.finance.')->group(function (): void {
