@@ -41,11 +41,13 @@
 
     <x-ui.page-header :title="$member->name" :back="route('tenant.members.index')" :back-label="$organisation->term('member_plural')"
         :description="collect([$organisation->reference('member', $member->id), $displayPhone, $organisation->usesClubs() ? $member->primaryClub?->name : null])->filter()->join(' · ')">
-        <x-slot:actions>
-            @if ($canNotify && $member->phone)
+        @if ($canNotify && $member->phone)
+            <x-slot:quick>
                 <livewire:notifications.compose-menu recipient-type="member" :recipient-id="$member->id" :key="'compose-'.$member->id" />
-            @endif
+            </x-slot:quick>
+        @endif
 
+        <x-slot:actions>
             @can('create', \App\Models\FeePayment::class)
                 <x-ui.button icon="banknotes" :href="route('tenant.finance.payments.create', ['member' => $member->id])" wire:navigate>
                     Collect fee

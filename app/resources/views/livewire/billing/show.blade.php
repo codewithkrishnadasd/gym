@@ -3,10 +3,13 @@
 
     <x-ui.page-header :title="$invoice->number" :back="route('tenant.billing.index')" back-label="Invoices"
         :description="collect(['Issued '.$invoice->issue_date->format('d M Y'), $organisation->usesClubs() ? $invoice->club?->name : null])->filter()->join(' · ')">
-        <x-slot:actions>
-            @if ($canNotify && $invoice->member && $invoice->member->phone)
+        @if ($canNotify && $invoice->member && $invoice->member->phone)
+            <x-slot:quick>
                 <livewire:notifications.compose-menu recipient-type="member" :recipient-id="$invoice->member_id" :key="'compose-'.$invoice->id" />
-            @endif
+            </x-slot:quick>
+        @endif
+
+        <x-slot:actions>
             <x-ui.download-button icon="arrow-down-tray" :what="'invoice '.$invoice->number.' as a PDF'" :href="route('tenant.billing.pdf', $invoice)">PDF</x-ui.download-button>
 
             @if ($invoice->isOpen())

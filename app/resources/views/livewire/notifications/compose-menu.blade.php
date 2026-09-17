@@ -1,7 +1,10 @@
 <div x-data="{ open: false }" x-on:click.outside="open = false" x-on:keydown.escape.window="open = false" class="relative">
-    <x-ui.button icon="chat-bubble-left-right" x-on:click="open = ! open" x-bind:aria-expanded="open">
-        WhatsApp
-        <x-heroicon-o-chevron-down class="h-3.5 w-3.5 opacity-70" />
+    {{-- A labelled button on a desk; on a phone, where it sits in the page
+         header beside the actions menu, just the icon. --}}
+    <x-ui.button x-on:click="open = ! open" x-bind:aria-expanded="open" aria-label="WhatsApp" class="max-sm:h-11 max-sm:w-11 max-sm:px-0">
+        <x-heroicon-o-chat-bubble-left-right class="h-4 w-4 shrink-0 text-positive max-sm:h-5 max-sm:w-5" />
+        <span class="max-sm:hidden">WhatsApp</span>
+        <x-heroicon-o-chevron-down class="h-3.5 w-3.5 opacity-70 max-sm:hidden" />
     </x-ui.button>
 
     {{-- The menu, as a small sheet on phones and a dropdown on desks. The

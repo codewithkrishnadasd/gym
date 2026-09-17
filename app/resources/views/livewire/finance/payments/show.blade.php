@@ -3,10 +3,13 @@
 
     <x-ui.page-header :title="'Payment '.$organisation->reference('payment', $payment->id)" :back="route('tenant.finance.payments.index')" back-label="Payments"
         :description="collect([$payment->payerName(), $organisation->usesClubs() ? $payment->club?->name : null])->filter()->join(' · ')">
-        <x-slot:actions>
-            @if ($canNotify && $payment->member && $payment->member->phone)
+        @if ($canNotify && $payment->member && $payment->member->phone)
+            <x-slot:quick>
                 <livewire:notifications.compose-menu recipient-type="member" :recipient-id="$payment->member_id" :key="'compose-'.$payment->id" />
-            @endif
+            </x-slot:quick>
+        @endif
+
+        <x-slot:actions>
             @can('notify', $payment)
                 <x-ui.download-button icon="document-arrow-down" what="the receipt for this payment as a PDF" :href="route('tenant.finance.payments.receipt', $payment)">Receipt PDF</x-ui.download-button>
             @endcan

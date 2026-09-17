@@ -4,9 +4,9 @@
         description="Club assignments and permissions are set here, in the same flow.">
         @if ($organisationUser && $organisationUser->user?->phone)
             @can('sendNotifications', $organisation)
-                <x-slot:actions>
+                <x-slot:quick>
                     <livewire:notifications.compose-menu recipient-type="user" :recipient-id="$organisationUser->id" :key="'compose-staff-'.$organisationUser->id" />
-                </x-slot:actions>
+                </x-slot:quick>
             @endcan
         @endif
     </x-ui.page-header>

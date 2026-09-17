@@ -18,9 +18,9 @@
 
     <x-ui.page-header :title="'Good '.(now($organisation->timezone)->hour < 12 ? 'morning' : (now($organisation->timezone)->hour < 17 ? 'afternoon' : 'evening')).', '.\Illuminate\Support\Str::before($membership->user?->name ?? '', ' ')"
         :description="$organisation->name.' · '.$period->label()">
-        <x-slot:actions>
+        <x-slot:quick>
             <x-ui.alert-centre :alerts="$alerts" />
-        </x-slot:actions>
+        </x-slot:quick>
     </x-ui.page-header>
 
     @php $quickAction = \App\Support\Navigation::quickAction($organisation, auth()->user(), $membership); @endphp
