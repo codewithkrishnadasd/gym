@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Livewire\Settings;
 
 use App\Enums\NotificationActionType;
+use App\Livewire\Concerns\ActsForOrganisation;
 use App\Livewire\Concerns\ResolvesMembership;
 use App\Models\AuditEvent;
 use App\Models\CustomMessageTemplate;
@@ -13,6 +14,7 @@ use App\Models\MessageTemplate;
 use App\Models\Organisation;
 use App\Support\Images\BrandImage;
 use App\Support\PhoneNumber;
+use App\Support\SettingsTabs;
 use App\Support\WhatsApp\MessageComposer;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -34,7 +36,7 @@ use RuntimeException;
  */
 class OrganisationSettings extends Component
 {
-    use ResolvesMembership, WithFileUploads;
+    use ActsForOrganisation, ResolvesMembership, WithFileUploads;
 
     #[Url]
     public string $tab = 'profile';
@@ -424,10 +426,10 @@ class OrganisationSettings extends Component
         $template->fill([
             'body' => $validated['templateBody'],
             'version' => ($template->version ?? 0) + 1,
-            'updated_by' => $this->currentMembership()->id,
+            'updated_by' => $this->actingMembership()?->id,
         ])->save();
 
-        AuditEvent::record($template, 'message_template.updated', $this->currentMembership(), $before, [
+        AuditEvent::record($template, 'message_template.updated', $this->actingMembership(), $before, [
             'action_type' => $type->value,
             'version' => $template->version,
         ]);
@@ -469,7 +471,7 @@ class OrganisationSettings extends Component
 
         $template->fill([
             'body' => $validated['customTemplateBody'],
-            'created_by' => $template->created_by ?? $this->currentMembership()->id,
+            'created_by' => $template->created_by ?? $this->actingMembership()?->id,
         ])->save();
 
         $this->reset(['customTemplateName', 'customTemplateBody']);
@@ -642,7 +644,7 @@ class OrganisationSettings extends Component
         // component update does not re-render — so a full navigation is needed
         // for the new labels to appear immediately rather than on the user's
         // next page load.
-        $this->redirect(route('tenant.settings.organisation', ['tab' => 'terminology']));
+        $this->redirect($this->settingsUrl('terminology'));
     }
 
     /**
@@ -652,7 +654,7 @@ class OrganisationSettings extends Component
     private function persist(array $after, array $before, string $action): void
     {
         $organisation = $this->organisation();
-        $actor = $this->currentMembership();
+        $actor = $this->actingMembership();
 
         DB::transaction(function () use ($organisation, $after, $before, $action, $actor): void {
             $organisation->update($after);
@@ -667,6 +669,8 @@ class OrganisationSettings extends Component
 
         return view('livewire.settings.organisation', [
             'organisation' => $organisation,
+            'platform' => $this->actsForPlatform(),
+            'settingsTabs' => SettingsTabs::items($organisation, $this->actsForPlatform(), $this->tab),
             'timezones' => \DateTimeZone::listIdentifiers(),
             'countries' => PhoneNumber::countries(),
             'actionTypes' => NotificationActionType::editableFor($organisation),

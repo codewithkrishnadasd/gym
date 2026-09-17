@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Livewire\Settings;
 
 use App\Enums\StorageBucketStatus;
+use App\Livewire\Concerns\ActsForOrganisation;
 use App\Livewire\Concerns\ResolvesMembership;
 use App\Models\AuditEvent;
 use App\Models\Document;
@@ -27,7 +28,7 @@ use Livewire\Component;
  */
 class StorageBuckets extends Component
 {
-    use ResolvesMembership;
+    use ActsForOrganisation, ResolvesMembership;
 
     public ?int $editingId = null;
 
@@ -120,7 +121,7 @@ class StorageBuckets extends Component
         ]);
 
         $record = $isNew
-            ? new StorageBucket(['created_by' => $this->currentMembership()->id])
+            ? new StorageBucket(['created_by' => $this->actingMembership()?->id])
             : StorageBucket::query()->findOrFail($this->editingId);
 
         $before = $isNew ? null : $record->only(['name', 'bucket', 'region', 'endpoint', 'path_prefix', 'is_default']);
@@ -155,7 +156,7 @@ class StorageBuckets extends Component
         AuditEvent::record(
             $record,
             $isNew ? 'storage_bucket.created' : 'storage_bucket.updated',
-            $this->currentMembership(),
+            $this->actingMembership(),
             $before,
             $record->only(['name', 'bucket', 'region', 'endpoint', 'path_prefix', 'is_default']),
         );
@@ -220,7 +221,7 @@ class StorageBuckets extends Component
             'is_default' => false,
         ])->save();
 
-        AuditEvent::record($record, 'storage_bucket.removed', $this->currentMembership(), null, [
+        AuditEvent::record($record, 'storage_bucket.removed', $this->actingMembership(), null, [
             'name' => $record->name,
             'documents' => $record->documents()->count(),
         ]);

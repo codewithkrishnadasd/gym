@@ -91,9 +91,9 @@ it('lets the platform admin choose the modules and stores the closed set', funct
 
     expect($this->organisation->fresh()->features)->toBe(['payments', 'accounts', 'tasks']);
 
-    // The edit page lists every module with a checkbox.
+    // The Features tab lists every module as a tile.
     $this->actingAs(PlatformAdmin::factory()->create(), 'platform')
-        ->get('http://'.config('platform.hostname').'/organisations/'.$this->organisation->id.'/edit')
+        ->get('http://'.config('platform.hostname').'/organisations/'.$this->organisation->id.'/edit?tab=features')
         ->assertOk()
         ->assertSee('Features')
         ->assertSee('name="features[]" value="expenses"', false)

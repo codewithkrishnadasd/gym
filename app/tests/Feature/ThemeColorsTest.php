@@ -141,7 +141,7 @@ it('takes the brand accent from the palette\'s light primary, and shows an older
     // Set before the palette existed: the form offers it as the light primary
     // so saving without changes keeps it.
     $this->actingAs(PlatformAdmin::factory()->create(), 'platform')
-        ->get('http://'.config('platform.hostname').'/organisations/'.$this->organisation->id.'/edit')
+        ->get('http://'.config('platform.hostname').'/organisations/'.$this->organisation->id.'/edit?tab=appearance')
         ->assertOk()
         ->assertSee('accent\u0022:\u0022#b91c1c', false)
         ->assertDontSee('name="accent_color"', false)
@@ -168,7 +168,7 @@ it('rejects a colour that is not a hex value', function (): void {
 
 it('shows every token for both themes in the platform editor', function (): void {
     $response = $this->actingAs(PlatformAdmin::factory()->create(), 'platform')
-        ->get('http://'.config('platform.hostname').'/organisations/'.$this->organisation->id.'/edit')
+        ->get('http://'.config('platform.hostname').'/organisations/'.$this->organisation->id.'/edit?tab=appearance')
         ->assertOk()
         ->assertSee('Appearance')
         ->assertSee('Secondary button')

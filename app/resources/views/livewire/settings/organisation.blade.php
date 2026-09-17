@@ -2,32 +2,19 @@
 <div>
     <x-ui.flash />
 
-    <x-ui.page-header title="Settings" :description="$organisation->name" />
+    {{-- On the platform console the page around this component carries the
+         heading and the tab row (its own tabs come first there). --}}
+    @unless ($platform)
+        <x-ui.page-header title="Settings" :description="$organisation->name" />
+
+        <x-ui.tabs :items="$settingsTabs" />
+    @endunless
 
     @php
-        // A module's settings tab exists only while the module does
-        // (App\Enums\Feature); an old link to a hidden tab lands on Profile.
-        $settingsTabs = array_filter([
-            'profile' => 'Profile',
-            'terminology' => 'Terminology',
-            'notifications' => $organisation->hasFeature('messaging') ? 'Notifications' : null,
-            'expenses' => $organisation->hasFeature('expenses') ? 'Expense categories' : null,
-            'billing' => $organisation->hasFeature('billing') ? 'Billing' : null,
-            'storage' => $organisation->hasFeature('documents') ? 'Storage' : null,
-            'tasks' => $organisation->hasFeature('tasks') ? 'Tasks' : null,
-            'templates' => $organisation->hasFeature('messaging') ? 'Message templates' : null,
-        ]);
-
-        if (! isset($settingsTabs[$tab])) {
-            $tab = 'profile';
-        }
+        // A module's tab exists only while the module does; an old link to a
+        // hidden tab lands on the first one.
+        $tab = \App\Support\SettingsTabs::resolve($organisation, false, $tab);
     @endphp
-
-    <x-ui.tabs :items="collect($settingsTabs)->map(fn ($label, $key) => [
-        'label' => $label,
-        'url' => route('tenant.settings.organisation', ['tab' => $key]),
-        'active' => $tab === $key,
-    ])->values()->all()" />
 
     @if ($tab === 'profile')
         <form wire:submit="saveProfile" class="grid gap-5 lg:grid-cols-3">
@@ -337,11 +324,11 @@
             </div>
         </div>
     @elseif ($tab === 'billing')
-        <livewire:settings.billable-items />
+        <livewire:settings.billable-items :platform-organisation-id="$platformOrganisationId" />
     @elseif ($tab === 'tasks')
-        <livewire:settings.task-categories />
+        <livewire:settings.task-categories :platform-organisation-id="$platformOrganisationId" />
     @elseif ($tab === 'storage')
-        <livewire:settings.storage-buckets />
+        <livewire:settings.storage-buckets :platform-organisation-id="$platformOrganisationId" />
     @elseif ($tab === 'templates')
         <form wire:submit="saveTemplate" class="grid gap-5 lg:grid-cols-3">
             <div class="space-y-5 lg:col-span-2">

@@ -20,6 +20,7 @@ use App\Models\PlatformAdmin;
 use App\Models\PlatformAuditEvent;
 use App\Models\User;
 use App\Support\PhoneNumber;
+use App\Support\SettingsTabs;
 use App\Support\Theme\ThemeTokens;
 use Closure;
 use DateTimeZone;
@@ -33,6 +34,9 @@ use Illuminate\View\View;
 
 class OrganisationController extends Controller
 {
+    /** Which fields each console tab's form posts. */
+    private const SECTIONS = ['general', 'features', 'appearance'];
+
     public function index(): View
     {
         $organisations = Organisation::query()
@@ -157,64 +161,104 @@ class OrganisationController extends Controller
             ->with('status', "\"{$organisation->name}\" was created.");
     }
 
-    public function edit(Organisation $organisation): View
+    /**
+     * One page, tabbed like an organisation's own settings page: the console's
+     * tabs (general, features, appearance, domains, people) first, then every
+     * tab the organisation's admins have — rendered by the same Livewire
+     * settings component, acting on this organisation.
+     */
+    public function edit(Request $request, Organisation $organisation): View
     {
         $organisation->load(['domains', 'organisationUsers.user']);
 
+        $tab = SettingsTabs::resolve($organisation, true, $request->query('tab'));
+
+        // The settings component is written for a tenant domain, where the
+        // organisation is the bound tenant. Bound here for this page load;
+        // the component rebinds it on its own later requests.
+        if (! SettingsTabs::isPlatformTab($tab)) {
+            app()->instance('tenant', $organisation);
+        }
+
         return view('platform.organisations.edit', [
             'organisation' => $organisation,
+            'tab' => $tab,
+            'tabs' => SettingsTabs::items($organisation, true, $tab),
             'timezones' => DateTimeZone::listIdentifiers(),
         ]);
     }
 
+    /**
+     * Saves one tab's form — `section` names it — or, with no section, all of
+     * them at once.
+     */
     public function update(Request $request, Organisation $organisation): RedirectResponse
     {
-        $validated = $request->validate([
-            'name' => ['required', 'string', 'max:255'],
-            'slug' => ['required', 'string', 'max:255', 'alpha_dash:ascii', Rule::unique('organisations', 'slug')->ignore($organisation->id)],
-            'status' => ['required', Rule::enum(OrganisationStatus::class)],
-            'timezone' => ['required', 'timezone'],
-            'currency_code' => ['required', 'string', 'size:3', 'uppercase'],
-            'locale' => ['required', 'string', 'max:10'],
+        $request->validate(['section' => ['nullable', Rule::in(self::SECTIONS)]]);
+
+        $section = $request->input('section');
+        $sections = $section === null ? self::SECTIONS : [$section];
+
+        $rules = [];
+
+        if (in_array('general', $sections, true)) {
+            $rules += [
+                'name' => ['required', 'string', 'max:255'],
+                'slug' => ['required', 'string', 'max:255', 'alpha_dash:ascii', Rule::unique('organisations', 'slug')->ignore($organisation->id)],
+                'status' => ['required', Rule::enum(OrganisationStatus::class)],
+                'timezone' => ['required', 'timezone'],
+                'currency_code' => ['required', 'string', 'size:3', 'uppercase'],
+                'locale' => ['required', 'string', 'max:10'],
+                'contact_email' => ['nullable', 'email', 'max:255'],
+                'contact_phone' => ['nullable', 'string', 'max:50'],
+            ];
+        }
+
+        if (in_array('appearance', $sections, true)) {
             // Branding is a platform-admin decision: it is the one visual
             // setting a gym cannot change for itself.
-            'theme' => ['nullable', 'array'],
-            'theme.*' => ['nullable', 'array'],
-            'theme.*.*' => ['nullable', 'string', 'regex:/^#[0-9a-fA-F]{6}$/'],
+            $rules += [
+                'theme' => ['nullable', 'array'],
+                'theme.*' => ['nullable', 'array'],
+                'theme.*.*' => ['nullable', 'string', 'regex:/^#[0-9a-fA-F]{6}$/'],
+            ];
+        }
+
+        if (in_array('features', $sections, true)) {
             // Which modules the organisation gets. An unticked list is a
             // valid choice (nothing but the dashboard), so absence is not
             // treated as "leave alone".
-            'features' => ['nullable', 'array'],
-            'features.*' => ['string', Rule::enum(Feature::class)],
-            'contact_email' => ['nullable', 'email', 'max:255'],
-            'contact_phone' => ['nullable', 'string', 'max:50'],
-            'terminology_member_singular' => ['required', 'string', 'max:50'],
-            'terminology_member_plural' => ['required', 'string', 'max:50'],
-            'terminology_user_singular' => ['required', 'string', 'max:50'],
-            'terminology_user_plural' => ['required', 'string', 'max:50'],
-            'terminology_club_singular' => ['required', 'string', 'max:50'],
-            'terminology_club_plural' => ['required', 'string', 'max:50'],
-        ]);
+            $rules += [
+                'features' => ['nullable', 'array'],
+                'features.*' => ['string', Rule::enum(Feature::class)],
+            ];
+        }
+
+        $validated = $request->validate($rules);
 
         /** @var PlatformAdmin $platformAdmin */
         $platformAdmin = Auth::guard('platform')->user();
 
-        // Only colours that were actually set are kept, so an untouched field
-        // keeps following the built-in palette (and the accent) rather than
-        // freezing today's value.
-        $theme = ThemeTokens::sanitize($validated['theme'] ?? []);
-        unset($validated['theme']);
-        $validated['theme_colors'] = $theme === [] ? null : $theme;
+        if (in_array('appearance', $sections, true)) {
+            // Only colours that were actually set are kept, so an untouched
+            // field keeps following the built-in palette (and the accent)
+            // rather than freezing today's value.
+            $theme = ThemeTokens::sanitize($validated['theme'] ?? []);
+            unset($validated['theme']);
+            $validated['theme_colors'] = $theme === [] ? null : $theme;
 
-        // The brand accent is the palette's light primary colour: tints, the
-        // dark-theme lift, and the installed-app icon all derive from it.
-        $validated['accent_color'] = $theme['light']['accent'] ?? null;
+            // The brand accent is the palette's light primary colour: tints,
+            // the dark-theme lift, and the installed-app icon all derive from it.
+            $validated['accent_color'] = $theme['light']['accent'] ?? null;
+        }
 
-        // Closed over what each module needs, so a stored list never names a
-        // module without the ones it cannot work without.
-        /** @var array<int, string> $features */
-        $features = $validated['features'] ?? [];
-        $validated['features'] = Feature::expand($features);
+        if (in_array('features', $sections, true)) {
+            // Closed over what each module needs, so a stored list never
+            // names a module without the ones it cannot work without.
+            /** @var array<int, string> $features */
+            $features = $validated['features'] ?? [];
+            $validated['features'] = Feature::expand($features);
+        }
 
         $before = $organisation->only(array_keys($validated));
 
@@ -229,7 +273,7 @@ class OrganisationController extends Controller
             after: $validated,
         );
 
-        return redirect()->route('platform.organisations.edit', $organisation)
+        return redirect()->route('platform.organisations.edit', ['organisation' => $organisation, 'tab' => $section ?? 'general'])
             ->with('status', "\"{$organisation->name}\" was updated.");
     }
 }

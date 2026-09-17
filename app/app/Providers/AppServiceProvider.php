@@ -19,15 +19,18 @@ use App\Models\MessageTemplate;
 use App\Models\Organisation;
 use App\Models\OrganisationUser;
 use App\Models\Plan;
+use App\Models\PlatformAdmin;
 use App\Models\StorageBucket;
 use App\Models\Task;
 use App\Models\TaskCategory;
 use Illuminate\Auth\Middleware\Authenticate;
+use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\Paginator;
 use Illuminate\Support\Facades\Blade;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\ServiceProvider;
 
@@ -70,6 +73,12 @@ class AppServiceProvider extends ServiceProvider
 
             return $organisation->hasFeature($feature);
         });
+
+        // The platform admin is root: when acting inside an organisation
+        // (its settings, from the console) every tenant ability is theirs.
+        // Policies are written against members, so this answers before any
+        // of them is consulted.
+        Gate::before(static fn (Authenticatable $user): ?bool => $user instanceof PlatformAdmin ? true : null);
 
         Paginator::defaultView('vendor.pagination.default');
         Paginator::defaultSimpleView('vendor.pagination.default');

@@ -77,7 +77,7 @@
                             </div>
 
                             <p class="numeric mt-0.5 text-xs text-ink-muted">
-                                {{ $event->actor?->user?->name ?? 'system' }}
+                                {{ $event->actor?->user?->name ?? ($event->actor_role === \App\Models\AuditEvent::PLATFORM_ROLE ? 'Platform admin' : 'system') }}
                                 <span class="opacity-60">({{ $event->actor_role }})</span>
                                 &middot; {{ $event->created_at?->timezone($organisation->timezone)->format('d M Y H:i') }}
                             </p>

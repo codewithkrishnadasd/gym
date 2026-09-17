@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Livewire\Settings;
 
 use App\Enums\BillableItemStatus;
+use App\Livewire\Concerns\ActsForOrganisation;
 use App\Livewire\Concerns\ResolvesMembership;
 use App\Models\AuditEvent;
 use App\Models\BillableItem;
@@ -23,7 +24,7 @@ use Livewire\Component;
  */
 class BillableItems extends Component
 {
-    use ResolvesMembership;
+    use ActsForOrganisation, ResolvesMembership;
 
     public ?int $editingId = null;
 
@@ -82,7 +83,7 @@ class BillableItems extends Component
         }
 
         $item = $this->editingId === null
-            ? new BillableItem(['created_by' => $this->currentMembership()->id, 'status' => BillableItemStatus::Active])
+            ? new BillableItem(['created_by' => $this->actingMembership()?->id, 'status' => BillableItemStatus::Active])
             : BillableItem::query()->findOrFail($this->editingId);
 
         $before = $item->exists ? $item->only(['name', 'description', 'unit_price_minor']) : null;
@@ -96,7 +97,7 @@ class BillableItems extends Component
         AuditEvent::record(
             $item,
             $before === null ? 'billable_item.created' : 'billable_item.updated',
-            $this->currentMembership(),
+            $this->actingMembership(),
             $before,
             $item->only(['name', 'description', 'unit_price_minor']),
         );

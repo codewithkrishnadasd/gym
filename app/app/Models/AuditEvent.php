@@ -21,6 +21,9 @@ class AuditEvent extends Model
     /** @use HasFactory<AuditEventFactory> */
     use BelongsToOrganisation, HasFactory;
 
+    /** The `actor_role` recorded when the platform admin acts. */
+    public const PLATFORM_ROLE = 'platform';
+
     const UPDATED_AT = null;
 
     protected function casts(): array
@@ -48,14 +51,16 @@ class AuditEvent extends Model
     public static function record(
         Model $entity,
         string $action,
-        OrganisationUser $actor,
+        ?OrganisationUser $actor,
         ?array $before = null,
         ?array $after = null,
         array $metadata = [],
     ): self {
+        // No actor: the platform admin acting from the console, who has no
+        // membership in the organisation to point at.
         return self::create([
-            'actor_user_id' => $actor->id,
-            'actor_role' => $actor->role->value,
+            'actor_user_id' => $actor?->id,
+            'actor_role' => $actor !== null ? $actor->role->value : self::PLATFORM_ROLE,
             'action' => $action,
             'entity_type' => $entity->getMorphClass(),
             'entity_id' => $entity->getKey(),

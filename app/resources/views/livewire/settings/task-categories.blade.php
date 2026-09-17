@@ -45,9 +45,14 @@
                     <x-slot:actions>
                         <div class="flex items-center gap-1">
                             @if ($selected->tasks()->count() > 0)
-                                <x-ui.button size="sm" variant="ghost" icon="arrow-up-right" :href="route('tenant.tasks.index', ['category' => $selected->id, 'show' => 'all'])" wire:navigate>
-                                    {{ $selected->tasks()->count() }} {{ $selected->tasks()->count() === 1 ? 'task' : 'tasks' }}
-                                </x-ui.button>
+                                {{-- The task list is on the organisation's own domain, which the console has no way onto. --}}
+                                @if ($platformOrganisationId === null)
+                                    <x-ui.button size="sm" variant="ghost" icon="arrow-up-right" :href="route('tenant.tasks.index', ['category' => $selected->id, 'show' => 'all'])" wire:navigate>
+                                        {{ $selected->tasks()->count() }} {{ $selected->tasks()->count() === 1 ? 'task' : 'tasks' }}
+                                    </x-ui.button>
+                                @else
+                                    <span class="px-2 text-xs text-ink-muted">{{ $selected->tasks()->count() }} {{ $selected->tasks()->count() === 1 ? 'task' : 'tasks' }}</span>
+                                @endif
                             @endif
                             <x-ui.button size="sm" variant="ghost" icon="pencil-square" wire:click="startEditCategory({{ $selected->id }})">Rename</x-ui.button>
                             @if ($selected->isActive())

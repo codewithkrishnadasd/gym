@@ -55,7 +55,7 @@ class OrganisationMemberController extends Controller
             ],
         );
 
-        return redirect()->route('platform.organisations.edit', $organisation)
+        return redirect()->route('platform.organisations.edit', ['organisation' => $organisation, 'tab' => 'people'])
             ->with('reset_link', $issued->url)
             ->with('reset_link_for', $user->name.' ('.$user->phone.')')
             ->with('reset_link_expires', $issued->expiresLabel());

@@ -55,7 +55,7 @@ class OrganisationDomainController extends Controller
             after: ['organisation_id' => $organisation->id, 'hostname' => $domain->hostname, 'status' => $domain->status->value],
         );
 
-        return redirect()->route('platform.organisations.edit', $organisation)
+        return redirect()->route('platform.organisations.edit', ['organisation' => $organisation, 'tab' => 'domains'])
             ->with('status', "Domain \"{$domain->hostname}\" was added.");
     }
 
@@ -93,7 +93,7 @@ class OrganisationDomainController extends Controller
             after: $domain->only(['status', 'is_primary']),
         );
 
-        return redirect()->route('platform.organisations.edit', $organisation)
+        return redirect()->route('platform.organisations.edit', ['organisation' => $organisation, 'tab' => 'domains'])
             ->with('status', "Domain \"{$domain->hostname}\" was updated.");
     }
 
@@ -124,7 +124,7 @@ class OrganisationDomainController extends Controller
             before: ['organisation_id' => $organisation->id, 'hostname' => $hostname],
         );
 
-        return redirect()->route('platform.organisations.edit', $organisation)
+        return redirect()->route('platform.organisations.edit', ['organisation' => $organisation, 'tab' => 'domains'])
             ->with('status', "Domain \"{$hostname}\" was removed.");
     }
 }

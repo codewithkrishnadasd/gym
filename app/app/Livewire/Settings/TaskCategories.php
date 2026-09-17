@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Livewire\Settings;
 
+use App\Livewire\Concerns\ActsForOrganisation;
 use App\Livewire\Concerns\ResolvesMembership;
 use App\Models\AuditEvent;
 use App\Models\TaskCategory;
@@ -24,7 +25,7 @@ use Livewire\Component;
  */
 class TaskCategories extends Component
 {
-    use ResolvesMembership;
+    use ActsForOrganisation, ResolvesMembership;
 
     #[Url(as: 'category')]
     public ?int $selectedId = null;
@@ -99,7 +100,7 @@ class TaskCategories extends Component
             $category = TaskCategory::query()->findOrFail($this->categoryEditingId);
             $before = ['name' => $category->name];
             $category->update(['name' => $validated['categoryName']]);
-            AuditEvent::record($category, 'task_category.updated', $this->currentMembership(), $before, ['name' => $category->name]);
+            AuditEvent::record($category, 'task_category.updated', $this->actingMembership(), $before, ['name' => $category->name]);
         } else {
             $category = TaskCategory::create([
                 'name' => $validated['categoryName'],
@@ -119,7 +120,7 @@ class TaskCategories extends Component
                 ]);
             }
 
-            AuditEvent::record($category, 'task_category.created', $this->currentMembership(), null, ['name' => $category->name]);
+            AuditEvent::record($category, 'task_category.created', $this->actingMembership(), null, ['name' => $category->name]);
             $this->selectedId = $category->id;
         }
 
@@ -132,7 +133,7 @@ class TaskCategories extends Component
         $this->authorize('manage', TaskCategory::class);
         $category = TaskCategory::query()->findOrFail($categoryId);
         $category->update(['status' => 'archived']);
-        AuditEvent::record($category, 'task_category.archived', $this->currentMembership(), ['status' => 'active'], ['status' => 'archived']);
+        AuditEvent::record($category, 'task_category.archived', $this->actingMembership(), ['status' => 'active'], ['status' => 'archived']);
     }
 
     public function restoreCategory(int $categoryId): void
@@ -140,7 +141,7 @@ class TaskCategories extends Component
         $this->authorize('manage', TaskCategory::class);
         $category = TaskCategory::query()->findOrFail($categoryId);
         $category->update(['status' => 'active']);
-        AuditEvent::record($category, 'task_category.restored', $this->currentMembership(), ['status' => 'archived'], ['status' => 'active']);
+        AuditEvent::record($category, 'task_category.restored', $this->actingMembership(), ['status' => 'archived'], ['status' => 'active']);
     }
 
     // ---- Sub-categories -------------------------------------------------
@@ -176,7 +177,7 @@ class TaskCategories extends Component
             $sub = $category->subCategories()->findOrFail($this->subEditingId);
             $before = ['name' => $sub->name];
             $sub->update(['name' => $validated['subName']]);
-            AuditEvent::record($category, 'task_sub_category.updated', $this->currentMembership(), $before, ['name' => $sub->name], ['task_sub_category_id' => $sub->id]);
+            AuditEvent::record($category, 'task_sub_category.updated', $this->actingMembership(), $before, ['name' => $sub->name], ['task_sub_category_id' => $sub->id]);
         } else {
             $sub = $category->subCategories()->create([
                 'organisation_id' => $category->organisation_id,
@@ -194,7 +195,7 @@ class TaskCategories extends Component
                 ]);
             }
 
-            AuditEvent::record($category, 'task_sub_category.created', $this->currentMembership(), null, ['name' => $sub->name], ['task_sub_category_id' => $sub->id]);
+            AuditEvent::record($category, 'task_sub_category.created', $this->actingMembership(), null, ['name' => $sub->name], ['task_sub_category_id' => $sub->id]);
         }
 
         $this->dispatch('close-modal', 'task-sub-category');
@@ -222,7 +223,7 @@ class TaskCategories extends Component
         }
 
         $sub->delete();
-        AuditEvent::record($category, 'task_sub_category.deleted', $this->currentMembership(), ['name' => $sub->name], null, ['task_sub_category_id' => $subCategoryId]);
+        AuditEvent::record($category, 'task_sub_category.deleted', $this->actingMembership(), ['name' => $sub->name], null, ['task_sub_category_id' => $subCategoryId]);
     }
 
     // ---- Statuses -------------------------------------------------------
@@ -285,14 +286,14 @@ class TaskCategories extends Component
             $status = $owner->statuses()->findOrFail($this->statusEditingId);
             $before = $status->only(['name', 'color', 'completes']);
             $status->update($attributes);
-            AuditEvent::record($category, 'task_status.updated', $this->currentMembership(), $before, $attributes, ['task_status_id' => $status->id]);
+            AuditEvent::record($category, 'task_status.updated', $this->actingMembership(), $before, $attributes, ['task_status_id' => $status->id]);
         } else {
             $status = $owner->statuses()->create([
                 ...$attributes,
                 'organisation_id' => $category->organisation_id,
                 'position' => (int) $owner->statuses()->max('position') + 1,
             ]);
-            AuditEvent::record($category, 'task_status.created', $this->currentMembership(), null, $attributes, ['task_status_id' => $status->id]);
+            AuditEvent::record($category, 'task_status.created', $this->actingMembership(), null, $attributes, ['task_status_id' => $status->id]);
         }
 
         $this->dispatch('close-modal', 'task-status');
@@ -320,7 +321,7 @@ class TaskCategories extends Component
         }
 
         $status->delete();
-        AuditEvent::record($category, 'task_status.deleted', $this->currentMembership(), $status->only(['name', 'color']), null, ['task_status_id' => $statusId]);
+        AuditEvent::record($category, 'task_status.deleted', $this->actingMembership(), $status->only(['name', 'color']), null, ['task_status_id' => $statusId]);
     }
 
     /**
